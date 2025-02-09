@@ -33,6 +33,8 @@ class FileDropLineEdit(QLineEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
+        # ダークテーマ用：文字色を白、背景色も合わせる
+        self.setStyleSheet("color: white; background-color: rgb(53,53,53);")
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -51,7 +53,7 @@ class FileDropLineEdit(QLineEdit):
             super().dropEvent(event)
 
 # =============================================================================
-# TitleBar: カスタムタイトルバー（ドラッグ移動・最小化・最大化・閉じるボタン付き）
+# TitleBar: カスタムタイトルバー（ドラッグ移動・ダブルクリック、最小化・最大化・閉じるボタン付き）
 # =============================================================================
 class TitleBar(QWidget):
     def __init__(self, parent=None):
@@ -59,14 +61,13 @@ class TitleBar(QWidget):
         self._startPos = None
         self._clickPos = None
         self.setFixedHeight(30)
-        # タイトルバーもダーク調に
         self.setStyleSheet("background-color: rgb(53, 53, 53);")
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 0, 10, 0)
 
-        self.titleLabel = QLabel("MiniLM ベース コード比較ツール", self)
-        self.titleLabel.setStyleSheet("color: white;")
+        self.titleLabel = QLabel("DeepCompare", self)
+        self.titleLabel.setStyleSheet("color: white; font-weight: bold;")
         layout.addWidget(self.titleLabel)
         layout.addStretch()
 
@@ -106,7 +107,11 @@ class TitleBar(QWidget):
             self.btnMaximize.setText("□")
         else:
             self.window().showMaximized()
-            self.btnMaximize.setText("❐")  # アイコンはお好みで
+            self.btnMaximize.setText("❐")
+
+    def mouseDoubleClickEvent(self, event):
+        # ダブルクリックで最大化／元に戻す
+        self.toggleMaximizeRestore()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -116,7 +121,6 @@ class TitleBar(QWidget):
 
     def mouseMoveEvent(self, event):
         if self._startPos is not None:
-            # ここは mapToGlobal を使っているのでそのままでOK
             globalPos = self.mapToGlobal(event.pos())
             diff = globalPos - self._startPos
             newPos = self.window().pos() + diff
@@ -133,9 +137,6 @@ class TitleBar(QWidget):
 # 以下、CUI 版と同様の関数群
 # =============================================================================
 def get_line_embeddings(code_text: str):
-    """
-    コードテキストを行ごとに分割し、各行の埋め込みを MINI LM で計算する
-    """
     lines = code_text.splitlines()
     embeddings = model.encode(lines, convert_to_tensor=True)
     return lines, embeddings
@@ -198,6 +199,7 @@ class DiffWindow(QMainWindow):
         super().__init__()
         # フレームレスウィンドウ（自前のタイトルバーを使用）
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setWindowTitle("DeepCompare")
         self.setMinimumSize(800, 600)
         self._isResizing = False
         self._resizeDirection = None
@@ -311,7 +313,7 @@ class DiffWindow(QMainWindow):
             right_item = QTableWidgetItem(right_text)
             score_item = QTableWidgetItem(score_text)
 
-            # 差分がある場合、背景色を変更（ダークテーマに合わせたブルー）
+            # 差分がある場合、背景色を変更（ダークテーマに合わせたブルー）＋文字色を白に
             if left_text != right_text:
                 highlight_color = QColor(85, 85, 150)
                 left_item.setBackground(highlight_color)
@@ -322,10 +324,9 @@ class DiffWindow(QMainWindow):
             self.table.setItem(row, 0, left_item)
             self.table.setItem(row, 1, right_item)
             self.table.setItem(row, 2, score_item)
+        # 「比較が完了しました」のメッセージは表示しない
 
-        QMessageBox.information(self, "完了", "比較が完了しました。")
-
-    # --- 以下、ウィンドウリサイズ用のマウスイベント ---
+    # --- ウィンドウリサイズ用のマウスイベント ---
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             pos = event.pos()
@@ -333,7 +334,6 @@ class DiffWindow(QMainWindow):
             if direction is not None:
                 self._isResizing = True
                 self._resizeDirection = direction
-                # 修正: globalPos() の代わりに globalPosition().toPoint() を使用
                 self._resizeStartPos = event.globalPosition().toPoint()
                 self._resizeStartGeometry = self.geometry()
                 event.accept()
@@ -342,7 +342,6 @@ class DiffWindow(QMainWindow):
 
     def mouseMoveEvent(self, event):
         if self._isResizing:
-            # 修正: globalPos() -> globalPosition().toPoint()
             delta = event.globalPosition().toPoint() - self._resizeStartPos
             geom = self._resizeStartGeometry
             new_left = geom.left()
@@ -394,6 +393,11 @@ class DiffWindow(QMainWindow):
             event.accept()
         else:
             super().mouseReleaseEvent(event)
+
+    def leaveEvent(self, event):
+        # カーソルがウィンドウ外に出たら、常にアローに戻す
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        super().leaveEvent(event)
 
     def getResizeRegion(self, pos):
         margin = 5
