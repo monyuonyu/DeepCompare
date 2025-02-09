@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QFileDialog, QTableWidget, QTableWidgetItem,
     QMessageBox, QHeaderView
 )
+from PyQt6.QtGui import QColor  # 背景色設定用
 
 # --- MiniLM モデルの読み込み ---
 MODEL_NAME = "sentence-transformers/paraphrase-MiniLM-L6-v2"
@@ -20,9 +21,7 @@ def get_line_embeddings(code_text: str):
     """
     コードテキストを行ごとに分割し、各行の埋め込みを MiniLM で計算する関数
     """
-    # 行ごとに分割
     lines = code_text.splitlines()
-    # リスト全体を一括でエンコード
     embeddings = model.encode(lines, convert_to_tensor=True)
     return lines, embeddings
 
@@ -47,12 +46,9 @@ def align_lines(lines1, lines2, sim_matrix, gap_penalty=-0.5):
     """
     n = len(lines1)
     m = len(lines2)
-    # dp テーブルの初期化（サイズ：(n+1) x (m+1)）
     dp = [[0.0]*(m+1) for _ in range(n+1)]
-    # バックトラック用テーブルの初期化
     backtrack = [[None]*(m+1) for _ in range(n+1)]
     
-    # 初期条件の設定（先頭行・列はギャップペナルティの累積）
     for i in range(1, n+1):
         dp[i][0] = dp[i-1][0] + gap_penalty
         backtrack[i][0] = "up"
@@ -60,7 +56,6 @@ def align_lines(lines1, lines2, sim_matrix, gap_penalty=-0.5):
         dp[0][j] = dp[0][j-1] + gap_penalty
         backtrack[0][j] = "left"
     
-    # dp テーブルの計算
     for i in range(1, n+1):
         for j in range(1, m+1):
             score_diag = dp[i-1][j-1] + sim_matrix[i-1][j-1]
@@ -75,7 +70,6 @@ def align_lines(lines1, lines2, sim_matrix, gap_penalty=-0.5):
             else:
                 backtrack[i][j] = "left"
     
-    # バックトラックによりアライメント結果を復元
     aligned = []
     i, j = n, m
     while i > 0 or j > 0:
@@ -111,22 +105,17 @@ class DiffWindow(QMainWindow):
         main_layout = QVBoxLayout()
         central_widget.setLayout(main_layout)
         
-        # --- ファイル選択用のウィジェット ---
+        # --- ファイル選択用ウィジェット ---
         file_layout = QHBoxLayout()
-        
-        # ファイル1用の入力欄と参照ボタン
         self.file1_edit = QLineEdit()
         self.file1_edit.setPlaceholderText("ファイル1のパスを入力")
         file1_button = QPushButton("参照")
         file1_button.clicked.connect(self.select_file1)
-        
-        # ファイル2用の入力欄と参照ボタン
         self.file2_edit = QLineEdit()
         self.file2_edit.setPlaceholderText("ファイル2のパスを入力")
         file2_button = QPushButton("参照")
         file2_button.clicked.connect(self.select_file2)
         
-        # ファイル選択レイアウトにウィジェットを追加
         file_layout.addWidget(QLabel("ファイル1:"))
         file_layout.addWidget(self.file1_edit)
         file_layout.addWidget(file1_button)
@@ -144,7 +133,15 @@ class DiffWindow(QMainWindow):
         self.table = QTableWidget()
         self.table.setColumnCount(3)
         self.table.setHorizontalHeaderLabels(["File1", "File2", "Score"])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        # グリッド（セパレーター）を非表示にする
+        self.table.setShowGrid(False)
+        # 列ごとのサイズ設定
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        # 3列目（スコア）のサイズは固定
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        self.table.setColumnWidth(2, 60)
         main_layout.addWidget(self.table)
     
     def select_file1(self):
@@ -169,7 +166,7 @@ class DiffWindow(QMainWindow):
     
     def compare_files(self):
         """
-        入力された 2 つのファイルの内容を読み込み、行単位の比較を実行し、
+        入力された 2 つのファイルを読み込み、行単位で比較を実行し、
         結果をテーブルに表示する
         """
         file1_path = self.file1_edit.text().strip()
@@ -188,31 +185,41 @@ class DiffWindow(QMainWindow):
             QMessageBox.critical(self, "エラー", f"ファイル読み込み時にエラーが発生しました:\n{e}")
             return
         
-        # --- 各行ごとの埋め込みを計算 ---
+        # --- 各行ごとの埋め込み計算 ---
         lines1, embeddings1 = get_line_embeddings(code1)
         lines2, embeddings2 = get_line_embeddings(code2)
-        
-        # --- コサイン類似度マトリックスの計算 ---
+        # --- コサイン類似度マトリックス計算 ---
         sim_matrix = compute_similarity_matrix(embeddings1, embeddings2)
-        
-        # --- 動的計画法によるアライメントの計算（ギャップペナルティ：-0.5） ---
+        # --- アライメント計算（ギャップペナルティ：-0.5） ---
         aligned = align_lines(lines1, lines2, sim_matrix, gap_penalty=-0.5)
         
-        # --- テーブルに結果を表示 ---
+        # --- 結果をテーブルに表示 ---
         self.table.setRowCount(len(aligned))
         for row, (left_idx, right_idx, score) in enumerate(aligned):
             if left_idx is not None:
                 left_text = lines1[left_idx]
             else:
-                left_text = "---"  # ギャップの場合の表示
+                left_text = "---"  # ギャップの場合
             if right_idx is not None:
                 right_text = lines2[right_idx]
             else:
                 right_text = "---"
             score_text = f"{score:.2f}" if score is not None else ""
-            self.table.setItem(row, 0, QTableWidgetItem(left_text))
-            self.table.setItem(row, 1, QTableWidgetItem(right_text))
-            self.table.setItem(row, 2, QTableWidgetItem(score_text))
+            
+            # QTableWidgetItem の作成
+            left_item = QTableWidgetItem(left_text)
+            right_item = QTableWidgetItem(right_text)
+            score_item = QTableWidgetItem(score_text)
+            
+            # 左右のテキストが異なる場合、背景色でハイライト
+            if left_text != right_text:
+                highlight_color = QColor(255, 255, 150)  # 薄い黄色
+                left_item.setBackground(highlight_color)
+                right_item.setBackground(highlight_color)
+            
+            self.table.setItem(row, 0, left_item)
+            self.table.setItem(row, 1, right_item)
+            self.table.setItem(row, 2, score_item)
         
         QMessageBox.information(self, "完了", "比較が完了しました。")
 
