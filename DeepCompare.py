@@ -51,7 +51,7 @@ class FileDropLineEdit(QLineEdit):
             super().dropEvent(event)
 
 # =============================================================================
-# TitleBar: カスタムタイトルバー（ドラッグ移動・閉じるボタン付き）
+# TitleBar: カスタムタイトルバー（ドラッグ移動・最小化・最大化・閉じるボタン付き）
 # =============================================================================
 class TitleBar(QWidget):
     def __init__(self, parent=None):
@@ -59,7 +59,8 @@ class TitleBar(QWidget):
         self._startPos = None
         self._clickPos = None
         self.setFixedHeight(30)
-        self.setStyleSheet("background-color: rgb(53, 53, 53);")  # タイトルバーもダーク調に
+        # タイトルバーもダーク調に
+        self.setStyleSheet("background-color: rgb(53, 53, 53);")
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 0, 10, 0)
@@ -67,18 +68,45 @@ class TitleBar(QWidget):
         self.titleLabel = QLabel("MiniLM ベース コード比較ツール", self)
         self.titleLabel.setStyleSheet("color: white;")
         layout.addWidget(self.titleLabel)
-
         layout.addStretch()
 
+        # --- 最小化ボタン ---
+        self.btnMinimize = QPushButton("–", self)
+        self.btnMinimize.setFixedSize(30, 30)
+        self.btnMinimize.setStyleSheet(
+            "QPushButton {background-color: rgb(53, 53, 53); color: white; border: none;}"
+            "QPushButton:hover {background-color: rgb(100, 100, 100);}"
+        )
+        self.btnMinimize.clicked.connect(lambda: self.window().showMinimized())
+        layout.addWidget(self.btnMinimize)
+
+        # --- 最大化／元に戻すボタン ---
+        self.btnMaximize = QPushButton("□", self)
+        self.btnMaximize.setFixedSize(30, 30)
+        self.btnMaximize.setStyleSheet(
+            "QPushButton {background-color: rgb(53, 53, 53); color: white; border: none;}"
+            "QPushButton:hover {background-color: rgb(100, 100, 100);}"
+        )
+        self.btnMaximize.clicked.connect(self.toggleMaximizeRestore)
+        layout.addWidget(self.btnMaximize)
+
+        # --- 閉じるボタン ---
         self.btnClose = QPushButton("✕", self)
         self.btnClose.setFixedSize(30, 30)
-        # シンプルなスタイルで背景もダーク
         self.btnClose.setStyleSheet(
             "QPushButton {background-color: rgb(53, 53, 53); color: white; border: none;}"
             "QPushButton:hover {background-color: rgb(200, 50, 50);}"
         )
         self.btnClose.clicked.connect(self.window().close)
         layout.addWidget(self.btnClose)
+
+    def toggleMaximizeRestore(self):
+        if self.window().isMaximized():
+            self.window().showNormal()
+            self.btnMaximize.setText("□")
+        else:
+            self.window().showMaximized()
+            self.btnMaximize.setText("❐")  # アイコンはお好みで
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -88,7 +116,7 @@ class TitleBar(QWidget):
 
     def mouseMoveEvent(self, event):
         if self._startPos is not None:
-            # 移動量を計算してウィンドウを移動
+            # ここは mapToGlobal を使っているのでそのままでOK
             globalPos = self.mapToGlobal(event.pos())
             diff = globalPos - self._startPos
             newPos = self.window().pos() + diff
@@ -163,14 +191,19 @@ def align_lines(lines1, lines2, sim_matrix, gap_penalty=-0.5):
     return aligned
 
 # =============================================================================
-# DiffWindow: PyQt6 GUI クラス（カスタムタイトルバー・ドラッグ＆ドロップ対応・行間縮小）
+# DiffWindow: PyQt6 GUI クラス（カスタムタイトルバー、ドラッグ＆ドロップ、行間縮小、リサイズ対応）
 # =============================================================================
 class DiffWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        # OS の枠を廃止して自前のタイトルバーを使う
+        # フレームレスウィンドウ（自前のタイトルバーを使用）
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setMinimumSize(800, 600)
+        self._isResizing = False
+        self._resizeDirection = None
+        self._resizeStartPos = None
+        self._resizeStartGeometry = None
+        self.setMouseTracking(True)
 
         # メインウィジェットとレイアウトの設定
         central_widget = QWidget(self)
@@ -283,7 +316,6 @@ class DiffWindow(QMainWindow):
                 highlight_color = QColor(85, 85, 150)
                 left_item.setBackground(highlight_color)
                 right_item.setBackground(highlight_color)
-                # 念のため、文字色も白に指定
                 left_item.setForeground(QColor(255, 255, 255))
                 right_item.setForeground(QColor(255, 255, 255))
 
@@ -292,6 +324,94 @@ class DiffWindow(QMainWindow):
             self.table.setItem(row, 2, score_item)
 
         QMessageBox.information(self, "完了", "比較が完了しました。")
+
+    # --- 以下、ウィンドウリサイズ用のマウスイベント ---
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            pos = event.pos()
+            direction = self.getResizeRegion(pos)
+            if direction is not None:
+                self._isResizing = True
+                self._resizeDirection = direction
+                # 修正: globalPos() の代わりに globalPosition().toPoint() を使用
+                self._resizeStartPos = event.globalPosition().toPoint()
+                self._resizeStartGeometry = self.geometry()
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self._isResizing:
+            # 修正: globalPos() -> globalPosition().toPoint()
+            delta = event.globalPosition().toPoint() - self._resizeStartPos
+            geom = self._resizeStartGeometry
+            new_left = geom.left()
+            new_top = geom.top()
+            new_width = geom.width()
+            new_height = geom.height()
+            if "left" in self._resizeDirection:
+                new_left = geom.left() + delta.x()
+                new_width = geom.width() - delta.x()
+            elif "right" in self._resizeDirection:
+                new_width = geom.width() + delta.x()
+            if "top" in self._resizeDirection:
+                new_top = geom.top() + delta.y()
+                new_height = geom.height() - delta.y()
+            elif "bottom" in self._resizeDirection:
+                new_height = geom.height() + delta.y()
+            # 最小サイズの設定
+            min_width = 400
+            min_height = 300
+            if new_width < min_width:
+                new_width = min_width
+                if "left" in self._resizeDirection:
+                    new_left = geom.right() - min_width + 1
+            if new_height < min_height:
+                new_height = min_height
+                if "top" in self._resizeDirection:
+                    new_top = geom.bottom() - min_height + 1
+            self.setGeometry(new_left, new_top, new_width, new_height)
+            event.accept()
+        else:
+            pos = event.pos()
+            direction = self.getResizeRegion(pos)
+            if direction is not None:
+                if direction in ("top_left", "bottom_right"):
+                    self.setCursor(Qt.CursorShape.SizeFDiagCursor)
+                elif direction in ("top_right", "bottom_left"):
+                    self.setCursor(Qt.CursorShape.SizeBDiagCursor)
+                elif direction in ("left", "right"):
+                    self.setCursor(Qt.CursorShape.SizeHorCursor)
+                elif direction in ("top", "bottom"):
+                    self.setCursor(Qt.CursorShape.SizeVerCursor)
+            else:
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+            super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if self._isResizing:
+            self._isResizing = False
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
+    def getResizeRegion(self, pos):
+        margin = 5
+        rect = self.rect()
+        left = pos.x() < margin
+        right = pos.x() > rect.width() - margin
+        top = pos.y() < margin
+        bottom = pos.y() > rect.height() - margin
+        region = ""
+        if top:
+            region += "top"
+        if bottom:
+            region += "bottom"
+        if left:
+            region += "left"
+        if right:
+            region += "right"
+        return region if region != "" else None
 
 # =============================================================================
 # メイン処理
@@ -331,8 +451,7 @@ if __name__ == '__main__':
 
     # --- モデルの非同期読み込み ---
     loader = ModelLoader()
-    # メインウィンドウはまだ表示しない
-    main_window = DiffWindow()
+    main_window = DiffWindow()  # メインウィンドウ（まだ表示はしない）
 
     def on_model_loaded(m):
         splash.finish(main_window)
