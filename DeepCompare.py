@@ -8,27 +8,27 @@ from PyQt6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QFileDialog, QTableWidget, QTableWidgetItem,
     QMessageBox, QHeaderView, QSplashScreen
 )
-from PyQt6.QtGui import QColor, QPixmap, QPainter, QFont, QPalette
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtGui import QColor, QPixmap, QPainter, QFont, QPalette, QIcon
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint
 
-# グローバル変数としてモデルを保持
+# --- グローバル変数とモデル名 ---
 model = None
 MODEL_NAME = "sentence-transformers/paraphrase-MiniLM-L6-v2"
 
-# -------------------------------------------------
-# ModelLoader: MINI LM モデルの読み込みを非同期に行うためのスレッド
-# -------------------------------------------------
+# =============================================================================
+# ModelLoader: MINI LM モデルの読み込みを非同期で実施するためのスレッドクラス
+# =============================================================================
 class ModelLoader(QThread):
-    loaded = pyqtSignal(object)  # モデルが読み込まれた際にモデルを渡す信号
+    loaded = pyqtSignal(object)  # モデルが読み込まれた際にモデルを渡す
 
     def run(self):
         global model
         model = SentenceTransformer(MODEL_NAME)
         self.loaded.emit(model)
 
-# -------------------------------------------------
+# =============================================================================
 # FileDropLineEdit: ドラッグ＆ドロップ対応の QLineEdit
-# -------------------------------------------------
+# =============================================================================
 class FileDropLineEdit(QLineEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -50,9 +50,60 @@ class FileDropLineEdit(QLineEdit):
         else:
             super().dropEvent(event)
 
-# -------------------------------------------------
+# =============================================================================
+# TitleBar: カスタムタイトルバー（ドラッグ移動・閉じるボタン付き）
+# =============================================================================
+class TitleBar(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._startPos = None
+        self._clickPos = None
+        self.setFixedHeight(30)
+        self.setStyleSheet("background-color: rgb(53, 53, 53);")  # タイトルバーもダーク調に
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 0, 10, 0)
+
+        self.titleLabel = QLabel("MiniLM ベース コード比較ツール", self)
+        self.titleLabel.setStyleSheet("color: white;")
+        layout.addWidget(self.titleLabel)
+
+        layout.addStretch()
+
+        self.btnClose = QPushButton("✕", self)
+        self.btnClose.setFixedSize(30, 30)
+        # シンプルなスタイルで背景もダーク
+        self.btnClose.setStyleSheet(
+            "QPushButton {background-color: rgb(53, 53, 53); color: white; border: none;}"
+            "QPushButton:hover {background-color: rgb(200, 50, 50);}"
+        )
+        self.btnClose.clicked.connect(self.window().close)
+        layout.addWidget(self.btnClose)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._startPos = self.mapToGlobal(event.pos())
+            self._clickPos = event.pos()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if self._startPos is not None:
+            # 移動量を計算してウィンドウを移動
+            globalPos = self.mapToGlobal(event.pos())
+            diff = globalPos - self._startPos
+            newPos = self.window().pos() + diff
+            self.window().move(newPos)
+            self._startPos = globalPos
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        self._startPos = None
+        self._clickPos = None
+        event.accept()
+
+# =============================================================================
 # 以下、CUI 版と同様の関数群
-# -------------------------------------------------
+# =============================================================================
 def get_line_embeddings(code_text: str):
     """
     コードテキストを行ごとに分割し、各行の埋め込みを MINI LM で計算する
@@ -111,19 +162,33 @@ def align_lines(lines1, lines2, sim_matrix, gap_penalty=-0.5):
     aligned.reverse()
     return aligned
 
-# -------------------------------------------------
-# DiffWindow: PyQt6 GUI クラス
-# -------------------------------------------------
+# =============================================================================
+# DiffWindow: PyQt6 GUI クラス（カスタムタイトルバー・ドラッグ＆ドロップ対応・行間縮小）
+# =============================================================================
 class DiffWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("MiniLM ベース コード比較ツール")
-        self.resize(1200, 600)
+        # OS の枠を廃止して自前のタイトルバーを使う
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setMinimumSize(800, 600)
 
-        central_widget = QWidget()
+        # メインウィジェットとレイアウトの設定
+        central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout()
-        central_widget.setLayout(main_layout)
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # --- カスタムタイトルバー ---
+        self.titleBar = TitleBar(self)
+        main_layout.addWidget(self.titleBar)
+
+        # --- コンテンツ領域 ---
+        content_widget = QWidget(self)
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(10, 10, 10, 10)
+        content_layout.setSpacing(10)
+        main_layout.addWidget(content_widget)
 
         # --- ファイル選択用ウィジェット ---
         file_layout = QHBoxLayout()
@@ -142,26 +207,26 @@ class DiffWindow(QMainWindow):
         file_layout.addWidget(QLabel("ファイル2:"))
         file_layout.addWidget(self.file2_edit)
         file_layout.addWidget(file2_button)
-        main_layout.addLayout(file_layout)
+        content_layout.addLayout(file_layout)
 
         # --- 比較開始ボタン ---
         compare_button = QPushButton("比較開始")
         compare_button.clicked.connect(self.compare_files)
-        main_layout.addWidget(compare_button)
+        content_layout.addWidget(compare_button)
 
         # --- 結果表示用テーブル ---
         self.table = QTableWidget()
         self.table.setColumnCount(3)
         self.table.setHorizontalHeaderLabels(["File1", "File2", "Score"])
-        self.table.setShowGrid(False)  # セパレーター（グリッド）非表示
+        self.table.setShowGrid(False)  # セパレーター非表示
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
         self.table.setColumnWidth(2, 60)
-        # 行高さ（行間）を小さく設定
+        # 行高さを小さく設定（コードエディター風）
         self.table.verticalHeader().setDefaultSectionSize(20)
-        main_layout.addWidget(self.table)
+        content_layout.addWidget(self.table)
 
     def select_file1(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -213,11 +278,14 @@ class DiffWindow(QMainWindow):
             right_item = QTableWidgetItem(right_text)
             score_item = QTableWidgetItem(score_text)
 
-            # 左右の行が異なる場合、薄い黄色でハイライト
+            # 差分がある場合、背景色を変更（ダークテーマに合わせたブルー）
             if left_text != right_text:
-                highlight_color = QColor(255, 255, 150)
+                highlight_color = QColor(85, 85, 150)
                 left_item.setBackground(highlight_color)
                 right_item.setBackground(highlight_color)
+                # 念のため、文字色も白に指定
+                left_item.setForeground(QColor(255, 255, 255))
+                right_item.setForeground(QColor(255, 255, 255))
 
             self.table.setItem(row, 0, left_item)
             self.table.setItem(row, 1, right_item)
@@ -225,13 +293,13 @@ class DiffWindow(QMainWindow):
 
         QMessageBox.information(self, "完了", "比較が完了しました。")
 
-# -------------------------------------------------
+# =============================================================================
 # メイン処理
-# -------------------------------------------------
+# =============================================================================
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
-    # ダークデザインのためのパレット設定（Fusion スタイル）
+    # --- ダークデザイン（Fusion スタイル＋パレット設定） ---
     app.setStyle("Fusion")
     dark_palette = QPalette()
     dark_palette.setColor(QPalette.ColorRole.Window, QColor(53, 53, 53))
@@ -249,7 +317,7 @@ if __name__ == '__main__':
     dark_palette.setColor(QPalette.ColorRole.HighlightedText, QColor(0, 0, 0))
     app.setPalette(dark_palette)
 
-    # --- スプラッシュスクリーンの表示 ---
+    # --- スプラッシュスクリーンの表示（アプリ生成直後に表示） ---
     splash_pix = QPixmap(300, 100)
     splash_pix.fill(QColor(53, 53, 53))
     painter = QPainter(splash_pix)
@@ -259,11 +327,11 @@ if __name__ == '__main__':
     painter.end()
     splash = QSplashScreen(splash_pix)
     splash.show()
-    app.processEvents()  # スプラッシュスクリーンを更新
+    app.processEvents()  # 画面更新
 
-    # --- モデルの読み込みを非同期に開始 ---
+    # --- モデルの非同期読み込み ---
     loader = ModelLoader()
-    # メインウィンドウの準備（まだ表示はしない）
+    # メインウィンドウはまだ表示しない
     main_window = DiffWindow()
 
     def on_model_loaded(m):
