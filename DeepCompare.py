@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QMessageBox, QHeaderView, QSplashScreen
 )
 from PyQt6.QtGui import QColor, QPixmap, QPainter, QFont, QPalette, QCursor
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
 # --- グローバル変数とモデル名 ---
 model = None
@@ -52,85 +52,6 @@ class FileDropLineEdit(QLineEdit):
                 event.acceptProposedAction()
         else:
             super().dropEvent(event)
-
-# =============================================================================
-# TitleBar: カスタムタイトルバー（ドラッグ移動、ダブルクリックで最大化／元に戻し、最小化・最大化・閉じるボタン付き）
-# =============================================================================
-class TitleBar(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._startPos = None
-        self._clickPos = None
-        self.setFixedHeight(30)
-        self.setStyleSheet("background-color: rgb(53, 53, 53);")
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 0, 10, 0)
-
-        self.titleLabel = QLabel("DeepCompare", self)
-        self.titleLabel.setStyleSheet("color: white; font-weight: bold;")
-        layout.addWidget(self.titleLabel)
-        layout.addStretch()
-
-        # 最小化ボタン
-        self.btnMinimize = QPushButton("–", self)
-        self.btnMinimize.setFixedSize(30, 30)
-        self.btnMinimize.setStyleSheet(
-            "QPushButton {background-color: rgb(53, 53, 53); color: white; border: none;}"
-            "QPushButton:hover {background-color: rgb(100, 100, 100);}"
-        )
-        self.btnMinimize.clicked.connect(lambda: self.window().showMinimized())
-        layout.addWidget(self.btnMinimize)
-
-        # 最大化／元に戻すボタン
-        self.btnMaximize = QPushButton("□", self)
-        self.btnMaximize.setFixedSize(30, 30)
-        self.btnMaximize.setStyleSheet(
-            "QPushButton {background-color: rgb(53, 53, 53); color: white; border: none;}"
-            "QPushButton:hover {background-color: rgb(100, 100, 100);}"
-        )
-        self.btnMaximize.clicked.connect(self.toggleMaximizeRestore)
-        layout.addWidget(self.btnMaximize)
-
-        # 閉じるボタン
-        self.btnClose = QPushButton("✕", self)
-        self.btnClose.setFixedSize(30, 30)
-        self.btnClose.setStyleSheet(
-            "QPushButton {background-color: rgb(53, 53, 53); color: white; border: none;}"
-            "QPushButton:hover {background-color: rgb(200, 50, 50);}"
-        )
-        self.btnClose.clicked.connect(self.window().close)
-        layout.addWidget(self.btnClose)
-
-    def toggleMaximizeRestore(self):
-        if self.window().isMaximized():
-            self.window().showNormal()
-            self.btnMaximize.setText("□")
-        else:
-            self.window().showMaximized()
-            self.btnMaximize.setText("❐")
-
-    def mouseDoubleClickEvent(self, event):
-        self.toggleMaximizeRestore()
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._startPos = self.mapToGlobal(event.pos())
-            self._clickPos = event.pos()
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if self._startPos is not None:
-            globalPos = self.mapToGlobal(event.pos())
-            diff = globalPos - self._startPos
-            newPos = self.window().pos() + diff
-            self.window().move(newPos)
-            self._startPos = globalPos
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        self._startPos = None
-        self._clickPos = None
-        event.accept()
 
 # =============================================================================
 # 文字レベルの差分抽出関数（SequenceMatcher 使用）
@@ -210,40 +131,24 @@ def align_lines(lines1, lines2, sim_matrix, gap_penalty=-0.5):
 
 # =============================================================================
 # DiffWindow: PyQt6 GUI クラス
-# － フレームレスウィンドウ、カスタムタイトルバー、ドラッグ＆ドロップ、行間縮小、リサイズ対応
-# － テーブルは5列（左ファイル行番号、左内容、右ファイル行番号、右内容、スコア）
-# － 行に差分がある場合、その行全体の背景色をダークテーマに合う青みのある色 (RGB(80,100,130)) にし、
-#    かつ、行内の差分部分はオレンジ (RGB(255,165,0)) で表示します。
+# OS標準のウィンドウ枠・タイトルバーを使用するように修正
 # =============================================================================
 class DiffWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        # OS標準のウィンドウ枠を使用するため、FramelessWindowHint を設定しない
         self.setWindowTitle("DeepCompare")
         self.setMinimumSize(800, 600)
-        self._isResizing = False
-        self._resizeDirection = None
-        self._resizeStartPos = None
-        self._resizeStartGeometry = None
-        self.setMouseTracking(True)
         self.full_lines1 = []
         self.full_lines2 = []
         self.alignment = []  # 現在のアライメント結果
 
+        # 中央ウィジェットとレイアウトの設定
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-
-        self.titleBar = TitleBar(self)
-        main_layout.addWidget(self.titleBar)
-
-        content_widget = QWidget(self)
-        content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(10, 10, 10, 10)
-        content_layout.setSpacing(10)
-        main_layout.addWidget(content_widget)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(10)
 
         # ファイル選択用ウィジェット
         file_layout = QHBoxLayout()
@@ -261,12 +166,12 @@ class DiffWindow(QMainWindow):
         file_layout.addWidget(QLabel("ファイル2:"))
         file_layout.addWidget(self.file2_edit)
         file_layout.addWidget(file2_button)
-        content_layout.addLayout(file_layout)
+        main_layout.addLayout(file_layout)
 
         # 比較開始ボタン
         compare_button = QPushButton("比較開始")
         compare_button.clicked.connect(self.compare_files)
-        content_layout.addWidget(compare_button)
+        main_layout.addWidget(compare_button)
 
         # 結果表示用テーブル（5列）
         self.table = QTableWidget()
@@ -283,14 +188,16 @@ class DiffWindow(QMainWindow):
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
         self.table.setColumnWidth(4, 60)
         self.table.verticalHeader().setDefaultSectionSize(20)
-        content_layout.addWidget(self.table)
+        main_layout.addWidget(self.table)
 
     def select_file1(self):
+        # ファイル1選択ダイアログの表示
         file_path, _ = QFileDialog.getOpenFileName(self, "ファイル1を選択", "", "Python Files (*.py);;All Files (*)")
         if file_path:
             self.file1_edit.setText(file_path)
 
     def select_file2(self):
+        # ファイル2選択ダイアログの表示
         file_path, _ = QFileDialog.getOpenFileName(self, "ファイル2を選択", "", "Python Files (*.py);;All Files (*)")
         if file_path:
             self.file2_edit.setText(file_path)
@@ -370,95 +277,6 @@ class DiffWindow(QMainWindow):
             self.table.setItem(row, 2, item2)
             self.table.setItem(row, 4, item4)
 
-    # --- 以下、ウィンドウリサイズ用のマウスイベント（前回と同様） ---
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            pos = event.pos()
-            direction = self.getResizeRegion(pos)
-            if direction is not None:
-                self._isResizing = True
-                self._resizeDirection = direction
-                self._resizeStartPos = event.globalPosition().toPoint()
-                self._resizeStartGeometry = self.geometry()
-                event.accept()
-                return
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        if self._isResizing:
-            delta = event.globalPosition().toPoint() - self._resizeStartPos
-            geom = self._resizeStartGeometry
-            new_left = geom.left()
-            new_top = geom.top()
-            new_width = geom.width()
-            new_height = geom.height()
-            if "left" in self._resizeDirection:
-                new_left = geom.left() + delta.x()
-                new_width = geom.width() - delta.x()
-            elif "right" in self._resizeDirection:
-                new_width = geom.width() + delta.x()
-            if "top" in self._resizeDirection:
-                new_top = geom.top() + delta.y()
-                new_height = geom.height() - delta.y()
-            elif "bottom" in self._resizeDirection:
-                new_height = geom.height() + delta.y()
-            min_width = 400
-            min_height = 300
-            if new_width < min_width:
-                new_width = min_width
-                if "left" in self._resizeDirection:
-                    new_left = geom.right() - min_width + 1
-            if new_height < min_height:
-                new_height = min_height
-                if "top" in self._resizeDirection:
-                    new_top = geom.bottom() - min_height + 1
-            self.setGeometry(new_left, new_top, new_width, new_height)
-            event.accept()
-        else:
-            pos = event.pos()
-            direction = self.getResizeRegion(pos)
-            if direction is not None:
-                if direction in ("top_left", "bottom_right"):
-                    self.setCursor(Qt.CursorShape.SizeFDiagCursor)
-                elif direction in ("top_right", "bottom_left"):
-                    self.setCursor(Qt.CursorShape.SizeBDiagCursor)
-                elif direction in ("left", "right"):
-                    self.setCursor(Qt.CursorShape.SizeHorCursor)
-                elif direction in ("top", "bottom"):
-                    self.setCursor(Qt.CursorShape.SizeVerCursor)
-            else:
-                self.setCursor(Qt.CursorShape.ArrowCursor)
-            super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        if self._isResizing:
-            self._isResizing = False
-            event.accept()
-        else:
-            super().mouseReleaseEvent(event)
-
-    def leaveEvent(self, event):
-        self.setCursor(Qt.CursorShape.ArrowCursor)
-        super().leaveEvent(event)
-
-    def getResizeRegion(self, pos):
-        margin = 5
-        rect = self.rect()
-        left = pos.x() < margin
-        right = pos.x() > rect.width() - margin
-        top = pos.y() < margin
-        bottom = pos.y() > rect.height() - margin
-        region = ""
-        if top:
-            region += "top"
-        if bottom:
-            region += "bottom"
-        if left:
-            region += "left"
-        if right:
-            region += "right"
-        return region if region != "" else None
-
 # =============================================================================
 # メイン処理
 # =============================================================================
@@ -481,6 +299,7 @@ if __name__ == '__main__':
     dark_palette.setColor(QPalette.ColorRole.HighlightedText, QColor(0, 0, 0))
     app.setPalette(dark_palette)
 
+    # スプラッシュ画面の表示（モデル読み込み中）
     splash_pix = QPixmap(300, 100)
     splash_pix.fill(QColor(53, 53, 53))
     painter = QPainter(splash_pix)
