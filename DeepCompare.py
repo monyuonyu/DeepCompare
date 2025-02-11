@@ -255,6 +255,9 @@ class DiffWindow(QMainWindow):
             # 差分がある場合は、文字レベル差分を HTML 形式で表示
             if left_text != right_text:
                 l_html, r_html = diff_characters(left_text, right_text)
+                # インデントが崩れないように <pre> タグで囲む
+                l_html = f"<pre>{l_html}</pre>"
+                r_html = f"<pre>{r_html}</pre>"
                 lbl_left = QLabel()
                 lbl_left.setTextFormat(Qt.TextFormat.RichText)
                 lbl_left.setText(l_html)
