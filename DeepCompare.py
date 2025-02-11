@@ -234,15 +234,15 @@ class DiffWindow(QMainWindow):
                 left_num = str(l_idx + 1)
                 left_text = self.full_lines1[l_idx]
             else:
-                left_num = ""
-                left_text = "---"
+                left_num = "-"
+                left_text = ""
             if r_idx is not None:
                 right_num = str(r_idx + 1)
                 right_text = self.full_lines2[r_idx]
             else:
-                right_num = ""
-                right_text = "---"
-            score_text = f"{score:.2f}" if score is not None else ""
+                right_num = "-"
+                right_text = ""
+            score_text = f"{score:.2f}" if score is not None else "-"
 
             # 左ファイル行番号
             item0 = QTableWidgetItem(left_num)
