@@ -131,12 +131,11 @@ def align_lines(lines1, lines2, sim_matrix, gap_penalty=-0.5):
 
 # =============================================================================
 # DiffWindow: PyQt6 GUI クラス
-# OS標準のウィンドウ枠・タイトルバーを使用するように修正
+# OS標準のウィンドウ枠・タイトルバーを使用する
 # =============================================================================
 class DiffWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        # OS標準のウィンドウ枠を使用するため、FramelessWindowHint を設定しない
         self.setWindowTitle("DeepCompare")
         self.setMinimumSize(800, 600)
         self.full_lines1 = []
@@ -229,7 +228,7 @@ class DiffWindow(QMainWindow):
     def update_table(self):
         self.table.setRowCount(len(self.alignment))
         # 差分行の背景色（ダークテーマに合わせた青みのある色）
-        diff_bg = QColor(80, 100, 130)
+        diff_bg = QColor(85, 85, 150)
         for row, (l_idx, r_idx, score) in enumerate(self.alignment):
             if l_idx is not None:
                 left_num = str(l_idx + 1)
@@ -259,12 +258,11 @@ class DiffWindow(QMainWindow):
                 lbl_left = QLabel()
                 lbl_left.setTextFormat(Qt.TextFormat.RichText)
                 lbl_left.setText(l_html)
-                # 背景色を差分色(diff_bg)に、文字は白（基本）を指定
-                lbl_left.setStyleSheet("background-color: rgb(80,100,130); color: white;")
+                lbl_left.setStyleSheet("background-color: rgb(85,85,150); color: white;")
                 lbl_right = QLabel()
                 lbl_right.setTextFormat(Qt.TextFormat.RichText)
                 lbl_right.setText(r_html)
-                lbl_right.setStyleSheet("background-color: rgb(80,100,130); color: white;")
+                lbl_right.setStyleSheet("background-color: rgb(85,85,150); color: white;")
                 self.table.setCellWidget(row, 1, lbl_left)
                 self.table.setCellWidget(row, 3, lbl_right)
                 item0.setBackground(diff_bg)
