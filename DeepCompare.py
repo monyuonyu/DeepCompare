@@ -11,8 +11,62 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QColor, QPixmap, QPainter, QFont, QPalette, QCursor
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 
-# --- グローバル変数とモデル名 ---
+# --------------------------
+# シングルインスタンス用定数
+# --------------------------
+INSTANCE_KEY = "DeepCompareInstance"
+
+def is_instance_running():
+    """すでにインスタンスが起動しているかを確認"""
+    socket = QLocalSocket()
+    socket.connectToServer(INSTANCE_KEY)
+    if socket.waitForConnected(1000):
+        return True
+    return False
+
+def send_message_to_instance(message):
+    """すでに起動中のインスタンスにメッセージ（ここではファイルパス）を送信"""
+    socket = QLocalSocket()
+    socket.connectToServer(INSTANCE_KEY)
+    if socket.waitForConnected(1000):
+        socket.write(message.encode('utf-8'))
+        socket.flush()
+        socket.waitForBytesWritten(1000)
+        socket.disconnectFromServer()
+
+def create_local_server(main_window):
+    """プライマリインスタンス用のローカルサーバーを生成し、外部からのメッセージを受信"""
+    server = QLocalServer()
+    # 既存のソケットファイルがあれば削除（Unix 系の場合）
+    if os.path.exists(INSTANCE_KEY):
+        try:
+            os.remove(INSTANCE_KEY)
+        except Exception:
+            pass
+    server.listen(INSTANCE_KEY)
+    def handle_new_connection():
+        socket = server.nextPendingConnection()
+        if socket:
+            socket.waitForReadyRead(1000)
+            # 送られてきたメッセージは、file1 と file2 のパスが改行区切りになっている前提
+            data = bytes(socket.readAll()).decode('utf-8')
+            lines = data.splitlines()
+            if len(lines) >= 2:
+                file1 = lines[0]
+                file2 = lines[1]
+                # 既存のウィンドウ上に引数の内容を反映し、比較を実行
+                main_window.file1_edit.setText(file1)
+                main_window.file2_edit.setText(file2)
+                main_window.compare_files()
+            socket.disconnectFromServer()
+    server.newConnection.connect(handle_new_connection)
+    return server
+
+# --------------------------
+# グローバル変数とモデル名
+# --------------------------
 model = None
 MODEL_NAME = "sentence-transformers/paraphrase-MiniLM-L6-v2"
 
@@ -78,6 +132,10 @@ def diff_characters(left, right):
 # ファイル内容の行ごとの埋め込み・アライメント関数
 # =============================================================================
 def get_line_embeddings(code_text: str):
+    global model
+    # もしモデルがまだ読み込まれていなければ、同期的に読み込む
+    if model is None:
+        model = SentenceTransformer(MODEL_NAME)
     lines = code_text.splitlines()
     embeddings = model.encode(lines, convert_to_tensor=True)
     return lines, embeddings
@@ -190,14 +248,16 @@ class DiffWindow(QMainWindow):
         main_layout.addWidget(self.table)
 
     def select_file1(self):
-        # ファイル1選択ダイアログの表示
-        file_path, _ = QFileDialog.getOpenFileName(self, "ファイル1を選択", "", "Python Files (*.py);;All Files (*)")
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "ファイル1を選択", "", "Python Files (*.py);;All Files (*)"
+        )
         if file_path:
             self.file1_edit.setText(file_path)
 
     def select_file2(self):
-        # ファイル2選択ダイアログの表示
-        file_path, _ = QFileDialog.getOpenFileName(self, "ファイル2を選択", "", "Python Files (*.py);;All Files (*)")
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "ファイル2を選択", "", "Python Files (*.py);;All Files (*)"
+        )
         if file_path:
             self.file2_edit.setText(file_path)
 
@@ -227,35 +287,31 @@ class DiffWindow(QMainWindow):
 
     def update_table(self):
         self.table.setRowCount(len(self.alignment))
-        # 差分行の背景色（ダークテーマに合わせた青みのある色）
+        # 差分行の背景色（QColor(85, 85, 150) を使用）
         diff_bg = QColor(85, 85, 150)
         for row, (l_idx, r_idx, score) in enumerate(self.alignment):
             if l_idx is not None:
                 left_num = str(l_idx + 1)
                 left_text = self.full_lines1[l_idx]
             else:
-                left_num = "-"
-                left_text = ""
+                left_num = ""
+                left_text = "---"
             if r_idx is not None:
                 right_num = str(r_idx + 1)
                 right_text = self.full_lines2[r_idx]
             else:
-                right_num = "-"
-                right_text = ""
-            score_text = f"{score:.2f}" if score is not None else "-"
+                right_num = ""
+                right_text = "---"
+            score_text = f"{score:.2f}" if score is not None else ""
 
-            # 左ファイル行番号
+            # QTableWidgetItem を生成（既定フォントを使用）
             item0 = QTableWidgetItem(left_num)
-            # 右ファイル行番号
             item2 = QTableWidgetItem(right_num)
-            # スコア
             item4 = QTableWidgetItem(score_text)
 
-            # 左右の内容
-            # 差分がある場合は、文字レベル差分を HTML 形式で表示
             if left_text != right_text:
                 l_html, r_html = diff_characters(left_text, right_text)
-                # インデントが崩れないように <pre> タグで囲む
+                # インデント保持のため <pre> タグで囲む
                 l_html = f"<pre>{l_html}</pre>"
                 r_html = f"<pre>{r_html}</pre>"
                 lbl_left = QLabel()
@@ -272,8 +328,10 @@ class DiffWindow(QMainWindow):
                 item2.setBackground(diff_bg)
                 item4.setBackground(diff_bg)
             else:
-                self.table.setItem(row, 1, QTableWidgetItem(left_text))
-                self.table.setItem(row, 3, QTableWidgetItem(right_text))
+                item_left = QTableWidgetItem(left_text)
+                self.table.setItem(row, 1, item_left)
+                item_right = QTableWidgetItem(right_text)
+                self.table.setItem(row, 3, item_right)
             self.table.setItem(row, 0, item0)
             self.table.setItem(row, 2, item2)
             self.table.setItem(row, 4, item4)
@@ -283,6 +341,7 @@ class DiffWindow(QMainWindow):
 # =============================================================================
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    
     app.setStyle("Fusion")
     dark_palette = QPalette()
     dark_palette.setColor(QPalette.ColorRole.Window, QColor(53, 53, 53))
@@ -300,21 +359,41 @@ if __name__ == '__main__':
     dark_palette.setColor(QPalette.ColorRole.HighlightedText, QColor(0, 0, 0))
     app.setPalette(dark_palette)
 
-    # スプラッシュ画面の表示（モデル読み込み中）
+    # --- スプラッシュ画面の表示（モデル読み込み中） ---
     splash_pix = QPixmap(300, 100)
     splash_pix.fill(QColor(53, 53, 53))
     painter = QPainter(splash_pix)
     painter.setPen(QColor(255, 255, 255))
-    painter.setFont(QFont("Arial", 16))
+    # スプラッシュ画面のフォント指定は削除（既定フォントを使用）
+    painter.setFont(QFont())
     painter.drawText(splash_pix.rect(), Qt.AlignmentFlag.AlignCenter, "MINI LM 読み込み中...")
     painter.end()
     splash = QSplashScreen(splash_pix)
     splash.show()
     app.processEvents()
 
-    loader = ModelLoader()
+    # --- シングルインスタンスの判定 ---
+    if is_instance_running():
+        # すでに起動済みなら、引数がある場合はその内容を送信して終了
+        if len(sys.argv) >= 3:
+            # sys.argv[1] が file1, sys.argv[2] が file2 として送信（改行区切り）
+            message = sys.argv[1] + "\n" + sys.argv[2]
+            send_message_to_instance(message)
+        sys.exit(0)
+
+    # プライマリインスタンスの場合は、ローカルサーバーを生成
     main_window = DiffWindow()
+    local_server = create_local_server(main_window)
+
+    # モデルの非同期読み込み
+    loader = ModelLoader()
     loader.loaded.connect(lambda m: (splash.finish(main_window), main_window.show()))
     loader.start()
+
+    # 起動時にコマンドライン引数がある場合、すぐ比較実行
+    if len(sys.argv) >= 3:
+        main_window.file1_edit.setText(sys.argv[1])
+        main_window.file2_edit.setText(sys.argv[2])
+        main_window.compare_files()
 
     sys.exit(app.exec())
