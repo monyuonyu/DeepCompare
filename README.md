@@ -2,13 +2,16 @@
 
 ## 概要
 
-DeepCompare は、Python で実装されたシンプルなコード比較ツールです。MiniLM モデル（[sentence-transformers/paraphrase-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/paraphrase-MiniLM-L6-v2)）を活用し、2 つのソースコードファイルの行ごとの意味的類似度を計算し、動的計画法を用いた最適な行アライメントを行います。GUI は PyQt6 を使用し、直感的に操作できるシンプルなインターフェースを提供します。
+DeepCompare は、Python で実装されたシンプルなコード比較ツールです。
+MiniLM モデル ([sentence-transformers/paraphrase-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/paraphrase-MiniLM-L6-v2)) を活用し、
+2 つのソースコードファイルの行ごとの意味的類似度を計算し、動的計画法を用いた最適な行アライメントを行います。
+GUI は PyQt6 を使用し、直感的に操作できるシンプルなインターフェースを提供します。
 
 ---
 
 ## 特徴
 
-DeepCompare は、従来の文字ベースの比較ツールとは異なり、**AI を活用してコードの意味的な類似性を評価できる** 点が特徴です。大規模な比較ツールと比べるとシンプルな設計ですが、手軽にコードの差分を確認する用途に適しています。
+DeepCompare は、従来の文字ベースの比較ツールとは異なり、**言語モデルを活用してコードの意味的な類似性を評価できる** 点が特徴です。大規模な比較ツールと比べるとシンプルな設計ですが、手軽にコードの差分を確認する用途に適しています。
 
 ### 1. 行単位の意味的類似性評価
 各ファイルの行を MiniLM によりベクトル化し、コサイン類似度を計算することで、**既存のコンペアツールでは捉えにくい意味的な類似性を考慮した比較**が可能です。
@@ -30,55 +33,58 @@ Needleman–Wunsch アルゴリズムを使用し、**コサイン類似度ス�
 ## 必要な環境・依存ライブラリ
 
 - Python 3.7 以降
-- [PyTorch](https://pytorch.org/)
 - [sentence-transformers](https://www.sbert.net/)
 - [PyQt6](https://pypi.org/project/PyQt6/)
 
 ### インストール方法
 
-1. リポジトリをクローンまたはダウンロードします。
-2. 仮想環境を作成（任意）。
+```bash
+# リポジトリをクローン
+$ git clone https://github.com/monyuonyu/DeepCompare.git
+$ cd DeepCompare
 
-   ```bash
-   python -m venv .venv
-   ```
-3. 仮想環境を有効化します。
+# 仮想環境を作成
+$ python -m venv .venv
+
+# 仮想環境を有効化
 
    - Windows:
-     ```bash
      .venv\Scripts\activate
-     ```
-   - macOS/Linux:
-     ```bash
-     source .venv/bin/activate
-     ```
-4. 依存ライブラリをインストールします。
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+   - macOS/Linux:
+     source .venv/bin/activate
+
+# 依存ライブラリをインストール
+$ pip install -r requirements.txt
+```
 
 ---
 
 ## 使い方
 
-1. `DeepCompare.py` を実行します。
+### GUI モード
+```bash
+python DeepCompare.py
+```
+または Windows の場合、`launch.bat` をダブルクリックすることで起動可能。
 
-   ```bash
-   python DeepCompare.py
-   ```
-2. GUI が起動し、2 つのコードファイルを指定（またはドラッグ＆ドロップ）します。
-3. 「比較開始」ボタンをクリックすると、行ごとの類似度を計算し、結果が表示されます。
-4. 差分がある行はハイライト表示され、行内の変更はオレンジ色で強調されます。
+### コマンドライン引数を使用
+
+```bash
+python DeepCompare.py path/to/file1.py path/to/file2.py
+```
+起動時に比較するファイルを指定することで、GUI の起動後自動で読み込まれ比較が実行されます。
 
 ---
 
 ## プロジェクト構成
-
 ```
 DeepCompare/
-├── DeepCompare.py         # メインプログラム（GUI 版）
-├── README.md              # このドキュメント
-└── requirements.txt       # 依存ライブラリ一覧
+├── DeepCompare.py         # メインプログラム
+├── launch.bat            # Windows 用起動スクリプト
+├── requirements.txt      # 依存ライブラリ一覧
+├── .gitignore            # Git の追跡対象外ファイル
+├── README.md             # 説明文書
+└── .venv/                # Python 仮想環境
 ```
 
