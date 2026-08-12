@@ -12,7 +12,13 @@ namespace DeepCompare.App;
 /// </summary>
 internal static class Cli
 {
-    private static readonly string[] TakesValue = ["-o", "--threshold"];
+    private static readonly string[] TakesValue =
+    [
+        "-o", "--threshold", "--ws", "--ignore-pattern",
+        "--include", "--exclude", "--tolerance", "--min-size", "--max-size",
+        "--merge", "--block", "--report", "--context",
+        "--key", "--ignore-column", "--delimiter",
+    ];
 
     /// <summary>画面を開かずに済む要求なら処理して終了コードを返す。GUI を開くなら null。</summary>
     public static int? TryRun(string[] args, string usage)
@@ -29,6 +35,50 @@ internal static class Cli
         {
             return Report(() => RunFontCheck(output));
         }
+        if (args.Contains("--print-table"))
+        {
+            var files = Positional(args);
+            if (files.Length < 2)
+            {
+                Console.Error.WriteLine("--print-table には比較する 2 つのファイルが必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return Report(() => RunTableCompare(files[0], files[1], args, output));
+        }
+        if (args.Contains("--merge3"))
+        {
+            var three = Positional(args);
+            if (three.Length < 3)
+            {
+                Console.Error.WriteLine("--merge3 には 祖先 左 右 の 3 つが必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return Report(() => RunThreeWay(three[0], three[1], three[2], args, output));
+        }
+        if (args.Contains("--merge"))
+        {
+            var files = Positional(args);
+            if (files.Length < 2)
+            {
+                Console.Error.WriteLine("--merge には左右 2 つのファイルが必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return Report(() => RunMerge(files[0], files[1], args, output));
+        }
+        if (args.Contains("--print-folder"))
+        {
+            var folders = Positional(args);
+            if (folders.Length < 2)
+            {
+                Console.Error.WriteLine("--print-folder には比較する 2 つのフォルダーが必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return RunFolderCompare(folders[0], folders[1], args, output);
+        }
         if (!args.Contains("--print"))
         {
             return null;
@@ -42,10 +92,28 @@ internal static class Cli
             return 2;
         }
 
+        var reportFormat = ValueOf(args, "--report");
         var threshold = float.TryParse(ValueOf(args, "--threshold"), out var parsed)
             ? parsed
             : Aligner.DefaultPairThreshold;
-        return Report(() => RunCompare(positional[0], positional[1], threshold, output));
+        Importance importance;
+        try
+        {
+            importance = new Importance(
+                ParseWhitespace(ValueOf(args, "--ws")),
+                args.Contains("--ignore-case") || args.Contains("-i"),
+                ValuesOf(args, "--ignore-pattern"));
+        }
+        catch (ArgumentException error)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+
+        return Report(() => RunCompare(
+            positional[0], positional[1], threshold, output,
+            args.Contains("--structural"), importance, reportFormat,
+            int.TryParse(ValueOf(args, "--context"), out var ctx) ? ctx : 3));
     }
 
     /// <summary>オプションとその値を取り除いた、位置引数だけの列。</summary>
@@ -72,21 +140,377 @@ internal static class Cli
         return result.ToArray();
     }
 
+    /// <summary>
+    /// 表形式の比較。列の位置は 1 始まりで受け、内部の 0 始まりへ直す。
+    /// 表計算の列番号と揃えないと、指定を間違えたことに気づきにくい。
+    /// </summary>
+    private static int RunTableCompare(string leftPath, string rightPath, string[] args, string? output)
+    {
+        var format = TableFormat.ForPath(leftPath) with
+        {
+            HasHeader = !args.Contains("--no-header"),
+        };
+        if (ValueOf(args, "--delimiter") is { Length: > 0 } delimiter)
+        {
+            format = format with
+            {
+                Delimiter = delimiter switch
+                {
+                    "tab" or "\\t" => '\t',
+                    _ => delimiter[0],
+                },
+            };
+        }
+
+        var left = TableCompare.Parse(File.ReadAllText(leftPath), format);
+        var right = TableCompare.Parse(File.ReadAllText(rightPath), format);
+
+        static List<int> Columns(string[] args, string flag, Table table)
+            => [.. ValuesOf(args, flag).Select(v =>
+                int.TryParse(v, out var number)
+                    ? number - 1
+                    : table.IndexOfColumn(v) is var found && found >= 0
+                        ? found
+                        : throw new ArgumentException($"列が見つからない: {v}"))];
+
+        var keys = Columns(args, "--key", left);
+        var ignored = Columns(args, "--ignore-column", left);
+
+        var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets();
+        var result = TableCompare.Compare(left, right, keys, ignored, embedder);
+
+        var text = new StringBuilder();
+        text.AppendLine($"left  {leftPath} 行={left.Rows.Count} 列={left.ColumnCount}");
+        text.AppendLine($"right {rightPath} 行={right.Rows.Count} 列={right.ColumnCount}");
+        text.AppendLine($"stats different={result.Different} left_only={result.LeftOnly} "
+            + $"right_only={result.RightOnly}"
+            + (keys.Count > 0 ? $" key={string.Join(',', keys.Select(k => k + 1))}" : string.Empty));
+        text.AppendLine("legend = 一致 / ~ 差異あり / - 左のみ / + 右のみ");
+        text.AppendLine("---");
+
+        foreach (var row in result.Rows)
+        {
+            var kind = (row.Left, row.Right) switch
+            {
+                (not null, not null) when row.IsUnchanged => '=',
+                (not null, not null) => '~',
+                (not null, null) => '-',
+                _ => '+',
+            };
+            var leftNumber = row.Left is { } l ? (l + 1).ToString() : string.Empty;
+            var rightNumber = row.Right is { } r ? (r + 1).ToString() : string.Empty;
+            var columns = row.ChangedColumns.Count == 0
+                ? string.Empty
+                : "列 " + string.Join(',', row.ChangedColumns.Select(c =>
+                    c < left.Header.Count ? left.Header[c] : (c + 1).ToString()));
+            var content = row.Left is { } li
+                ? string.Join(" | ", left.Rows[li].Cells)
+                : row.Right is { } ri ? string.Join(" | ", right.Rows[ri].Cells) : string.Empty;
+            text.AppendLine($"{kind} {leftNumber,6} {rightNumber,6}  {columns,-24}  {content}");
+        }
+
+        Emit(text.ToString(), output);
+        return result.Different > 0 || result.LeftOnly > 0 || result.RightOnly > 0 ? 1 : 0;
+    }
+
+    /// <summary>
+    /// 3 方向マージ。祖先を挟んで左右の変更を突き合わせる。
+    /// 終了コードは 0 が競合なし、1 が競合あり。
+    /// </summary>
+    private static int RunThreeWay(
+        string basePath, string leftPath, string rightPath, string[] args, string? output)
+    {
+        var baseText = TextDecoder.Decode(File.ReadAllBytes(basePath));
+        var left = TextDecoder.Decode(File.ReadAllBytes(leftPath));
+        var right = TextDecoder.Decode(File.ReadAllBytes(rightPath));
+
+        var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets();
+        var result = ThreeWayMerge.Merge(baseText, left, right, embedder);
+        var lines = result.ToLines(
+            markConflicts: !args.Contains("--take-left"), leftPath, rightPath);
+
+        // 出力先が無ければ標準出力へ。マージ結果は他の道具へ渡すことが多い。
+        if (output is not null)
+        {
+            File.WriteAllBytes(output, TextEncoder.Encode(lines, left));
+        }
+        else
+        {
+            Console.Out.Write(string.Join(TextEncoder.Newline(left.LineEnding), lines));
+            if (left.EndsWithNewline && lines.Count > 0)
+            {
+                Console.Out.Write(TextEncoder.Newline(left.LineEnding));
+            }
+        }
+
+        Console.Error.WriteLine(
+            $"まとまり {result.Regions.Count} / 競合 {result.ConflictCount}");
+        return result.HasConflicts ? 1 : 0;
+    }
+
+    /// <summary>
+    /// 差分の反映。左右どちらかの内容をもう片方へ写して書き出す。
+    ///
+    /// 出力先を指定しない限り<b>何も書かない</b>。既定で上書きすると、確認のつもりで
+    /// 実行した一回がファイルを壊す。
+    /// </summary>
+    private static int RunMerge(string leftPath, string rightPath, string[] args, string? output)
+    {
+        var direction = ValueOf(args, "--merge");
+        var toRight = direction switch
+        {
+            "to-right" => true,
+            "to-left" => false,
+            _ => throw new ArgumentException($"--merge の値は to-right か to-left: {direction ?? "(無し)"}"),
+        };
+
+        var left = TextDecoder.Decode(File.ReadAllBytes(leftPath));
+        var right = TextDecoder.Decode(File.ReadAllBytes(rightPath));
+
+        // 反映は構造だけで決まる。埋め込みは対応付けの質を上げるので、既定では使う。
+        var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets();
+        var comparison = DiffComparer.Compare(left, right, embedder, new CompareOptions());
+        var blocks = Merge.Blocks(comparison);
+
+        var wanted = ValuesOf(args, "--block")
+            .Select(v => int.TryParse(v, out var n) ? n : throw new ArgumentException($"--block の値が数値でない: {v}"))
+            .ToHashSet();
+        foreach (var number in wanted)
+        {
+            if (number < 1 || number > blocks.Count)
+            {
+                throw new ArgumentException($"--block {number} は範囲外（塊は {blocks.Count} 個）");
+            }
+        }
+
+        var target = toRight ? right : left;
+        var sourceLines = toRight ? left.Lines : right.Lines;
+        var resultLines = (IReadOnlyList<string>)target.Lines;
+
+        // 後ろから当てる。前から当てると、先に当てた分だけ後続の行番号がずれる。
+        var applied = 0;
+        for (var i = blocks.Count - 1; i >= 0; i--)
+        {
+            if (wanted.Count > 0 && !wanted.Contains(i + 1))
+            {
+                continue;
+            }
+            var block = blocks[i];
+            resultLines = toRight
+                ? Merge.Replace(resultLines, block.RightStart, block.RightCount,
+                                sourceLines, block.LeftStart, block.LeftCount)
+                : Merge.Replace(resultLines, block.LeftStart, block.LeftCount,
+                                sourceLines, block.RightStart, block.RightCount);
+            applied++;
+        }
+
+        var destination = toRight ? rightPath : leftPath;
+        var bytes = TextEncoder.Encode(resultLines, target);
+
+        if (args.Contains("--in-place"))
+        {
+            File.WriteAllBytes(destination, bytes);
+            Console.Error.WriteLine(
+                $"{destination} を書き換えた（塊 {applied}/{blocks.Count} を反映、"
+                + $"{target.Lines.Count} 行 → {resultLines.Count} 行）");
+        }
+        else if (output is not null)
+        {
+            File.WriteAllBytes(output, bytes);
+            Console.Error.WriteLine(
+                $"{output} へ書いた（塊 {applied}/{blocks.Count} を反映、"
+                + $"{target.Lines.Count} 行 → {resultLines.Count} 行）");
+        }
+        else
+        {
+            Console.Error.WriteLine(
+                $"塊 {applied}/{blocks.Count} を反映すると {target.Lines.Count} 行 → "
+                + $"{resultLines.Count} 行。書き出すには -o <パス> か --in-place を付ける");
+            return 0;
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// フォルダー比較。終了コードは 0 が差異なし、1 が差異あり、2 が異常。
+    /// diff に倣ってある。CI から呼んで「差異が出たら落とす」を書けるようにするため。
+    /// </summary>
+    private static int RunFolderCompare(string leftRoot, string rightRoot, string[] args, string? output)
+    {
+        FolderComparison result;
+        var options = new FolderCompareOptions
+        {
+            Filter = new NameFilter(ValuesOf(args, "--include"), ValuesOf(args, "--exclude")),
+            Mode = args.Contains("--by-timestamp")
+                ? FolderComparisonMode.SizeAndTimestamp
+                : FolderComparisonMode.Content,
+            TimestampToleranceSeconds =
+                double.TryParse(ValueOf(args, "--tolerance"), out var tolerance) ? tolerance : 0,
+            IgnoreDaylightSavingOffset = args.Contains("--ignore-dst"),
+            MinimumSize = long.TryParse(ValueOf(args, "--min-size"), out var min) ? min : 0,
+            MaximumSize = long.TryParse(ValueOf(args, "--max-size"), out var max) ? max : 0,
+            Recursive = !args.Contains("--no-recurse"),
+            IncludeIdentical = !args.Contains("--changes-only"),
+        };
+
+        var started = DateTime.UtcNow;
+        // 書庫は一時領域へ展開してから走査する。using で確実に片付ける。
+        using var leftSource = OpenOrFail(leftRoot, out var leftError);
+        using var rightSource = OpenOrFail(rightRoot, out var rightError);
+        if (leftSource is null || rightSource is null)
+        {
+            Console.Error.WriteLine($"エラー: {leftError ?? rightError}");
+            return 2;
+        }
+        try
+        {
+            result = FolderComparer.Compare(leftSource.Path, rightSource.Path, options);
+        }
+        catch (Exception error)
+        {
+            Console.Error.WriteLine($"エラー: {error.Message}");
+            return 2;
+        }
+        var elapsed = DateTime.UtcNow - started;
+
+        var stats = result.Stats;
+        var text = new StringBuilder();
+        text.AppendLine($"left  {leftRoot}");
+        text.AppendLine($"right {rightRoot}");
+        text.AppendLine($"stats identical={stats.Identical} different={stats.Different} "
+            + $"left_only={stats.LeftOnly} right_only={stats.RightOnly} "
+            + $"directories={stats.Directories} errors={stats.Errors} "
+            + $"elapsed_ms={(long)elapsed.TotalMilliseconds}");
+        text.AppendLine("legend = 一致 / ~ 内容が違う / - 左のみ / + 右のみ / D ディレクトリ / ! 読めない");
+        text.AppendLine("---");
+
+        foreach (var entry in result.Entries)
+        {
+            var kind = entry.Error is not null
+                ? '!'
+                : entry.Status switch
+                {
+                    EntryStatus.Identical => entry.IsDirectory ? 'D' : '=',
+                    EntryStatus.Different => '~',
+                    EntryStatus.LeftOnly => '-',
+                    EntryStatus.RightOnly => '+',
+                    _ => '?',
+                };
+            var leftSize = entry.LeftSize?.ToString() ?? string.Empty;
+            var rightSize = entry.RightSize?.ToString() ?? string.Empty;
+            text.AppendLine($"{kind} {leftSize,10} {rightSize,10}  {entry.RelativePath}"
+                + (entry.Error is not null ? $"  ({entry.Error})" : string.Empty));
+        }
+
+        if (args.Contains("--csv"))
+        {
+            Emit(DeepCompare.Engine.Report.FolderCsv(result), output);
+            var csvDiffers = stats.Different > 0 || stats.LeftOnly > 0 || stats.RightOnly > 0;
+            return stats.Errors > 0 ? 2 : csvDiffers ? 1 : 0;
+        }
+
+        // 名前が変わっただけの組を後ろに付ける。名前で対応付ける以上、
+        // 「左のみ」「右のみ」に分かれて出るのを補う。
+        if (args.Contains("--detect-renames"))
+        {
+            var renames = RenameDetector.Detect(result, leftSource.Path, rightSource.Path);
+            if (renames.Count > 0)
+            {
+                text.AppendLine("---");
+                text.AppendLine($"renames {renames.Count}");
+                foreach (var rename in renames)
+                {
+                    var mark = rename.IdenticalContent ? "移動" : $"移動+変更 {rename.Similarity:F2}";
+                    text.AppendLine($"R {rename.LeftPath}  →  {rename.RightPath}  ({mark})");
+                }
+            }
+        }
+
+        Emit(text.ToString(), output);
+
+        // 読めなかったものがあれば「差異なし」とは言えない。
+        var differs = stats.Different > 0 || stats.LeftOnly > 0 || stats.RightOnly > 0;
+        return stats.Errors > 0 ? 2 : differs ? 1 : 0;
+    }
+
+    /// <summary>フォルダーか書庫を開く。失敗しても例外を投げず、理由を返す。</summary>
+    private static ArchiveSource? OpenOrFail(string path, out string? error)
+    {
+        try
+        {
+            error = null;
+            return ArchiveSource.Open(path);
+        }
+        catch (Exception failure)
+        {
+            error = failure.Message;
+            return null;
+        }
+    }
+
+    private static WhitespaceMode ParseWhitespace(string? value) => value switch
+    {
+        null or "respect" => WhitespaceMode.Respect,
+        "trailing" => WhitespaceMode.IgnoreTrailing,
+        "ends" => WhitespaceMode.IgnoreLeadingTrailing,
+        "collapse" => WhitespaceMode.CollapseRuns,
+        "all" => WhitespaceMode.IgnoreAll,
+        _ => throw new ArgumentException(
+            $"--ws の値が不正: {value}（respect / trailing / ends / collapse / all）"),
+    };
+
+    /// <summary>同じフラグが複数回現れることを許す。--ignore-pattern 用。</summary>
+    private static List<string> ValuesOf(string[] args, string flag)
+    {
+        var values = new List<string>();
+        for (var i = 0; i + 1 < args.Length; i++)
+        {
+            if (args[i] == flag)
+            {
+                values.Add(args[i + 1]);
+            }
+        }
+        return values;
+    }
+
     private static string? ValueOf(string[] args, string flag)
     {
         var index = Array.IndexOf(args, flag);
         return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
     }
 
-    private static void RunCompare(string leftPath, string rightPath, float threshold, string? output)
+    /// <param name="structural">
+    /// 埋め込みを使わず、文字列一致だけで組む。GUI の段階 1 と同じ経路で、
+    /// 「即座に出る答え」の時間を計るために使う。
+    /// </param>
+    /// <returns>差異があれば 1、無ければ 0。diff に倣う。</returns>
+    private static int RunCompare(
+        string leftPath, string rightPath, float threshold, string? output,
+        bool structural = false, Importance? importance = null,
+        string? reportFormat = null, int context = 3)
     {
         var left = TextDecoder.Decode(File.ReadAllBytes(leftPath));
         var right = TextDecoder.Decode(File.ReadAllBytes(rightPath));
-        var embedder = Embedder.CreateFromEmbeddedAssets();
+        var embedder = structural ? null : Embedder.CreateFromDefaultAssets();
 
         var started = DateTime.UtcNow;
-        var result = DiffComparer.Compare(left, right, embedder, new CompareOptions(threshold));
+        var result = DiffComparer.Compare(
+            left, right, embedder, new CompareOptions(threshold, Importance: importance));
         var elapsed = DateTime.UtcNow - started;
+
+        if (reportFormat is not null)
+        {
+            var report = reportFormat switch
+            {
+                "unified" => DeepCompare.Engine.Report.UnifiedDiff(
+                    result, left, right, leftPath, rightPath, context),
+                "html" => DeepCompare.Engine.Report.Html(result, left, right, leftPath, rightPath),
+                _ => throw new ArgumentException($"--report の値は unified か html: {reportFormat}"),
+            };
+            Emit(report, output);
+            return result.Rows.Any(row => !row.IsUnchanged) ? 1 : 0;
+        }
 
         var text = new StringBuilder();
         text.AppendLine($"left  {leftPath} encoding={TextDecoder.Label(left.Encoding)} "
@@ -95,17 +519,20 @@ internal static class Cli
             + $"line_ending={TextDecoder.Label(right.LineEnding)} lines={right.Lines.Count}");
         text.AppendLine($"stats rows={result.Stats.Rows} identical={result.Stats.IdenticalLines} "
             + $"embedded={result.Stats.EmbeddedLines} skipped_blocks={result.Stats.SkippedBlocks} "
+            + $"unimportant={result.Stats.UnimportantRows} "
             + $"elapsed_ms={(long)elapsed.TotalMilliseconds}");
         text.AppendLine($"threshold {threshold:F2}");
+        text.AppendLine("legend = 一致 / ≈ 重要でない違いのみ / ~ 変更あり / - 左のみ / + 右のみ");
         text.AppendLine("---");
 
         // 1 行 1 レコード。環境をまたいで diff で比べられるよう、桁を固定する。
-        // 種別は = 一致 / ~ 変更あり / - 左のみ / + 右のみ。
+        // 種別は = 一致 / ≈ 重要でない違いのみ / ~ 変更あり / - 左のみ / + 右のみ。
         foreach (var row in result.Rows)
         {
             var kind = (row.Left, row.Right) switch
             {
-                (not null, not null) when row.IsUnchanged => '=',
+                (not null, not null) when row.IsUnchanged =>
+                    row.HasUnimportantDifferences ? '≈' : '=',
                 (not null, not null) => '~',
                 (not null, null) => '-',
                 (null, not null) => '+',
@@ -122,6 +549,11 @@ internal static class Cli
         }
 
         Emit(text.ToString(), output);
+
+        // 重要でないと定義した違いは差異に数えない。無視の指定が効いていれば
+        // CI も通る、という筋を通す。
+        var differs = result.Rows.Any(row => !row.IsUnchanged);
+        return differs ? 1 : 0;
     }
 
     /// <summary>
@@ -185,17 +617,22 @@ internal static class Cli
         }
     }
 
-    private static int Report(Action action)
+    private static int Report(Action action) => Report(() => { action(); return 0; });
+
+    /// <summary>
+    /// 例外を終了コードに変える。異常は 2 とし、1 は「差異あり」のために空けてある。
+    /// 両方を 1 にすると、CI から見て「差分が出た」と「壊れた」を区別できない。
+    /// </summary>
+    private static int Report(Func<int> action)
     {
         try
         {
-            action();
-            return 0;
+            return action();
         }
         catch (Exception error)
         {
             Console.Error.WriteLine($"エラー: {error.Message}");
-            return 1;
+            return 2;
         }
     }
 }

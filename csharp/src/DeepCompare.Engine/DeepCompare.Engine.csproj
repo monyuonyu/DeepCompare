@@ -25,14 +25,22 @@
 
   <ItemGroup>
     <!--
-      モデルと語彙は exe に埋め込む。実行時に外部ファイルを探さずに済み、
-      配布が実行ファイル 1 つで完結する。
+      重み（22MB）は exe に埋め込まず、隣に置く。埋め込みをやめた理由は 3 つ:
+      exe が 46MB → 24MB に減る、起動時の 22MB 読み出しがメモリマップで省ける、
+      そして再ビルド無しでモデルを差し替えられる（日本語モデルの検討に効く）。
 
-      重みはリポジトリ直下の assets/ を直に参照する。ここへ複製すると 22MB の
-      同じファイルが 2 箇所に居座り、片方だけ更新される事故の元になる。
+      リポジトリ直下の assets/ を直に参照する。ここへ複製すると同じ 22MB が
+      2 箇所に居座り、片方だけ更新される事故の元になる。
+
+      Content なので、この Engine を参照するプロジェクト（App・試験）の
+      出力先にも運ばれる。
     -->
-    <EmbeddedResource Include="$(MSBuildThisFileDirectory)../../../assets/minilm.dcm"
-                      LogicalName="minilm.dcm" />
+    <Content Include="$(MSBuildThisFileDirectory)../../../assets/minilm.dcm"
+             Link="minilm.dcm"
+             CopyToOutputDirectory="PreserveNewest" />
+
+    <!-- 語彙は 466KB と小さく、分かち書きの実装と対でしか意味を持たないので
+         埋め込んだままにする。重みと違って差し替える理由がない。 -->
     <EmbeddedResource Include="Assets/vocab.txt" LogicalName="vocab.txt" />
   </ItemGroup>
 

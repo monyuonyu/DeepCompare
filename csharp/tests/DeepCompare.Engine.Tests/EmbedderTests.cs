@@ -56,7 +56,7 @@ public class EmbedderTests
             return;
         }
 
-        var embedder = Embedder.CreateFromEmbeddedAssets();
+        var embedder = Embedder.CreateFromDefaultAssets();
         var ours = embedder.EmbedLines(reference.Value.Texts);
         Assert.Equal(reference.Value.Vectors.Count, ours.Count);
 
@@ -112,7 +112,7 @@ public class EmbedderTests
     [Fact]
     public void IdenticalTextsProduceIdenticalVectors()
     {
-        var embedder = Embedder.CreateFromEmbeddedAssets();
+        var embedder = Embedder.CreateFromDefaultAssets();
         // 重複除去が効いていれば、同じ文字列は同じ配列を指すか、少なくとも同値になる。
         var vectors = embedder.EmbedLines(["import os", "import os", "import sys"]);
         Assert.Equal(vectors[0], vectors[1]);
@@ -122,7 +122,7 @@ public class EmbedderTests
     [Fact]
     public void EmbeddingsAreL2Normalized()
     {
-        var embedder = Embedder.CreateFromEmbeddedAssets();
+        var embedder = Embedder.CreateFromDefaultAssets();
         foreach (var vector in embedder.EmbedLines(["def main():", "", "    return x + 1"]))
         {
             var norm = MathF.Sqrt(vector.Sum(v => v * v));
@@ -141,7 +141,7 @@ public class EmbedderTests
     [Fact]
     public void BatchCompositionDoesNotAffectResults()
     {
-        var embedder = Embedder.CreateFromEmbeddedAssets();
+        var embedder = Embedder.CreateFromDefaultAssets();
         var alone = embedder.EmbedLines(["x = 1"])[0];
         var mixed = embedder.EmbedLines(["x = 1", new string('y', 400), "z"])[0];
         Assert.Equal(alone, mixed);
@@ -150,7 +150,7 @@ public class EmbedderTests
     [Fact]
     public void EmptyInputReturnsNothing()
     {
-        var embedder = Embedder.CreateFromEmbeddedAssets();
+        var embedder = Embedder.CreateFromDefaultAssets();
         Assert.Empty(embedder.EmbedLines([]));
     }
 }

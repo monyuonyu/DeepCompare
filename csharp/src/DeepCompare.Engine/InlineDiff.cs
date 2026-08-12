@@ -4,6 +4,12 @@ public enum SpanKind
 {
     Equal,
     Changed,
+
+    /// <summary>
+    /// 違いはあるが「重要でない」と定義された部分（<see cref="Importance"/>）。
+    /// 対応付けの上では一致として扱いつつ、表示では区別できるようにするために分けてある。
+    /// </summary>
+    Unimportant,
 }
 
 /// <summary>行の一部を指す。Start/Length は元の行への文字単位の範囲。</summary>
@@ -34,7 +40,12 @@ public static class InlineDiff
     /// </summary>
     public const int MaxInlineDiffChars = 8192;
 
-    public static (List<Span> Left, List<Span> Right) Compute(string left, string right)
+    /// <param name="language">
+    /// 与えると、差分の単位を文字ではなくトークンにする。`Update` と `Refresh` の
+    /// 共通部分（`U`, `p`, `e` …）を拾って断片的に光るのを避け、語ごとに光らせる。
+    /// </param>
+    public static (List<Span> Left, List<Span> Right) Compute(
+        string left, string right, Language? language = null)
     {
         if (left == right)
         {
@@ -48,9 +59,10 @@ public static class InlineDiff
         var leftBuilder = new SpanBuilder();
         var rightBuilder = new SpanBuilder();
 
-        // 文字を 1 要素とみなして、行の差分と同じ経路を使う。
-        var leftChars = ToUnits(left);
-        var rightChars = ToUnits(right);
+        // 単位は、言語が分かればトークン、分からなければ文字。どちらも「文字列の並び」
+        // として同じ差分の経路に流す。
+        var leftChars = language is null ? ToUnits(left) : ToTokens(left, language);
+        var rightChars = language is null ? ToUnits(right) : ToTokens(right, language);
         foreach (var op in Myers.Compute(leftChars, rightChars))
         {
             switch (op.Kind)
@@ -85,6 +97,22 @@ public static class InlineDiff
         while (enumerator.MoveNext())
         {
             units.Add((string)enumerator.Current);
+        }
+        return units;
+    }
+
+    /// <summary>
+    /// トークンを差分の単位にする。空白は前のトークンにくっつけない——独立させると
+    /// 空白の増減だけで語が「変わった」ことにならずに済む。
+    /// </summary>
+    private static List<string> ToTokens(string text, Language language)
+    {
+        var state = LexState.Start;
+        var tokens = Lexer.Tokenize(text, language, ref state);
+        var units = new List<string>(tokens.Count);
+        foreach (var token in tokens)
+        {
+            units.Add(text.Substring(token.Start, token.Length));
         }
         return units;
     }

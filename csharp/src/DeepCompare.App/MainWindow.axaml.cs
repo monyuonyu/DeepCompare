@@ -16,7 +16,7 @@ public partial class MainWindow : Window
     public MainWindow(string[] startupPaths)
     {
         InitializeComponent();
-        _shell = new ShellViewModel(PickPathAsync);
+        _shell = new ShellViewModel(PickPathAsync, PickSavePathAsync);
         DataContext = _shell;
 
         AddHandler(DragDrop.DropEvent, OnDrop);
@@ -81,6 +81,17 @@ public partial class MainWindow : Window
                 text.AcceptDroppedFiles(paths);
                 break;
         }
+    }
+
+    /// <summary>書き出し先を選ばせる。既存ファイルの上書き確認は OS 側が出す。</summary>
+    private async Task<string?> PickSavePathAsync(string title, string suggestedName)
+    {
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = title,
+            SuggestedFileName = suggestedName,
+        });
+        return file?.TryGetLocalPath();
     }
 
     /// <summary>ファイルとフォルダーのどちらを選ばせるかは呼び出し側が決める。</summary>

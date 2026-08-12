@@ -1,21 +1,98 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="DeepCompare.App.App"
-             RequestedThemeVariant="Dark">
+             RequestedThemeVariant="Light">
 
   <Application.Styles>
     <FluentTheme />
   </Application.Styles>
 
   <Application.Resources>
-    <!-- 暗い背景に載せる前提の配色。egui 版と同じ値を使い、見た目を揃える。 -->
-    <SolidColorBrush x:Key="BgChanged">#2E3350</SolidColorBrush>
-    <SolidColorBrush x:Key="BgRemoved">#40262A</SolidColorBrush>
-    <SolidColorBrush x:Key="BgAdded">#223A2A</SolidColorBrush>
-    <SolidColorBrush x:Key="FgNormal">#D6D8DE</SolidColorBrush>
-    <SolidColorBrush x:Key="FgDim">#7E838F</SolidColorBrush>
-    <!-- 行内で変わった部分。旧実装と同じオレンジ。 -->
-    <SolidColorBrush x:Key="FgInline">#FFA500</SolidColorBrush>
+    <!--
+      配色はここに集約する。既定は明るい方。
+      色を各所へ直書きすると、片方のテーマだけ直し忘れて読めない組み合わせが残る。
+
+      差分の背景は「薄く敷いて行を面で示す」、行内の変更は「文字色で点を示す」。
+      明るい方では、濃い背景をそのまま明度反転しただけだと彩度が強すぎて目が疲れるので、
+      GitHub の差分表示に近い、彩度を落とした値にしてある。
+    -->
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+
+        <ResourceDictionary x:Key="Light">
+          <!-- 面 -->
+          <SolidColorBrush x:Key="WindowBg">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="PanelBg">#F6F8FA</SolidColorBrush>
+          <SolidColorBrush x:Key="CardBg">#EEF1F4</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusBarBg">#F0F2F5</SolidColorBrush>
+          <SolidColorBrush x:Key="AltRowBg">#F6F8FA</SolidColorBrush>
+          <SolidColorBrush x:Key="Divider">#D0D7DE</SolidColorBrush>
+
+          <!-- 差分の行 -->
+          <SolidColorBrush x:Key="BgChanged">#DDF0FF</SolidColorBrush>
+          <SolidColorBrush x:Key="BgRemoved">#FFEBE9</SolidColorBrush>
+          <SolidColorBrush x:Key="BgAdded">#E6FFEC</SolidColorBrush>
+
+          <!-- 文字 -->
+          <SolidColorBrush x:Key="FgNormal">#1F2328</SolidColorBrush>
+          <SolidColorBrush x:Key="FgDim">#656D76</SolidColorBrush>
+          <SolidColorBrush x:Key="FgInline">#BC4C00</SolidColorBrush>
+          <SolidColorBrush x:Key="FgUnimportant">#8C959F</SolidColorBrush>
+          <SolidColorBrush x:Key="FgWarning">#9A6700</SolidColorBrush>
+          <SolidColorBrush x:Key="FgMoved">#1A7F37</SolidColorBrush>
+
+          <!-- 構文 -->
+          <SolidColorBrush x:Key="FgKeyword">#8250DF</SolidColorBrush>
+          <SolidColorBrush x:Key="FgString">#0A7D32</SolidColorBrush>
+          <SolidColorBrush x:Key="FgComment">#6E7781</SolidColorBrush>
+          <SolidColorBrush x:Key="FgNumber">#953800</SolidColorBrush>
+          <SolidColorBrush x:Key="FgPunctuation">#57606A</SolidColorBrush>
+
+          <!-- フォルダー一覧の状態 -->
+          <SolidColorBrush x:Key="StatusDifferent">#BC4C00</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusLeftOnly">#CF222E</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusRightOnly">#1A7F37</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusSame">#8C959F</SolidColorBrush>
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Dark">
+          <!-- 面 -->
+          <SolidColorBrush x:Key="WindowBg">#141414</SolidColorBrush>
+          <SolidColorBrush x:Key="PanelBg">#1E1E1E</SolidColorBrush>
+          <SolidColorBrush x:Key="CardBg">#252525</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusBarBg">#1A1A1A</SolidColorBrush>
+          <SolidColorBrush x:Key="AltRowBg">#181818</SolidColorBrush>
+          <SolidColorBrush x:Key="Divider">#2A2A2A</SolidColorBrush>
+
+          <!-- 差分の行。egui 版と同じ値で、見た目を揃える。 -->
+          <SolidColorBrush x:Key="BgChanged">#2E3350</SolidColorBrush>
+          <SolidColorBrush x:Key="BgRemoved">#40262A</SolidColorBrush>
+          <SolidColorBrush x:Key="BgAdded">#223A2A</SolidColorBrush>
+
+          <!-- 文字 -->
+          <SolidColorBrush x:Key="FgNormal">#D6D8DE</SolidColorBrush>
+          <SolidColorBrush x:Key="FgDim">#7E838F</SolidColorBrush>
+          <SolidColorBrush x:Key="FgInline">#FFA500</SolidColorBrush>
+          <SolidColorBrush x:Key="FgUnimportant">#6E7488</SolidColorBrush>
+          <SolidColorBrush x:Key="FgWarning">#E0A060</SolidColorBrush>
+          <SolidColorBrush x:Key="FgMoved">#8FBF6F</SolidColorBrush>
+
+          <!-- 構文 -->
+          <SolidColorBrush x:Key="FgKeyword">#C792EA</SolidColorBrush>
+          <SolidColorBrush x:Key="FgString">#98C379</SolidColorBrush>
+          <SolidColorBrush x:Key="FgComment">#6A7B8C</SolidColorBrush>
+          <SolidColorBrush x:Key="FgNumber">#D19A66</SolidColorBrush>
+          <SolidColorBrush x:Key="FgPunctuation">#9AA0AC</SolidColorBrush>
+
+          <!-- フォルダー一覧の状態 -->
+          <SolidColorBrush x:Key="StatusDifferent">#FFA500</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusLeftOnly">#E06C75</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusRightOnly">#8FBF6F</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusSame">#7E838F</SolidColorBrush>
+        </ResourceDictionary>
+
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
   </Application.Resources>
 
 </Application>

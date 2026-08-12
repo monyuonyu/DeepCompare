@@ -9,10 +9,6 @@ namespace DeepCompare.App;
 /// <summary>フォルダー一覧の 1 行。</summary>
 public sealed class FolderRowView(FolderEntry entry)
 {
-    private static readonly IBrush Different = new SolidColorBrush(Color.Parse("#FFA500"));
-    private static readonly IBrush LeftOnly = new SolidColorBrush(Color.Parse("#E06C75"));
-    private static readonly IBrush RightOnly = new SolidColorBrush(Color.Parse("#8FBF6F"));
-    private static readonly IBrush Same = new SolidColorBrush(Color.Parse("#7E838F"));
 
     public FolderEntry Entry { get; } = entry;
 
@@ -37,10 +33,10 @@ public sealed class FolderRowView(FolderEntry entry)
 
     public IBrush StatusBrush { get; } = entry.Status switch
     {
-        EntryStatus.Different => Different,
-        EntryStatus.LeftOnly => LeftOnly,
-        EntryStatus.RightOnly => RightOnly,
-        _ => Same,
+        EntryStatus.Different => Palette.Brush("StatusDifferent"),
+        EntryStatus.LeftOnly => Palette.Brush("StatusLeftOnly"),
+        EntryStatus.RightOnly => Palette.Brush("StatusRightOnly"),
+        _ => Palette.Brush("StatusSame"),
     };
 
     public string LeftSizeText { get; } = Format(entry.LeftSize);
@@ -77,15 +73,24 @@ public sealed class FolderCompareViewModel : ViewModelBase
     private bool _differencesOnly = true;
     private string _statusText = string.Empty;
     private FolderRowView? _selected;
+    private string _include = string.Empty;
+    private string _exclude = string.Empty;
+    private bool _byTimestamp;
+    private double _tolerance;
+    private bool _ignoreDst;
+    private bool _detectRenames;
+    private string _renameText = string.Empty;
 
     public FolderCompareViewModel(ShellViewModel shell, string leftRoot, string rightRoot)
     {
         _shell = shell;
+        _shell.ThemeChanged += RebuildForTheme;
         LeftRoot = leftRoot;
         RightRoot = rightRoot;
         BackCommand = new RelayCommand(() => { _shell.GoHome(); return Task.CompletedTask; });
         RefreshCommand = new RelayCommand(RunAsync);
         OpenSelectedCommand = new RelayCommand(() => { OpenSelected(); return Task.CompletedTask; });
+        ExportCsvCommand = new RelayCommand(ExportCsvAsync);
         _ = RunAsync();
     }
 
@@ -93,8 +98,111 @@ public sealed class FolderCompareViewModel : ViewModelBase
     public string RightRoot { get; }
     public ObservableCollection<FolderRowView> Rows { get; } = [];
     public ICommand BackCommand { get; }
+
+    /// <summary>テーマの切り替えなど、画面をまたぐ操作。</summary>
+    public ShellViewModel Shell => _shell;
     public ICommand RefreshCommand { get; }
     public ICommand OpenSelectedCommand { get; }
+    public ICommand ExportCsvCommand { get; }
+
+    /// <summary>一覧を CSV で書き出す。絞り込みではなく走査した全件を出す。</summary>
+    private async Task ExportCsvAsync()
+    {
+        if (_comparison is null)
+        {
+            StatusText = "先に走査してください。";
+            return;
+        }
+        if (await _shell.PickSavePath("一覧を CSV で保存", "folder-compare.csv") is not { } path)
+        {
+            return;
+        }
+        try
+        {
+            // BOM を付ける。付けないと Excel が UTF-8 と判定せず日本語が化ける。
+            await File.WriteAllTextAsync(
+                path, Report.FolderCsv(_comparison), new System.Text.UTF8Encoding(true));
+            StatusText = $"{path} へ書き出した";
+        }
+        catch (Exception error)
+        {
+            StatusText = $"書き出せない: {error.Message}";
+        }
+    }
+
+    /// <summary>対象にする名前。空白区切りで複数。ファイルにだけ効く。</summary>
+    public string IncludeNames
+    {
+        get => _include;
+        set => Set(ref _include, value);
+    }
+
+    /// <summary>除外する名前。空白区切りで複数。</summary>
+    public string ExcludeNames
+    {
+        get => _exclude;
+        set => Set(ref _exclude, value);
+    }
+
+    /// <summary>中身を読まず、大きさと更新時刻で比べる。</summary>
+    public bool CompareByTimestamp
+    {
+        get => _byTimestamp;
+        set => Set(ref _byTimestamp, value);
+    }
+
+    /// <summary>更新時刻の差をどこまで同じとみなすか（秒）。</summary>
+    public double TimestampTolerance
+    {
+        get => _tolerance;
+        set => Set(ref _tolerance, value);
+    }
+
+    /// <summary>ちょうど 1 時間のずれを同じとみなす（夏時間）。</summary>
+    public bool IgnoreDaylightSaving
+    {
+        get => _ignoreDst;
+        set => Set(ref _ignoreDst, value);
+    }
+
+    /// <summary>名前が変わっただけのファイルを探すか。片側だけの項目にしか触らない。</summary>
+    public bool DetectRenames
+    {
+        get => _detectRenames;
+        set => Set(ref _detectRenames, value);
+    }
+
+    /// <summary>見つかったリネームの一覧。</summary>
+    public string RenameText
+    {
+        get => _renameText;
+        private set
+        {
+            if (Set(ref _renameText, value))
+            {
+                OnPropertyChanged(nameof(HasRenames));
+            }
+        }
+    }
+
+    public bool HasRenames => RenameText.Length > 0;
+
+    /// <summary>画面の設定から走査の指定を作る。</summary>
+    private FolderCompareOptions BuildOptions()
+    {
+        static List<string> Split(string value)
+            => [.. value.Split([' ', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+
+        return new FolderCompareOptions
+        {
+            Filter = new NameFilter(Split(IncludeNames), Split(ExcludeNames)),
+            Mode = CompareByTimestamp
+                ? FolderComparisonMode.SizeAndTimestamp
+                : FolderComparisonMode.Content,
+            TimestampToleranceSeconds = TimestampTolerance,
+            IgnoreDaylightSavingOffset = IgnoreDaylightSaving,
+        };
+    }
 
     public bool IsBusy
     {
@@ -135,7 +243,26 @@ public sealed class FolderCompareViewModel : ViewModelBase
         {
             var left = LeftRoot;
             var right = RightRoot;
-            var result = await Task.Run(() => FolderComparer.Compare(left, right));
+            var options = BuildOptions();
+            var detectRenames = DetectRenames;
+            var (result, renames) = await Task.Run(() =>
+            {
+                // 書庫なら一時領域へ展開する。走査が終わったら消す。
+                using var leftSource = ArchiveSource.Open(left);
+                using var rightSource = ArchiveSource.Open(right);
+                var comparison = FolderComparer.Compare(leftSource.Path, rightSource.Path, options);
+                var found = detectRenames
+                    ? RenameDetector.Detect(comparison, leftSource.Path, rightSource.Path)
+                    : [];
+                return (comparison, found);
+            });
+
+            RenameText = renames.Count == 0
+                ? string.Empty
+                : "名前が変わったもの: " + string.Join(
+                    " / ",
+                    renames.Select(r => $"{r.LeftPath} → {r.RightPath}"
+                        + (r.IdenticalContent ? string.Empty : $" ({r.Similarity:F2})")));
             _comparison = result;
             _allRows = result.Entries.Select(e => new FolderRowView(e)).ToList();
 
@@ -155,6 +282,17 @@ public sealed class FolderCompareViewModel : ViewModelBase
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>テーマが変わったときに、走査し直さずに行だけ作り直す。</summary>
+    private void RebuildForTheme()
+    {
+        if (_comparison is null)
+        {
+            return;
+        }
+        _allRows = _comparison.Entries.Select(e => new FolderRowView(e)).ToList();
+        Rebuild();
     }
 
     private void Rebuild()

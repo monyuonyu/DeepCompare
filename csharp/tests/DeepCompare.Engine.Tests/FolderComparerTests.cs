@@ -200,4 +200,151 @@ public class FolderComparerTests : IDisposable
         Assert.Throws<OperationCanceledException>(
             () => FolderComparer.Compare(Left, Right, null, null, cts.Token));
     }
+
+    // ---- 名前フィルタ・比較方式・時刻の許容誤差（第 1 段階 1.4）----
+
+    private void Touch(string side, string relative, DateTime modified)
+    {
+        var root = side == "left" ? Left : Right;
+        File.SetLastWriteTime(
+            Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar)), modified);
+    }
+
+    [Fact]
+    public void IncludeFilterKeepsOnlyMatchingFiles()
+    {
+        Write("left", "a.cs", "x");
+        Write("left", "a.txt", "x");
+        Write("right", "a.cs", "y");
+        Write("right", "a.txt", "y");
+
+        var result = Run(new FolderCompareOptions
+        {
+            Filter = new NameFilter(Include: ["*.cs"]),
+        });
+
+        Assert.Contains(result.Entries, e => e.Name == "a.cs");
+        Assert.DoesNotContain(result.Entries, e => e.Name == "a.txt");
+    }
+
+    [Fact]
+    public void ExcludeFilterDropsMatchingFiles()
+    {
+        Write("left", "keep.cs", "x");
+        Write("left", "skip.generated.cs", "x");
+        Write("right", "keep.cs", "x");
+        Write("right", "skip.generated.cs", "z");
+
+        var result = Run(new FolderCompareOptions
+        {
+            Filter = new NameFilter(Exclude: ["*.generated.cs"]),
+        });
+
+        Assert.Contains(result.Entries, e => e.Name == "keep.cs");
+        Assert.DoesNotContain(result.Entries, e => e.Name == "skip.generated.cs");
+    }
+
+    /// <summary>
+    /// Include をディレクトリにも効かせると、*.cs のような指定で全ディレクトリが
+    /// 弾かれて再帰が入口で止まる。深い階層まで届くことを確かめる。
+    /// </summary>
+    [Fact]
+    public void IncludeFilterDoesNotBlockDirectoryTraversal()
+    {
+        Write("left", "sub/deep/a.cs", "x");
+        Write("right", "sub/deep/a.cs", "y");
+
+        var result = Run(new FolderCompareOptions
+        {
+            Filter = new NameFilter(Include: ["*.cs"]),
+        });
+
+        Assert.Contains(result.Entries, e => e.RelativePath == "sub/deep/a.cs");
+    }
+
+    [Fact]
+    public void QuestionMarkMatchesOneCharacter()
+    {
+        Write("left", "a1.log", "x");
+        Write("left", "a22.log", "x");
+        Write("right", "a1.log", "x");
+        Write("right", "a22.log", "x");
+
+        var result = Run(new FolderCompareOptions
+        {
+            Filter = new NameFilter(Include: ["a?.log"]),
+        });
+
+        Assert.Contains(result.Entries, e => e.Name == "a1.log");
+        Assert.DoesNotContain(result.Entries, e => e.Name == "a22.log");
+    }
+
+    [Fact]
+    public void SizeLimitsExcludeFilesOutsideTheRange()
+    {
+        Write("left", "small.txt", "ab");
+        Write("left", "big.txt", new string('x', 100));
+        Write("right", "small.txt", "ab");
+        Write("right", "big.txt", new string('x', 100));
+
+        var result = Run(new FolderCompareOptions { MaximumSize = 10 });
+
+        Assert.Contains(result.Entries, e => e.Name == "small.txt");
+        Assert.DoesNotContain(result.Entries, e => e.Name == "big.txt");
+    }
+
+    /// <summary>
+    /// 大きさと時刻での比較では中身を読まない。中身が違っても、大きさと時刻が
+    /// 揃っていれば同じ扱いになる。速さと引き換えの性質なので、明示的に固定する。
+    /// </summary>
+    [Fact]
+    public void SizeAndTimestampModeDoesNotReadContent()
+    {
+        Write("left", "a.txt", "aaaa");
+        Write("right", "a.txt", "bbbb");
+        var when = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Local);
+        Touch("left", "a.txt", when);
+        Touch("right", "a.txt", when);
+
+        var byContent = Run(new FolderCompareOptions { Mode = FolderComparisonMode.Content });
+        Assert.Equal(EntryStatus.Different, byContent.Entries.Single(e => e.Name == "a.txt").Status);
+
+        var byStamp = Run(new FolderCompareOptions { Mode = FolderComparisonMode.SizeAndTimestamp });
+        Assert.Equal(EntryStatus.Identical, byStamp.Entries.Single(e => e.Name == "a.txt").Status);
+    }
+
+    [Fact]
+    public void SizeAndTimestampModeStillSeesDifferentSizes()
+    {
+        Write("left", "a.txt", "aaaa");
+        Write("right", "a.txt", "aaaaaa");
+        var when = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Local);
+        Touch("left", "a.txt", when);
+        Touch("right", "a.txt", when);
+
+        var result = Run(new FolderCompareOptions { Mode = FolderComparisonMode.SizeAndTimestamp });
+
+        Assert.Equal(EntryStatus.Different, result.Entries.Single(e => e.Name == "a.txt").Status);
+    }
+
+    [Theory]
+    [InlineData(0, false, 2, false)]     // 許容誤差なし: 2 秒差は別物
+    [InlineData(3, false, 2, true)]      // 許容誤差 3 秒: 2 秒差は同じ
+    [InlineData(3, false, 3600, false)]  // 夏時間を見ない: 1 時間差は別物
+    [InlineData(3, true, 3600, true)]    // 夏時間を見る: 1 時間差は同じ
+    [InlineData(3, true, 7200, false)]   // 2 時間差までは許さない
+    public void TimestampToleranceBehavesAsDocumented(
+        double tolerance, bool ignoreDst, double offsetSeconds, bool expectedSame)
+    {
+        var options = new FolderCompareOptions
+        {
+            TimestampToleranceSeconds = tolerance,
+            IgnoreDaylightSavingOffset = ignoreDst,
+        };
+        var baseTime = new DateTime(2026, 3, 8, 2, 0, 0, DateTimeKind.Local);
+
+        Assert.Equal(
+            expectedSame,
+            FolderComparer.SameTimestamp(baseTime, baseTime.AddSeconds(offsetSeconds), options));
+    }
 }

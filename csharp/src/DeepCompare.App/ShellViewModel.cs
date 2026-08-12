@@ -18,14 +18,53 @@ public sealed class ShellViewModel : ViewModelBase
     /// </summary>
     private Embedder? _embedder;
 
-    public ShellViewModel(Func<string, bool, Task<string?>> pickPath)
+    public ShellViewModel(
+        Func<string, bool, Task<string?>> pickPath,
+        Func<string, string, Task<string?>> pickSavePath)
     {
         PickPath = pickPath;
+        PickSavePath = pickSavePath;
+        _lightTheme = _settings.LoadLightTheme();
+        Palette.Use(_lightTheme);
+        ToggleThemeCommand = new RelayCommand(() => { LightTheme = !LightTheme; return Task.CompletedTask; });
         Home = new HomeViewModel(this);
         _current = Home;
     }
 
     public Func<string, bool, Task<string?>> PickPath { get; }
+
+    /// <summary>書き出し先を選ばせる。（題名、既定のファイル名）を受ける。</summary>
+    public Func<string, string, Task<string?>> PickSavePath { get; }
+
+    private readonly DeepCompare.Engine.SessionStore _settings = new();
+    private bool _lightTheme;
+
+    public System.Windows.Input.ICommand ToggleThemeCommand { get; }
+
+    /// <summary>
+    /// 明るいテーマを使うか。切り替えたら、色を持っている行を作り直す必要がある。
+    /// C# 側で組み立てた文字色は、テーマが変わっても勝手には追随しない。
+    /// </summary>
+    public bool LightTheme
+    {
+        get => _lightTheme;
+        set
+        {
+            if (!Set(ref _lightTheme, value))
+            {
+                return;
+            }
+            Palette.Use(value);
+            _settings.SaveLightTheme(value);
+            OnPropertyChanged(nameof(ThemeButtonText));
+            ThemeChanged?.Invoke();
+        }
+    }
+
+    public string ThemeButtonText => _lightTheme ? "ダークにする" : "ライトにする";
+
+    /// <summary>テーマが変わったときに、開いている画面が行を作り直すための知らせ。</summary>
+    public event Action? ThemeChanged;
 
     public HomeViewModel Home { get; }
 
@@ -44,7 +83,7 @@ public sealed class ShellViewModel : ViewModelBase
     public bool CanGoHome => Current is not HomeViewModel;
 
     /// <summary>初回だけ読む。呼び出し側は必ず作業スレッドから呼ぶこと。</summary>
-    public Embedder GetEmbedder() => _embedder ??= Embedder.CreateFromEmbeddedAssets();
+    public Embedder GetEmbedder() => _embedder ??= Embedder.CreateFromDefaultAssets();
 
     public void GoHome() => Current = Home;
 

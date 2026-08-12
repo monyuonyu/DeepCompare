@@ -45,3 +45,34 @@ public sealed class RelayCommand(Func<Task> execute, Func<bool>? canExecute = nu
 
     public void Raise() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }
+
+/// <summary>
+/// 対象を伴うコマンド。差分の塊ごとに置くコピーボタンのように、
+/// 「どれに対して」が要る操作に使う。
+/// </summary>
+public sealed class RelayCommand<T>(Func<T, Task> execute, Func<T, bool>? canExecute = null) : ICommand
+{
+    public event EventHandler? CanExecuteChanged;
+
+    public bool CanExecute(object? parameter)
+        => parameter is T value && (canExecute?.Invoke(value) ?? true);
+
+    public async void Execute(object? parameter)
+    {
+        if (parameter is not T value)
+        {
+            return;
+        }
+        try
+        {
+            await execute(value);
+        }
+        catch (Exception error)
+        {
+            // ここで漏らすとプロセスごと落ちる。
+            Console.Error.WriteLine($"コマンドが失敗: {error}");
+        }
+    }
+
+    public void Raise() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+}

@@ -10,7 +10,7 @@
       一行おきに薄く色を敷いて、視線が隣の行へ滑らないようにする。
     -->
     <Style Selector="ListBoxItem:nth-child(2n)">
-      <Setter Property="Background" Value="#181818" />
+      <Setter Property="Background" Value="{DynamicResource AltRowBg}" />
     </Style>
   </UserControl.Styles>
 
@@ -19,15 +19,46 @@
     <StackPanel DockPanel.Dock="Top" Margin="10,8" Spacing="8">
       <StackPanel Orientation="Horizontal" Spacing="8">
         <Button Content="← 最初の画面へ" Command="{Binding BackCommand}" />
+        <Button Content="{Binding Shell.ThemeButtonText}" Command="{Binding Shell.ToggleThemeCommand}"
+                ToolTip.Tip="明るい配色と暗い配色を切り替える。選択は次回も残る。" />
         <Button Content="再走査" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsBusy}" />
         <CheckBox Content="差異のあるものだけ表示" IsChecked="{Binding DifferencesOnly}" />
+        <Button Content="CSV で書き出す" Command="{Binding ExportCsvCommand}" />
         <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}"
                      Width="90" VerticalAlignment="Center" />
       </StackPanel>
+
+      <!--
+        絞り込みと比較方式。変更したら「再走査」で反映する。入力のたびに走査すると、
+        大きなフォルダーで入力が止まる。
+      -->
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Text="対象:" VerticalAlignment="Center" />
+        <TextBox Text="{Binding IncludeNames}" Width="170" FontSize="11"
+                 PlaceholderText="*.cs *.md（空で全部）"
+                 ToolTip.Tip="ファイルにだけ効く。ディレクトリの走査は止めない。&#x0a;* と ? が使える。空白区切りで複数。" />
+        <TextBlock Text="除外:" VerticalAlignment="Center" />
+        <TextBox Text="{Binding ExcludeNames}" Width="170" FontSize="11"
+                 PlaceholderText="*.generated.cs"
+                 ToolTip.Tip="ファイルとディレクトリの両方に効く。" />
+        <Border Width="1" Background="{DynamicResource FgDim}" Margin="2,2" />
+        <CheckBox Content="大きさと日時で比べる" IsChecked="{Binding CompareByTimestamp}"
+                  ToolTip.Tip="中身を読まないので速い。数が多いときに使う。" />
+        <TextBlock Text="時刻の許容誤差(秒):" VerticalAlignment="Center"
+                   Foreground="{DynamicResource FgDim}"
+                   ToolTip.Tip="FAT と NTFS の間では 1〜2 秒ずれる。" />
+        <TextBox Text="{Binding TimestampTolerance}" Width="50" FontSize="11" />
+        <CheckBox Content="夏時間の 1 時間を無視" IsChecked="{Binding IgnoreDaylightSaving}" />
+        <CheckBox Content="リネームを探す" IsChecked="{Binding DetectRenames}"
+                  ToolTip.Tip="片側にしか無いファイルどうしを中身で突き合わせ、&#x0a;名前が変わっただけのものを見つける。" />
+      </StackPanel>
+
+      <TextBlock Text="{Binding RenameText}" IsVisible="{Binding HasRenames}"
+                 FontSize="11" Foreground="{DynamicResource FgMoved}" TextWrapping="Wrap" />
     </StackPanel>
 
-    <Border DockPanel.Dock="Bottom" Padding="10,4" Background="#1A1A1A">
-      <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{StaticResource FgDim}" />
+    <Border DockPanel.Dock="Bottom" Padding="10,4" Background="{DynamicResource StatusBarBg}">
+      <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource FgDim}" />
     </Border>
 
     <!--
@@ -36,24 +67,24 @@
     -->
     <Grid DockPanel.Dock="Top" Margin="10,4,10,0"
           ColumnDefinitions="*,1,220,1,220,90">
-      <TextBlock Grid.Column="0" Text="名前" FontSize="11" Foreground="{StaticResource FgDim}" />
-      <Border Grid.Column="1" Background="#2A2A2A" />
+      <TextBlock Grid.Column="0" Text="名前" FontSize="11" Foreground="{DynamicResource FgDim}" />
+      <Border Grid.Column="1" Background="{DynamicResource Divider}" />
       <TextBlock Grid.Column="2" Text="{Binding LeftRoot}" FontSize="11" Margin="8,0"
-                 Foreground="{StaticResource FgDim}" TextTrimming="CharacterEllipsis"
+                 Foreground="{DynamicResource FgDim}" TextTrimming="CharacterEllipsis"
                  ToolTip.Tip="{Binding LeftRoot}" />
-      <Border Grid.Column="3" Background="#2A2A2A" />
+      <Border Grid.Column="3" Background="{DynamicResource Divider}" />
       <TextBlock Grid.Column="4" Text="{Binding RightRoot}" FontSize="11" Margin="8,0"
-                 Foreground="{StaticResource FgDim}" TextTrimming="CharacterEllipsis"
+                 Foreground="{DynamicResource FgDim}" TextTrimming="CharacterEllipsis"
                  ToolTip.Tip="{Binding RightRoot}" />
-      <TextBlock Grid.Column="5" Text="状態" FontSize="11" Foreground="{StaticResource FgDim}"
+      <TextBlock Grid.Column="5" Text="状態" FontSize="11" Foreground="{DynamicResource FgDim}"
                  TextAlignment="Right" Margin="0,0,6,0" />
     </Grid>
-    <Border DockPanel.Dock="Top" Height="1" Background="#2A2A2A" Margin="10,4,10,0" />
+    <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource Divider}" Margin="10,4,10,0" />
 
     <Panel>
       <TextBlock Text="差異はありません。" IsVisible="{Binding IsEmpty}"
                  HorizontalAlignment="Center" VerticalAlignment="Center"
-                 Foreground="{StaticResource FgDim}" />
+                 Foreground="{DynamicResource FgDim}" />
 
       <ListBox ItemsSource="{Binding Rows}"
                SelectedItem="{Binding Selected}"
@@ -72,20 +103,20 @@
               <TextBlock Grid.Column="0" Text="{Binding Name}" Margin="{Binding Indent}"
                          TextTrimming="CharacterEllipsis" FontWeight="{Binding NameWeight}" />
 
-              <Border Grid.Column="1" Background="#2A2A2A" />
+              <Border Grid.Column="1" Background="{DynamicResource Divider}" />
               <Grid Grid.Column="2" ColumnDefinitions="80,*" Margin="8,0">
                 <TextBlock Grid.Column="0" Text="{Binding LeftSizeText}" TextAlignment="Right"
-                           FontSize="11" Foreground="{StaticResource FgDim}" />
+                           FontSize="11" Foreground="{DynamicResource FgDim}" />
                 <TextBlock Grid.Column="1" Text="{Binding LeftModifiedText}" TextAlignment="Right"
-                           FontSize="11" Foreground="{StaticResource FgDim}" />
+                           FontSize="11" Foreground="{DynamicResource FgDim}" />
               </Grid>
 
-              <Border Grid.Column="3" Background="#2A2A2A" />
+              <Border Grid.Column="3" Background="{DynamicResource Divider}" />
               <Grid Grid.Column="4" ColumnDefinitions="80,*" Margin="8,0">
                 <TextBlock Grid.Column="0" Text="{Binding RightSizeText}" TextAlignment="Right"
-                           FontSize="11" Foreground="{StaticResource FgDim}" />
+                           FontSize="11" Foreground="{DynamicResource FgDim}" />
                 <TextBlock Grid.Column="1" Text="{Binding RightModifiedText}" TextAlignment="Right"
-                           FontSize="11" Foreground="{StaticResource FgDim}" />
+                           FontSize="11" Foreground="{DynamicResource FgDim}" />
               </Grid>
 
               <TextBlock Grid.Column="5" Text="{Binding StatusText}" TextAlignment="Right"

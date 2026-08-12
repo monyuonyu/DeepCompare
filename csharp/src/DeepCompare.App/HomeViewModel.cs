@@ -1,6 +1,16 @@
+using System.Collections.ObjectModel;
 using System.Windows.Input;
+using DeepCompare.Engine;
 
 namespace DeepCompare.App;
+
+/// <summary>一覧に出す 1 件。表示用の文言まで作ってしまう。</summary>
+public sealed record SessionEntry(Session Session)
+{
+    public string Name => Session.Name;
+    public string Kind => Session.Kind == SessionKind.Folder ? "フォルダー" : "ファイル";
+    public string Paths => $"{Session.LeftPath}  ↔  {Session.RightPath}";
+}
 
 /// <summary>
 /// 起動画面。何を比べるかをここで決める。
@@ -11,9 +21,11 @@ namespace DeepCompare.App;
 public sealed class HomeViewModel : ViewModelBase
 {
     private readonly ShellViewModel _shell;
+    private readonly SessionStore _sessions = new();
     private string _leftPath = string.Empty;
     private string _rightPath = string.Empty;
     private string _message = string.Empty;
+    private string _sessionName = string.Empty;
 
     public HomeViewModel(ShellViewModel shell)
     {
@@ -24,6 +36,88 @@ public sealed class HomeViewModel : ViewModelBase
         BrowseRightFolderCommand = new RelayCommand(() => PickAsync(isFolder: true, left: false));
         CompareTextCommand = new RelayCommand(() => { StartText(); return Task.CompletedTask; });
         CompareFoldersCommand = new RelayCommand(() => { StartFolders(); return Task.CompletedTask; });
+        SaveSessionCommand = new RelayCommand(() => { SaveSession(); return Task.CompletedTask; });
+        OpenSessionCommand = new RelayCommand<SessionEntry>(entry => { OpenSession(entry); return Task.CompletedTask; });
+        RemoveSessionCommand = new RelayCommand<SessionEntry>(entry => { RemoveSession(entry); return Task.CompletedTask; });
+        ReloadSessions();
+    }
+
+    public ObservableCollection<SessionEntry> Sessions { get; } = [];
+
+    public bool HasSessions => Sessions.Count > 0;
+
+    /// <summary>保存するときの名前。空なら左右の名前から作る。</summary>
+    public string SessionName
+    {
+        get => _sessionName;
+        set => Set(ref _sessionName, value);
+    }
+
+    public ICommand SaveSessionCommand { get; }
+    public ICommand OpenSessionCommand { get; }
+    public ICommand RemoveSessionCommand { get; }
+
+    private void ReloadSessions()
+    {
+        Sessions.Clear();
+        foreach (var session in _sessions.Load())
+        {
+            Sessions.Add(new SessionEntry(session));
+        }
+        OnPropertyChanged(nameof(HasSessions));
+    }
+
+    private void SaveSession()
+    {
+        var left = LeftPath.Trim();
+        var right = RightPath.Trim();
+        if (left.Length == 0 || right.Length == 0)
+        {
+            Message = "保存する前に左右の両方を指定してください。";
+            return;
+        }
+
+        var isFolder = Directory.Exists(left) && Directory.Exists(right);
+        var name = SessionName.Trim();
+        if (name.Length == 0)
+        {
+            // 名前を毎回考えさせない。後から付け直せる。
+            name = $"{Path.GetFileName(left.TrimEnd(Path.DirectorySeparatorChar))} ↔ "
+                 + $"{Path.GetFileName(right.TrimEnd(Path.DirectorySeparatorChar))}";
+        }
+
+        _sessions.Upsert(new Session
+        {
+            Name = name,
+            Kind = isFolder ? SessionKind.Folder : SessionKind.Text,
+            LeftPath = left,
+            RightPath = right,
+        });
+        SessionName = string.Empty;
+        Message = $"「{name}」を保存しました。";
+        ReloadSessions();
+    }
+
+    private void OpenSession(SessionEntry entry)
+    {
+        // 開いた時点で「最近使った」順を更新する。
+        _sessions.Upsert(entry.Session);
+        ReloadSessions();
+
+        if (entry.Session.Kind == SessionKind.Folder)
+        {
+            _shell.ShowFolders(entry.Session.LeftPath, entry.Session.RightPath);
+        }
+        else
+        {
+            _shell.ShowText(entry.Session.LeftPath, entry.Session.RightPath);
+        }
+    }
+
+    private void RemoveSession(SessionEntry entry)
+    {
+        _sessions.Remove(entry.Session.Name);
+        ReloadSessions();
     }
 
     public string LeftPath
@@ -93,9 +187,12 @@ public sealed class HomeViewModel : ViewModelBase
         {
             return;
         }
-        if (!Directory.Exists(left) || !Directory.Exists(right))
+        static bool Usable(string path)
+            => Directory.Exists(path) || (File.Exists(path) && ArchiveSource.LooksLikeArchive(path));
+
+        if (!Usable(left) || !Usable(right))
         {
-            Message = "フォルダー比較にはフォルダーを指定してください。";
+            Message = "フォルダー比較にはフォルダーか書庫（zip / tar / tar.gz）を指定してください。";
             return;
         }
         _shell.ShowFolders(left, right);

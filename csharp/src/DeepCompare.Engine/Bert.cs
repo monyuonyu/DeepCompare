@@ -109,20 +109,32 @@ public sealed class Bert
         return pooled;
     }
 
-    /// <summary>y[m] = x[m] @ W^T + b。W は [out, in] の行優先なので行同士の内積で足りる。</summary>
+    /// <summary>
+    /// y[m] = x[m] @ W^T + b。W は [out, in] の行優先なので行同士の内積で足りる。
+    ///
+    /// 出力側の n を外側に置いてある。素直に m を外側にすると、入力行ごとに重み行列を
+    /// 頭から読み直すことになる。全結合部の重みは 2.3MB あるので、20 行の入力なら
+    /// 46MB を流すことになり、演算ではなくメモリ帯域で頭打ちになる。n を外側にすれば
+    /// 重み 1 行（1.5KB か 6KB）が L1 に載ったまま全入力行と内積を取れて、
+    /// 重み全体を読むのは 1 回で済む。
+    ///
+    /// 内積そのものは同じ組み合わせを同じ順で足すので、結果はビット単位で変わらない。
+    /// </summary>
     internal static void Linear(
         ReadOnlySpan<float> input, int rows, int inDim,
         Tensor weight, Tensor bias,
         Span<float> output)
     {
         var outDim = weight.Rows;
-        for (var m = 0; m < rows; m++)
+        for (var n = 0; n < outDim; n++)
         {
-            var x = input.Slice(m * inDim, inDim);
-            var y = output.Slice(m * outDim, outDim);
-            for (var n = 0; n < outDim; n++)
+            var w = weight.Row(n);
+            var b = bias.Data[n];
+            for (var m = 0; m < rows; m++)
             {
-                y[n] = TensorPrimitives.Dot(x, weight.Row(n)) + bias.Data[n];
+                // 手書きの多累算器版も試したが 1.6 倍遅かった。TensorPrimitives.Dot は
+                // FMA と複数の累算器を既に使っている。ここは置き換えないこと。
+                output[m * outDim + n] = TensorPrimitives.Dot(input.Slice(m * inDim, inDim), w) + b;
             }
         }
     }

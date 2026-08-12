@@ -14,7 +14,7 @@
       <Setter Property="TextWrapping" Value="NoWrap" />
     </Style>
     <Style Selector="TextBlock.gutter">
-      <Setter Property="Foreground" Value="{StaticResource FgDim}" />
+      <Setter Property="Foreground" Value="{DynamicResource FgDim}" />
       <Setter Property="FontSize" Value="11" />
       <Setter Property="Width" Value="52" />
       <Setter Property="TextAlignment" Value="Right" />
@@ -27,7 +27,9 @@
     <StackPanel DockPanel.Dock="Top" Margin="8,6" Spacing="6">
       <StackPanel Orientation="Horizontal" Spacing="6">
         <Button Content="{Binding BackText}" Command="{Binding BackCommand}" />
-        <Border Width="1" Background="{StaticResource FgDim}" Margin="4,2" />
+        <Button Content="{Binding Shell.ThemeButtonText}" Command="{Binding Shell.ToggleThemeCommand}"
+                ToolTip.Tip="明るい配色と暗い配色を切り替える。選択は次回も残る。" />
+        <Border Width="1" Background="{DynamicResource FgDim}" Margin="4,2" />
         <TextBlock Text="ファイル1:" VerticalAlignment="Center" />
         <TextBox Text="{Binding LeftPath}" Width="290" />
         <Button Content="参照" Command="{Binding BrowseLeftCommand}" />
@@ -39,7 +41,7 @@
       <StackPanel Orientation="Horizontal" Spacing="10">
         <Button Content="比較開始" Command="{Binding CompareCommand}" IsEnabled="{Binding !IsBusy}" />
         <CheckBox Content="変更のある行だけ表示" IsChecked="{Binding ChangesOnly}" />
-        <Border Width="1" Background="{StaticResource FgDim}" Margin="2,2" />
+        <Border Width="1" Background="{DynamicResource FgDim}" Margin="2,2" />
         <TextBlock Text="対応とみなす類似度:" VerticalAlignment="Center"
                    ToolTip.Tip="これを下回る行同士は、対にせず削除と追加として別々に並べる。&#x0a;短いコード行は似ていても値が伸びにくいので、対応が取れないときは下げる。" />
         <Slider Value="{Binding PairThreshold}" Minimum="0" Maximum="0.95"
@@ -49,16 +51,83 @@
         <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}"
                      Width="90" VerticalAlignment="Center" />
       </StackPanel>
+
+      <!-- 差分の反映。塊ごとのコピーは行の間のボタンで行う。 -->
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Button Content="元に戻す" Command="{Binding UndoCommand}"
+                ToolTip.Tip="反映を取り消す。保存した後でも遡れる。" />
+        <Button Content="やり直す" Command="{Binding RedoCommand}" />
+        <Border Width="1" Background="{DynamicResource FgDim}" Margin="2,2" />
+        <Button Content="ファイル1を保存" Command="{Binding SaveLeftCommand}" />
+        <Button Content="ファイル2を保存" Command="{Binding SaveRightCommand}" />
+        <Border Width="1" Background="{DynamicResource FgDim}" Margin="2,2" />
+        <Button Content="差分を書き出す" Command="{Binding ExportUnifiedCommand}"
+                ToolTip.Tip="unified 形式。patch や git apply でそのまま適用できる。" />
+        <Button Content="HTML" Command="{Binding ExportHtmlCommand}" />
+        <TextBlock Text="● 未保存の変更あり" Foreground="{DynamicResource FgInline}" VerticalAlignment="Center"
+                   IsVisible="{Binding HasUnsavedChanges}" />
+      </StackPanel>
+
+      <!--
+        重要でない差分の定義。ここで指定した違いは対応付けの段階から無視されるので、
+        表示だけでなく行の並びそのものが変わる。
+      -->
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock Text="無視する:" VerticalAlignment="Center" />
+        <TextBlock Text="空白" VerticalAlignment="Center"
+                   Foreground="{DynamicResource FgDim}" />
+        <ComboBox SelectedIndex="{Binding WhitespaceModeIndex}" Width="150"
+                  ToolTip.Tip="指定した空白の違いは一致として扱う。">
+          <ComboBoxItem Content="そのまま" />
+          <ComboBoxItem Content="行末のみ" />
+          <ComboBoxItem Content="行頭と行末" />
+          <ComboBoxItem Content="連続空白を 1 つ" />
+          <ComboBoxItem Content="すべて" />
+        </ComboBox>
+        <CheckBox Content="大文字小文字" IsChecked="{Binding IgnoreCase}" />
+        <TextBlock Text="正規表現（1 行 1 つ）:" VerticalAlignment="Center"
+                   Foreground="{DynamicResource FgDim}"
+                   ToolTip.Tip="一致した部分を比較から除く。&#x0a;例: \d{4}-\d{2}-\d{2} で日付を無視。" />
+        <TextBox Text="{Binding IgnoredPatterns}" Width="240" Height="46"
+                 AcceptsReturn="True" FontSize="11"
+                 PlaceholderText="\d{4}-\d{2}-\d{2}" />
+        <Button Content="適用" Command="{Binding ApplyImportanceCommand}" VerticalAlignment="Top" />
+        <TextBlock Text="{Binding ImportanceError}" Foreground="{DynamicResource FgWarning}"
+                   VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="260" />
+      </StackPanel>
+
+      <!-- 差分間の移動と検索。 -->
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Button Content="◀ 前の差分" Command="{Binding PreviousDifferenceCommand}" />
+        <Button Content="次の差分 ▶" Command="{Binding NextDifferenceCommand}" />
+        <Border Width="1" Background="{DynamicResource FgDim}" Margin="2,2" />
+        <TextBox Text="{Binding SearchText}" Width="180" PlaceholderText="検索"
+                 ToolTip.Tip="左右どちらの本文に当たっても、その行へ移る。" />
+        <Button Content="◀" Command="{Binding FindPreviousCommand}" />
+        <Button Content="▶" Command="{Binding FindNextCommand}" />
+        <CheckBox Content="正規表現" IsChecked="{Binding SearchUseRegex}" />
+        <CheckBox Content="大小文字" IsChecked="{Binding SearchMatchCase}" />
+        <CheckBox Content="単語単位" IsChecked="{Binding SearchWholeWord}" />
+        <Border Width="1" Background="{DynamicResource FgDim}" Margin="2,2" />
+        <TextBlock Text="前後に残す行:" VerticalAlignment="Center"
+                   ToolTip.Tip="「変更のある行だけ表示」のとき、変更の前後に何行残すか。" />
+        <Slider Value="{Binding ContextLines}" Minimum="0" Maximum="10"
+                Width="90" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding ContextLines, StringFormat={}{0:F0}}"
+                   VerticalAlignment="Center" Width="20" />
+        <TextBlock Text="{Binding SearchStatus}" VerticalAlignment="Center"
+                   Foreground="{DynamicResource FgDim}" />
+      </StackPanel>
     </StackPanel>
 
-    <Border DockPanel.Dock="Bottom" Padding="8,4" Background="#1A1A1A">
-      <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{StaticResource FgDim}" />
+    <Border DockPanel.Dock="Bottom" Padding="8,4" Background="{DynamicResource StatusBarBg}">
+      <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource FgDim}" />
     </Border>
 
     <Panel>
       <TextBlock Text="{Binding Placeholder}" IsVisible="{Binding ShowPlaceholder}"
                  HorizontalAlignment="Center" VerticalAlignment="Center"
-                 Foreground="{StaticResource FgDim}" TextWrapping="Wrap" />
+                 Foreground="{DynamicResource FgDim}" TextWrapping="Wrap" />
 
       <!--
         ListBox は既定で VirtualizingStackPanel を使い、画面に映っている行だけを
@@ -67,6 +136,8 @@
       -->
       <ListBox ItemsSource="{Binding VisibleRows}"
                IsVisible="{Binding !ShowPlaceholder}"
+               SelectedIndex="{Binding SelectedRowIndex}"
+               AutoScrollToSelectedItem="True"
                Background="Transparent" BorderThickness="0"
                ScrollViewer.HorizontalScrollBarVisibility="Auto"
                ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -85,11 +156,31 @@
                 <TextBlock Classes="cell"
                            Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}"
                            Inlines="{Binding LeftInlines}" />
+                <!--
+                  塊の先頭行にだけ出すコピーボタン。BC の gutter button に相当する。
+                  高さを行に揃えないと、押せる範囲が行からはみ出して隣の行を隠す。
+                -->
+                <Panel Width="40">
+                  <StackPanel Orientation="Horizontal" Spacing="2" IsVisible="{Binding IsBlockStart}">
+                    <Button Content="▶" Width="18" Height="18" Padding="0" FontSize="10"
+                            ToolTip.Tip="この塊を左から右へ写す"
+                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyToRightCommand}"
+                            CommandParameter="{Binding}" />
+                    <Button Content="◀" Width="18" Height="18" Padding="0" FontSize="10"
+                            ToolTip.Tip="この塊を右から左へ写す"
+                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyToLeftCommand}"
+                            CommandParameter="{Binding}" />
+                  </StackPanel>
+                </Panel>
                 <TextBlock Classes="cell gutter" Text="{Binding RightNumber}" />
                 <TextBlock Classes="cell"
                            Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}"
                            Inlines="{Binding RightInlines}" />
                 <TextBlock Classes="cell gutter" Text="{Binding ScoreText}" />
+                <!-- 移動の印。相手側の行番号を出すので、どこへ動いたかが分かる。 -->
+                <TextBlock Classes="cell" Width="52" Text="{Binding MovedText}"
+                           Foreground="{DynamicResource FgMoved}" FontSize="11"
+                           ToolTip.Tip="このブロックは相手側のこの行へ移動している" />
               </StackPanel>
             </Border>
           </DataTemplate>

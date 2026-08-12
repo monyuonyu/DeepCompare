@@ -28,7 +28,17 @@ public enum LineEnding
 public sealed record DecodedText(
     IReadOnlyList<string> Lines,
     TextEncoding Encoding,
-    LineEnding LineEnding);
+    LineEnding LineEnding)
+{
+    /// <summary>
+    /// 末尾が改行で終わっているか。
+    ///
+    /// 行の並びだけでは区別が付かないが、保存するときにこれを間違えると、
+    /// 触っていないファイルの最終行を書き換えてしまう。unified 形式でも
+    /// 「\ No newline at end of file」を出すかどうかがこれで決まる。
+    /// </summary>
+    public bool EndsWithNewline { get; init; } = true;
+}
 
 /// <summary>
 /// ファイルのバイト列を行の並びへ落とす。
@@ -70,7 +80,10 @@ public static class TextDecoder
     public static DecodedText Decode(ReadOnlySpan<byte> bytes)
     {
         var (text, encoding) = DecodeToString(bytes);
-        return new DecodedText(SplitLines(text), encoding, DetectLineEnding(text));
+        return new DecodedText(SplitLines(text), encoding, DetectLineEnding(text))
+        {
+            EndsWithNewline = text.Length == 0 || text[^1] is '\n' or '\r',
+        };
     }
 
     private static (string, TextEncoding) DecodeToString(ReadOnlySpan<byte> bytes)

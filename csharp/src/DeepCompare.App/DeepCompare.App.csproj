@@ -7,10 +7,22 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <AssemblyName>deepcompare</AssemblyName>
 
-    <!-- 「軽量な単一 exe」のための設定。ランタイム不要のネイティブ実行ファイルにする。 -->
+    <!-- ランタイム不要のネイティブ実行ファイルにする。起動が 10ms 台で済むのは
+         これのおかげで、単一 exe であることとは別の話。 -->
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>false</InvariantGlobalization>
     <StripSymbols>true</StripSymbols>
+
+    <!--
+      AOT の既定は保守的な命令セット（SSE2 相当）を狙うので、埋め込み推論の内積が
+      AVX2 を使えず遅くなる。実測で 2000 行 5% 変更の比較が 3.9 秒 → 2.2 秒（1.8 倍）。
+      比較時間はほぼ全部が埋め込み推論なので、ここが直に効く。
+
+      x86-64-v3 は AVX2/FMA を要求する。対象は Haswell（2013 年）以降で、
+      それより古い CPU では動かない。より広く配るなら x86-64-v2 に落とすが、
+      浮動小数の演算幅が半分になるぶん遅くなる。
+    -->
+    <IlcInstructionSet Condition="'$(RuntimeIdentifier)' == 'win-x64' or '$(RuntimeIdentifier)' == 'linux-x64'">x86-64-v3</IlcInstructionSet>
   </PropertyGroup>
 
   <ItemGroup>

@@ -25,15 +25,27 @@ public sealed class Embedder
         _tokenizer = tokenizer;
     }
 
-    /// <summary>exe に埋め込んだ重みと語彙から組み立てる。</summary>
-    public static Embedder CreateFromEmbeddedAssets()
+    /// <summary>既定の重みファイルの名前。実行ファイルと同じ場所に置く。</summary>
+    public const string DefaultWeightsFileName = "minilm.dcm";
+
+    /// <summary>
+    /// 実行ファイルの隣に置いた重みと、埋め込みの語彙から組み立てる。
+    ///
+    /// 重みを埋め込まないのは、22MB を実行ファイルから追い出すためと、再ビルド無しで
+    /// モデルを差し替えられるようにするため。別の重みを試すときは <see cref="CreateFromFiles"/>。
+    /// </summary>
+    public static Embedder CreateFromDefaultAssets()
     {
-        var assembly = typeof(Embedder).Assembly;
-        using var weights = OpenResource(assembly, "minilm.dcm");
-        using var vocab = OpenResource(assembly, "vocab.txt");
-        using var buffer = new MemoryStream();
-        weights.CopyTo(buffer);
-        return Create(buffer.ToArray(), vocab);
+        var path = Path.Combine(AppContext.BaseDirectory, DefaultWeightsFileName);
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException(
+                $"モデルが見つからない: {path}（実行ファイルと同じ場所に "
+                + $"{DefaultWeightsFileName} を置く）", path);
+        }
+
+        using var vocab = OpenResource(typeof(Embedder).Assembly, "vocab.txt");
+        return Create(File.ReadAllBytes(path), vocab);
     }
 
     /// <summary>ファイルから組み立てる。試験や、重みを差し替えて試すときに使う。</summary>

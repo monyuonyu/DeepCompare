@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace DeepCompare.Engine;
 
 public enum EntryStatus
@@ -36,6 +38,65 @@ public sealed record FolderStats(
 
 public sealed record FolderComparison(IReadOnlyList<FolderEntry> Entries, FolderStats Stats);
 
+/// <summary>フォルダー比較で「同じ」をどう決めるか。</summary>
+public enum FolderComparisonMode
+{
+    /// <summary>中身を読んで比べる。正確だが、数が多いと時間がかかる。</summary>
+    Content,
+
+    /// <summary>
+    /// 大きさと更新時刻だけで比べる。中身は読まない。数万個を相手にするときや、
+    /// 低速な媒体を跨ぐときはこちらでないと終わらない。
+    /// </summary>
+    SizeAndTimestamp,
+}
+
+/// <summary>
+/// 名前による絞り込み。ワイルドカードは <c>*</c> と <c>?</c> のみ。
+///
+/// <see cref="Include"/> は<b>ファイルにだけ</b>効く。ディレクトリにも効かせると
+/// <c>*.cs</c> のような指定で全ディレクトリが弾かれ、再帰が入口で止まる。
+/// <see cref="Exclude"/> は両方に効く。
+/// </summary>
+public sealed record NameFilter(
+    IReadOnlyList<string>? Include = null,
+    IReadOnlyList<string>? Exclude = null)
+{
+    public static readonly NameFilter Any = new();
+
+    private readonly Regex? _include = Build(Include);
+    private readonly Regex? _exclude = Build(Exclude);
+
+    public bool FiltersNothing => _include is null && _exclude is null;
+
+    /// <param name="isDirectory">Include を適用しない側かどうか。</param>
+    public bool Allows(string name, bool isDirectory)
+    {
+        if (_exclude is not null && _exclude.IsMatch(name))
+        {
+            return false;
+        }
+        if (isDirectory || _include is null)
+        {
+            return true;
+        }
+        return _include.IsMatch(name);
+    }
+
+    private static Regex? Build(IReadOnlyList<string>? patterns)
+    {
+        if (patterns is null || patterns.Count == 0)
+        {
+            return null;
+        }
+
+        var parts = patterns.Select(p =>
+            "(?:^" + Regex.Escape(p).Replace("\\*", ".*").Replace("\\?", ".") + "$)");
+        return new Regex(
+            string.Join('|', parts), RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+    }
+}
+
 public sealed record FolderCompareOptions
 {
     /// <summary>
@@ -52,6 +113,32 @@ public sealed record FolderCompareOptions
 
     /// <summary>同じ内容の項目を結果に含めるか。既定では含めて、表示側で絞る。</summary>
     public bool IncludeIdentical { get; init; } = true;
+
+    /// <summary>名前による絞り込み。既定は素通し。</summary>
+    public NameFilter Filter { get; init; } = NameFilter.Any;
+
+    /// <summary>同じかどうかの判定方法。</summary>
+    public FolderComparisonMode Mode { get; init; } = FolderComparisonMode.Content;
+
+    /// <summary>
+    /// 更新時刻の差をどこまで同じとみなすか（秒）。
+    ///
+    /// FAT は 2 秒刻みでしか時刻を持てず、NTFS との間でコピーすると 1〜2 秒ずれる。
+    /// 媒体を跨ぐ比較では、この程度を許さないと全件が「違う」になる。
+    /// </summary>
+    public double TimestampToleranceSeconds { get; init; }
+
+    /// <summary>
+    /// ちょうど 1 時間のずれを同じとみなす。夏時間の切り替えを挟むと、同じファイルの
+    /// 時刻が 1 時間ずれて記録される環境がある。
+    /// </summary>
+    public bool IgnoreDaylightSavingOffset { get; init; }
+
+    /// <summary>指定した大きさ未満のファイルを対象から外す。0 なら制限しない。</summary>
+    public long MinimumSize { get; init; }
+
+    /// <summary>指定した大きさを超えるファイルを対象から外す。0 なら制限しない。</summary>
+    public long MaximumSize { get; init; }
 }
 
 /// <summary>
@@ -169,7 +256,10 @@ public static class FolderComparer
                 bool same;
                 try
                 {
-                    same = SameContent(leftFile, rightFile, cancellationToken);
+                    same = options.Mode == FolderComparisonMode.SizeAndTimestamp
+                        ? leftFile.Length == rightFile.Length
+                          && SameTimestamp(leftFile.LastWriteTime, rightFile.LastWriteTime, options)
+                        : SameContent(leftFile, rightFile, cancellationToken);
                 }
                 catch (OperationCanceledException)
                 {
@@ -222,6 +312,25 @@ public static class FolderComparer
         }
     }
 
+    private static bool WithinSizeLimits(long length, FolderCompareOptions options)
+        => (options.MinimumSize <= 0 || length >= options.MinimumSize)
+           && (options.MaximumSize <= 0 || length <= options.MaximumSize);
+
+    /// <summary>
+    /// 更新時刻が同じとみなせるか。許容誤差と、夏時間ぶんの 1 時間を見る。
+    /// </summary>
+    internal static bool SameTimestamp(DateTime left, DateTime right, FolderCompareOptions options)
+    {
+        var difference = Math.Abs((left - right).TotalSeconds);
+        if (difference <= options.TimestampToleranceSeconds)
+        {
+            return true;
+        }
+        // ちょうど 1 時間ずれている場合も、許容誤差の範囲で同じとみなす。
+        return options.IgnoreDaylightSavingOffset
+               && Math.Abs(difference - 3600) <= options.TimestampToleranceSeconds;
+    }
+
     private static Dictionary<string, FileSystemInfo> ListNames(
         string? directory, FolderCompareOptions options, out string? error)
     {
@@ -244,6 +353,17 @@ public static class FolderComparer
                 {
                     continue;
                 }
+
+                var isDirectory = info.Attributes.HasFlag(FileAttributes.Directory);
+                if (!options.Filter.Allows(info.Name, isDirectory))
+                {
+                    continue;
+                }
+                if (!isDirectory && info is FileInfo file && !WithinSizeLimits(file.Length, options))
+                {
+                    continue;
+                }
+
                 result[info.Name] = info;
             }
         }

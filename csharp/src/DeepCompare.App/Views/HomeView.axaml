@@ -9,11 +9,11 @@
 
       <StackPanel Spacing="4">
         <TextBlock Text="DeepCompare" FontSize="26" FontWeight="SemiBold" />
-        <TextBlock Foreground="{StaticResource FgDim}" TextWrapping="Wrap"
+        <TextBlock Foreground="{DynamicResource FgDim}" TextWrapping="Wrap"
                    Text="意味的な類似度で行を対応付けるコード比較ツール。変数名を一括で変えた行のように、文字列としては別物でも役割が同じ行を同じ行として並べます。" />
       </StackPanel>
 
-      <Border Background="#1E1E1E" CornerRadius="6" Padding="20" >
+      <Border Background="{DynamicResource PanelBg}" CornerRadius="6" Padding="20" >
         <StackPanel Spacing="14">
           <TextBlock Text="比較するものを選ぶ" FontSize="15" FontWeight="SemiBold" />
 
@@ -38,25 +38,25 @@
           </Grid>
 
           <TextBlock Text="ウィンドウにドラッグ＆ドロップしても指定できます。"
-                     FontSize="11" Foreground="{StaticResource FgDim}" />
+                     FontSize="11" Foreground="{DynamicResource FgDim}" />
         </StackPanel>
       </Border>
 
       <Grid ColumnDefinitions="*,16,*">
-        <Border Grid.Column="0" Background="#1E1E1E" CornerRadius="6" Padding="18">
+        <Border Grid.Column="0" Background="{DynamicResource PanelBg}" CornerRadius="6" Padding="18">
           <StackPanel Spacing="10">
             <TextBlock Text="テキストを比較" FontSize="15" FontWeight="SemiBold" />
-            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource FgDim}"
+            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource FgDim}"
                        Text="2 つのファイルを行単位で突き合わせます。意味的な類似度で対応を決めるので、名前を変えただけの行も並びます。" />
             <Button Content="テキストを比較" HorizontalAlignment="Left"
                     Command="{Binding CompareTextCommand}" />
           </StackPanel>
         </Border>
 
-        <Border Grid.Column="2" Background="#1E1E1E" CornerRadius="6" Padding="18">
+        <Border Grid.Column="2" Background="{DynamicResource PanelBg}" CornerRadius="6" Padding="18">
           <StackPanel Spacing="10">
             <TextBlock Text="フォルダーを比較" FontSize="15" FontWeight="SemiBold" />
-            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource FgDim}"
+            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource FgDim}"
                        Text="2 つのフォルダーを再帰的に走査し、差異のあるファイルを一覧にします。行を開くとテキスト比較へ移ります。" />
             <Button Content="フォルダーを比較" HorizontalAlignment="Left"
                     Command="{Binding CompareFoldersCommand}" />
@@ -64,8 +64,54 @@
         </Border>
       </Grid>
 
-      <TextBlock Text="{Binding Message}" Foreground="#E0A060" TextWrapping="Wrap"
+      <TextBlock Text="{Binding Message}" Foreground="{DynamicResource FgWarning}" TextWrapping="Wrap"
                  IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+      <!--
+        保存した比較。毎回パスを打ち直すのは乗り換えの障害になるので、
+        名前を付けて残せるようにする（BC の Home View に相当）。
+      -->
+      <Border Background="{DynamicResource PanelBg}" CornerRadius="6" Padding="18">
+        <StackPanel Spacing="10">
+          <TextBlock Text="保存した比較" FontSize="15" FontWeight="SemiBold" />
+
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <TextBox Text="{Binding SessionName}" Width="240"
+                     PlaceholderText="名前（空なら自動で付ける）" />
+            <Button Content="いまの組み合わせを保存" Command="{Binding SaveSessionCommand}" />
+          </StackPanel>
+
+          <TextBlock Text="まだ保存されたものはありません。" FontSize="12"
+                     Foreground="{DynamicResource FgDim}"
+                     IsVisible="{Binding !HasSessions}" />
+
+          <ItemsControl ItemsSource="{Binding Sessions}" IsVisible="{Binding HasSessions}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:SessionEntry">
+                <Border Background="{DynamicResource CardBg}" CornerRadius="4" Padding="10,6" Margin="0,0,0,6">
+                  <Grid ColumnDefinitions="*,Auto,Auto">
+                    <StackPanel Grid.Column="0" Spacing="2">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding Kind}" FontSize="11"
+                                   Foreground="{DynamicResource FgDim}" VerticalAlignment="Center" />
+                      </StackPanel>
+                      <TextBlock Text="{Binding Paths}" FontSize="11"
+                                 Foreground="{DynamicResource FgDim}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="開く" Margin="6,0,0,0"
+                            Command="{Binding $parent[UserControl].((vm:HomeViewModel)DataContext).OpenSessionCommand}"
+                            CommandParameter="{Binding}" />
+                    <Button Grid.Column="2" Content="削除" Margin="6,0,0,0"
+                            Command="{Binding $parent[UserControl].((vm:HomeViewModel)DataContext).RemoveSessionCommand}"
+                            CommandParameter="{Binding}" />
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
 
     </StackPanel>
   </ScrollViewer>
