@@ -39,6 +39,8 @@ public sealed class TextCompareViewModel : ViewModelBase
     private bool _changesOnly;
     private double _pairThreshold = Aligner.DefaultPairThreshold;
     private double _textWidth = 460;
+    private double _viewportWidth;
+    private double _contentWidth = 300;
     private int _selectedRowIndex = -1;
     private double _contextLines;
     private string _searchText = string.Empty;
@@ -252,11 +254,42 @@ public sealed class TextCompareViewModel : ViewModelBase
         set => Set(ref _pairThreshold, value);
     }
 
-    /// <summary>本文列の幅。最長行に合わせて決め、横スクロールできるようにする。</summary>
+    /// <summary>
+    /// 本文列の幅。
+    ///
+    /// 最長行に合わせるだけだと、行の短いファイルで右側が大きく余る。かといって
+    /// 常に画面幅で割ると長い行が読めない。**内容に必要な幅と、画面を左右で
+    /// 分け合った幅の、大きい方**を採る。
+    /// </summary>
     public double TextWidth
     {
         get => _textWidth;
         private set => Set(ref _textWidth, value);
+    }
+
+    /// <summary>一覧に使える横幅。画面側から知らせてもらう。</summary>
+    public double ViewportWidth
+    {
+        get => _viewportWidth;
+        set
+        {
+            if (Set(ref _viewportWidth, value))
+            {
+                UpdateTextWidth();
+            }
+        }
+    }
+
+    /// <summary>本文以外の列（行番号 3 つ・コピーボタン・移動の印）が使う幅。</summary>
+    private const double GutterWidth = 52 * 3 + 40 + 52;
+
+    private void UpdateTextWidth()
+    {
+        // 画面幅が分からないうちは内容だけで決める。起動直後に一度だけ通る。
+        var share = _viewportWidth > 0
+            ? Math.Max(300, (_viewportWidth - GutterWidth) / 2)
+            : 0;
+        TextWidth = Math.Max(_contentWidth, share);
     }
 
     private async Task PickAsync(bool left)
@@ -479,7 +512,8 @@ public sealed class TextCompareViewModel : ViewModelBase
         // 最長行に合わせて本文列の幅を決める。等幅なので概算で足りる。
         var longest = left.Lines.Concat(right.Lines)
             .Select(l => l.Length).DefaultIfEmpty(0).Max();
-        TextWidth = Math.Max(300, Math.Min(longest * 7.6, 20000));
+        _contentWidth = Math.Max(300, Math.Min(longest * 7.6, 20000));
+        UpdateTextWidth();
 
         var stats = comparison.Stats;
         if (keepStatus)
