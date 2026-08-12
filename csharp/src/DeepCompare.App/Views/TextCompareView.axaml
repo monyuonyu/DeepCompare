@@ -24,103 +24,205 @@
 
   <DockPanel>
 
-    <StackPanel DockPanel.Dock="Top" Margin="8,6" Spacing="6">
-      <StackPanel Orientation="Horizontal" Spacing="6">
-        <Button Content="{Binding BackText}" Command="{Binding BackCommand}" />
-        <Button Content="{Binding Shell.ThemeButtonText}" Command="{Binding Shell.ToggleThemeCommand}"
-                ToolTip.Tip="明るい配色と暗い配色を切り替える。選択は次回も残る。" />
-        <Border Width="1" Background="{DynamicResource FgDim}" Margin="4,2" />
-        <TextBlock Text="ファイル1:" VerticalAlignment="Center" />
-        <TextBox Text="{Binding LeftPath}" Width="290" />
-        <Button Content="参照" Command="{Binding BrowseLeftCommand}" />
-        <TextBlock Text="ファイル2:" VerticalAlignment="Center" />
-        <TextBox Text="{Binding RightPath}" Width="290" />
-        <Button Content="参照" Command="{Binding BrowseRightCommand}" />
-      </StackPanel>
+    <!--
+      上端。**アイコン 1 段＋パス 1 段に畳んだ。**
+      以前は 4 段あり、画面の高さの 1/4 を操作が占めていた。よく使うものだけを
+      形で出し、説明はツールチップへ、細かい設定は歯車の中へ逃がす。
+      Beyond Compare も操作はアイコン 1 段で、その下がパス行になっている。
+    -->
+    <StackPanel DockPanel.Dock="Top">
 
-      <StackPanel Orientation="Horizontal" Spacing="10">
-        <Button Content="比較開始" Command="{Binding CompareCommand}" IsEnabled="{Binding !IsBusy}" />
-        <CheckBox Content="変更のある行だけ表示" IsChecked="{Binding ChangesOnly}" />
-        <Border Width="1" Background="{DynamicResource FgDim}" Margin="2,2" />
-        <TextBlock Text="対応とみなす類似度:" VerticalAlignment="Center"
-                   ToolTip.Tip="これを下回る行同士は、対にせず削除と追加として別々に並べる。&#x0a;短いコード行は似ていても値が伸びにくいので、対応が取れないときは下げる。" />
-        <Slider Value="{Binding PairThreshold}" Minimum="0" Maximum="0.95"
-                Width="150" VerticalAlignment="Center" />
-        <TextBlock Text="{Binding PairThreshold, StringFormat={}{0:F2}}"
-                   VerticalAlignment="Center" Width="34" />
-        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}"
-                     Width="90" VerticalAlignment="Center" />
-      </StackPanel>
+      <Border Classes="topbar" BorderThickness="0">
+        <StackPanel Orientation="Horizontal" Spacing="2">
 
-      <!-- 差分の反映。塊ごとのコピーは行の間のボタンで行う。 -->
-      <StackPanel Orientation="Horizontal" Spacing="6">
-        <Button Content="元に戻す" Command="{Binding UndoCommand}"
-                ToolTip.Tip="反映を取り消す。保存した後でも遡れる。" />
-        <Button Content="やり直す" Command="{Binding RedoCommand}" />
-        <Border Width="1" Background="{DynamicResource FgDim}" Margin="2,2" />
-        <Button Content="ファイル1を保存" Command="{Binding SaveLeftCommand}" />
-        <Button Content="ファイル2を保存" Command="{Binding SaveRightCommand}" />
-        <Border Width="1" Background="{DynamicResource FgDim}" Margin="2,2" />
-        <Button Content="差分を書き出す" Command="{Binding ExportUnifiedCommand}"
-                ToolTip.Tip="unified 形式。patch や git apply でそのまま適用できる。" />
-        <Button Content="HTML" Command="{Binding ExportHtmlCommand}" />
-        <TextBlock Text="● 未保存の変更あり" Foreground="{DynamicResource FgInline}" VerticalAlignment="Center"
-                   IsVisible="{Binding HasUnsavedChanges}" />
-      </StackPanel>
+          <Button Classes="icon accent-icon" Command="{Binding CompareCommand}"
+                  IsEnabled="{Binding !IsBusy}" ToolTip.Tip="比較する">
+            <Path Classes="icon" Data="{StaticResource IconRefresh}" />
+          </Button>
 
-      <!--
-        重要でない差分の定義。ここで指定した違いは対応付けの段階から無視されるので、
-        表示だけでなく行の並びそのものが変わる。
-      -->
-      <StackPanel Orientation="Horizontal" Spacing="6">
-        <TextBlock Text="無視する:" VerticalAlignment="Center" />
-        <TextBlock Text="空白" VerticalAlignment="Center"
-                   Foreground="{DynamicResource FgDim}" />
-        <ComboBox SelectedIndex="{Binding WhitespaceModeIndex}" Width="150"
-                  ToolTip.Tip="指定した空白の違いは一致として扱う。">
-          <ComboBoxItem Content="そのまま" />
-          <ComboBoxItem Content="行末のみ" />
-          <ComboBoxItem Content="行頭と行末" />
-          <ComboBoxItem Content="連続空白を 1 つ" />
-          <ComboBoxItem Content="すべて" />
-        </ComboBox>
-        <CheckBox Content="大文字小文字" IsChecked="{Binding IgnoreCase}" />
-        <TextBlock Text="正規表現（1 行 1 つ）:" VerticalAlignment="Center"
-                   Foreground="{DynamicResource FgDim}"
-                   ToolTip.Tip="一致した部分を比較から除く。&#x0a;例: \d{4}-\d{2}-\d{2} で日付を無視。" />
-        <TextBox Text="{Binding IgnoredPatterns}" Width="240" Height="46"
-                 AcceptsReturn="True" FontSize="11"
-                 PlaceholderText="\d{4}-\d{2}-\d{2}" />
-        <Button Content="適用" Command="{Binding ApplyImportanceCommand}" VerticalAlignment="Top" />
-        <TextBlock Text="{Binding ImportanceError}" Foreground="{DynamicResource FgWarning}"
-                   VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="260" />
-      </StackPanel>
+          <Border Classes="vsep" />
 
-      <!-- 差分間の移動と検索。 -->
-      <StackPanel Orientation="Horizontal" Spacing="6">
-        <Button Content="◀ 前の差分" Command="{Binding PreviousDifferenceCommand}" />
-        <Button Content="次の差分 ▶" Command="{Binding NextDifferenceCommand}" />
-        <Border Width="1" Background="{DynamicResource FgDim}" Margin="2,2" />
-        <TextBox Text="{Binding SearchText}" Width="180" PlaceholderText="検索"
-                 ToolTip.Tip="左右どちらの本文に当たっても、その行へ移る。" />
-        <Button Content="◀" Command="{Binding FindPreviousCommand}" />
-        <Button Content="▶" Command="{Binding FindNextCommand}" />
-        <CheckBox Content="正規表現" IsChecked="{Binding SearchUseRegex}" />
-        <CheckBox Content="大小文字" IsChecked="{Binding SearchMatchCase}" />
-        <CheckBox Content="単語単位" IsChecked="{Binding SearchWholeWord}" />
-        <Border Width="1" Background="{DynamicResource FgDim}" Margin="2,2" />
-        <TextBlock Text="前後に残す行:" VerticalAlignment="Center"
-                   ToolTip.Tip="「変更のある行だけ表示」のとき、変更の前後に何行残すか。" />
-        <Slider Value="{Binding ContextLines}" Minimum="0" Maximum="10"
-                Width="90" VerticalAlignment="Center" />
-        <TextBlock Text="{Binding ContextLines, StringFormat={}{0:F0}}"
-                   VerticalAlignment="Center" Width="20" />
-        <TextBlock Text="{Binding SearchStatus}" VerticalAlignment="Center"
-                   Foreground="{DynamicResource FgDim}" />
-      </StackPanel>
+          <Button Classes="icon" Command="{Binding PreviousDifferenceCommand}"
+                  ToolTip.Tip="前の差分へ">
+            <Path Classes="icon" Data="{StaticResource IconPrev}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding NextDifferenceCommand}"
+                  ToolTip.Tip="次の差分へ">
+            <Path Classes="icon" Data="{StaticResource IconNext}" />
+          </Button>
+
+          <!-- 差分だけに絞る。押している状態が面で分かる -->
+          <ToggleButton Classes="filter" IsChecked="{Binding ChangesOnly}"
+                        ToolTip.Tip="変更のある行だけを出す">
+            <Path Classes="icon" Data="{StaticResource IconFilterDiff}" />
+          </ToggleButton>
+
+          <Border Classes="vsep" />
+
+          <Button Classes="icon" Command="{Binding UndoCommand}"
+                  ToolTip.Tip="反映を取り消す。保存した後でも遡れる">
+            <Path Classes="icon" Data="{StaticResource IconUndo}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding RedoCommand}" ToolTip.Tip="やり直す">
+            <Path Classes="icon" Data="{StaticResource IconRedo}" />
+          </Button>
+
+          <Border Classes="vsep" />
+
+          <!-- 保存は 1 つに畳む。左右の矢印は「反映の向き」で使うので、
+               同じ形を保存に流用すると意味がぶつかる -->
+          <Button Classes="icon" ToolTip.Tip="保存する">
+            <Button.Flyout>
+              <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                <MenuItem Header="左のファイルを保存" Command="{Binding SaveLeftCommand}" />
+                <MenuItem Header="右のファイルを保存" Command="{Binding SaveRightCommand}" />
+              </MenuFlyout>
+            </Button.Flyout>
+            <Path Classes="icon" Data="{StaticResource IconSave}" />
+          </Button>
+
+          <!-- 未保存があることは、点だけで足りる -->
+          <Ellipse Width="7" Height="7" Fill="{DynamicResource FgInline}"
+                   VerticalAlignment="Center" Margin="2,0"
+                   IsVisible="{Binding HasUnsavedChanges}"
+                   ToolTip.Tip="保存していない変更があります" />
+
+          <Border Classes="vsep" />
+
+          <Button Classes="icon" ToolTip.Tip="差分を書き出す">
+            <Button.Flyout>
+              <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                <MenuItem Header="unified 形式（patch で適用できる）"
+                          Command="{Binding ExportUnifiedCommand}" />
+                <MenuItem Header="HTML（左右を並べた表）"
+                          Command="{Binding ExportHtmlCommand}" />
+              </MenuFlyout>
+            </Button.Flyout>
+            <Path Classes="icon" Data="{StaticResource IconExport}" />
+          </Button>
+
+          <Border Classes="vsep" />
+
+          <!-- 検索。よく使うのでツールバーに出す -->
+          <TextBox Text="{Binding SearchText}" Width="150" Height="30"
+                   PlaceholderText="検索"
+                   ToolTip.Tip="左右どちらの本文に当たっても、その行へ移る" />
+          <Button Classes="icon" Command="{Binding FindPreviousCommand}" ToolTip.Tip="前を探す">
+            <Path Classes="icon" Data="{StaticResource IconPrev}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding FindNextCommand}" ToolTip.Tip="次を探す">
+            <Path Classes="icon" Data="{StaticResource IconNext}" />
+          </Button>
+          <TextBlock Text="{Binding SearchStatus}" Classes="hint" VerticalAlignment="Center"
+                     Margin="4,0" />
+
+          <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}"
+                       Width="70" VerticalAlignment="Center" Margin="6,0" />
+
+          <!--
+            細かい設定は歯車の中へ。**毎回は触らないが、無いと困るもの**の置き場。
+            常時出していると、よく使う操作を探す邪魔になる。
+          -->
+          <Button Classes="icon" HorizontalAlignment="Right" ToolTip.Tip="比較の設定">
+            <Button.Flyout>
+              <Flyout Placement="BottomEdgeAlignedRight">
+                <StackPanel Width="330" Spacing="14" Margin="4">
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="重要でない差分" Classes="title" />
+                    <TextBlock Classes="hint"
+                               Text="ここで指定した違いは対応付けの段階から無視されるので、表示だけでなく行の並びそのものが変わります。" />
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
+                      <TextBlock Grid.Row="0" Grid.Column="0" Text="空白" VerticalAlignment="Center"
+                                 Margin="0,0,10,6" />
+                      <ComboBox Grid.Row="0" Grid.Column="1" SelectedIndex="{Binding WhitespaceModeIndex}"
+                                HorizontalAlignment="Stretch" Margin="0,0,0,6">
+                        <ComboBoxItem Content="そのまま" />
+                        <ComboBoxItem Content="行末のみ" />
+                        <ComboBoxItem Content="行頭と行末" />
+                        <ComboBoxItem Content="連続空白を 1 つ" />
+                        <ComboBoxItem Content="すべて" />
+                      </ComboBox>
+                      <CheckBox Grid.Row="1" Grid.Column="1" Content="大文字小文字を区別しない"
+                                IsChecked="{Binding IgnoreCase}" />
+                    </Grid>
+                    <TextBlock Text="無視する正規表現（1 行に 1 つ）" Classes="hint" />
+                    <TextBox Text="{Binding IgnoredPatterns}" Height="54" AcceptsReturn="True"
+                             FontSize="11" PlaceholderText="\d{4}-\d{2}-\d{2}" />
+                    <TextBlock Text="{Binding ImportanceError}"
+                               Foreground="{DynamicResource FgWarning}"
+                               TextWrapping="Wrap" FontSize="11" />
+                    <Button Content="適用して比較しなおす" Classes="accent"
+                            HorizontalAlignment="Left"
+                            Command="{Binding ApplyImportanceCommand}" />
+                  </StackPanel>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="対応とみなす類似度" Classes="title" />
+                    <TextBlock Classes="hint"
+                               Text="これを下回る行同士は、対にせず削除と追加として別々に並べます。短いコード行は似ていても値が伸びにくいので、対応が取れないときは下げてください。" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                      <Slider Value="{Binding PairThreshold}" Minimum="0" Maximum="0.95"
+                              Width="220" VerticalAlignment="Center" />
+                      <TextBlock Text="{Binding PairThreshold, StringFormat={}{0:F2}}"
+                                 VerticalAlignment="Center" />
+                    </StackPanel>
+                  </StackPanel>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="差分の前後に残す行" Classes="title" />
+                    <TextBlock Classes="hint" Text="「変更のある行だけ」のときに、前後を何行残すか。" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                      <Slider Value="{Binding ContextLines}" Minimum="0" Maximum="10"
+                              Width="220" VerticalAlignment="Center" />
+                      <TextBlock Text="{Binding ContextLines, StringFormat={}{0:F0}}"
+                                 VerticalAlignment="Center" />
+                    </StackPanel>
+                  </StackPanel>
+
+                  <StackPanel Spacing="6">
+                    <TextBlock Text="検索のしかた" Classes="title" />
+                    <CheckBox Content="正規表現として扱う" IsChecked="{Binding SearchUseRegex}" />
+                    <CheckBox Content="大文字小文字を区別する" IsChecked="{Binding SearchMatchCase}" />
+                    <CheckBox Content="単語として一致するものだけ" IsChecked="{Binding SearchWholeWord}" />
+                  </StackPanel>
+
+                </StackPanel>
+              </Flyout>
+            </Button.Flyout>
+            <Path Classes="icon" Data="{StaticResource IconSettings}" />
+          </Button>
+
+        </StackPanel>
+      </Border>
+
+      <!-- パスの行。左右で対になるので、同じ幅で並べる -->
+      <Border Classes="topbar">
+        <Grid ColumnDefinitions="*,Auto,*">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+            <TextBox Text="{Binding LeftPath}" HorizontalAlignment="Stretch" Width="NaN"
+                     PlaceholderText="左のファイル" />
+            <Button Classes="icon" Command="{Binding BrowseLeftCommand}" ToolTip.Tip="左のファイルを選ぶ">
+              <Path Classes="icon" Data="{StaticResource IconBrowse}" />
+            </Button>
+          </StackPanel>
+
+          <TextBlock Grid.Column="1" Text="↔" Classes="dim" VerticalAlignment="Center"
+                     Margin="10,0" />
+
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
+            <TextBox Text="{Binding RightPath}" HorizontalAlignment="Stretch" Width="NaN"
+                     PlaceholderText="右のファイル" />
+            <Button Classes="icon" Command="{Binding BrowseRightCommand}" ToolTip.Tip="右のファイルを選ぶ">
+              <Path Classes="icon" Data="{StaticResource IconBrowse}" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+
     </StackPanel>
 
-    <Border DockPanel.Dock="Bottom" Padding="8,4" Background="{DynamicResource StatusBarBg}">
+    <Border DockPanel.Dock="Bottom" Classes="statusbar">
       <StackPanel Orientation="Horizontal" Spacing="16">
         <TextBlock Text="{Binding StatusText}" FontSize="11"
                    Foreground="{DynamicResource FgDim}" />

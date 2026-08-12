@@ -1,16 +1,37 @@
+using System.Collections.ObjectModel;
+using Avalonia.Media;
 using DeepCompare.Engine;
 
 namespace DeepCompare.App;
 
+/// <summary>サイドバーの 1 項目。</summary>
+public sealed class NavItem(string label, string hint, string iconKey, object content)
+{
+    public string Label { get; } = label;
+
+    /// <summary>指したときに出す一言。ラベルだけでは伝わらない差を補う。</summary>
+    public string Hint { get; } = hint;
+
+    public Geometry? Icon => Icons.Get(iconKey);
+
+    /// <summary>この項目が出す画面。**作り直さず持ち回る**ので、状態が残る。</summary>
+    public object Content { get; } = content;
+}
+
 /// <summary>
-/// 画面全体の入れ物。どの画面を出すかだけを持ち、比較そのものには関わらない。
+/// 画面全体の入れ物。
 ///
-/// Beyond Compare や WinMerge と同じく、まず「何を比べるか」を選ぶ画面から入り、
-/// フォルダー比較の一覧から個々のファイルのテキスト比較へ降りていく形にする。
+/// **サイドバーで行き来する。** 以前は「起動画面 → 比較画面 → 戻る」の往復
+/// だったが、比較の種類が 5 つに増えると、種類を変えるたびに一度戻る必要があり
+/// 手数が増える。加えて**戻ると状態が捨てられる**（比較のやり直しになる）。
+///
+/// 画面は最初に 1 つずつ作って持ち回る。切り替えても入力もスクロール位置も残る。
+/// モデル（90MB）と同じ理由で、作り直しは高い。
 /// </summary>
 public sealed class ShellViewModel : ViewModelBase
 {
-    private object _current;
+    private readonly SessionStore _settings = new();
+    private bool _lightTheme;
 
     /// <summary>
     /// モデルは読み込みに数秒かかるうえ 90MB 近い実体を持つので、
@@ -27,8 +48,25 @@ public sealed class ShellViewModel : ViewModelBase
         _lightTheme = _settings.LoadLightTheme();
         Palette.Use(_lightTheme);
         ToggleThemeCommand = new RelayCommand(() => { LightTheme = !LightTheme; return Task.CompletedTask; });
+
+        Text = new TextCompareViewModel(this);
+        Folder = new FolderCompareViewModel(this);
+        Structured = new StructuredCompareViewModel(this);
+        Merge = new MergeViewModel(this);
+        Git = new GitViewModel(this, Environment.CurrentDirectory);
         Home = new HomeViewModel(this);
-        _current = Home;
+
+        Items =
+        [
+            new NavItem("テキスト", "2 つのファイルを行で突き合わせる", "IconText", Text),
+            new NavItem("フォルダー", "2 つのフォルダーを再帰的に比べる", "IconFolder", Folder),
+            new NavItem("構造", "JSON を構造として比べる。キーの順序は差分にしない",
+                "IconStructure", Structured),
+            new NavItem("マージ", "共通の元から分かれた 2 つの変更を合わせる", "IconMerge", Merge),
+            new NavItem("Git", "作業ツリーと履歴", "IconGit", Git),
+            new NavItem("保存", "名前を付けた比較の組み合わせ", "IconSaved", Home),
+        ];
+        _selected = Items[0];
     }
 
     public Func<string, bool, Task<string?>> PickPath { get; }
@@ -36,8 +74,30 @@ public sealed class ShellViewModel : ViewModelBase
     /// <summary>書き出し先を選ばせる。（題名、既定のファイル名）を受ける。</summary>
     public Func<string, string, Task<string?>> PickSavePath { get; }
 
-    private readonly DeepCompare.Engine.SessionStore _settings = new();
-    private bool _lightTheme;
+    public ObservableCollection<NavItem> Items { get; }
+
+    public TextCompareViewModel Text { get; }
+    public FolderCompareViewModel Folder { get; }
+    public StructuredCompareViewModel Structured { get; }
+    public MergeViewModel Merge { get; }
+    public GitViewModel Git { get; }
+    public HomeViewModel Home { get; }
+
+    private NavItem _selected;
+    public NavItem Selected
+    {
+        get => _selected;
+        set
+        {
+            // ListBox は選択を外すことがある（項目の入れ替えなど）。null は無視する。
+            if (value is not null && Set(ref _selected, value))
+            {
+                OnPropertyChanged(nameof(Current));
+            }
+        }
+    }
+
+    public object Current => _selected.Content;
 
     public System.Windows.Input.ICommand ToggleThemeCommand { get; }
 
@@ -56,94 +116,108 @@ public sealed class ShellViewModel : ViewModelBase
             }
             Palette.Use(value);
             _settings.SaveLightTheme(value);
-            OnPropertyChanged(nameof(ThemeButtonText));
+            OnPropertyChanged(nameof(ThemeIcon));
+            OnPropertyChanged(nameof(ThemeTooltip));
             ThemeChanged?.Invoke();
         }
     }
 
-    public string ThemeButtonText => _lightTheme ? "ダークにする" : "ライトにする";
+    /// <summary>いま押すと何になるか。押した先を示す方が、迷わない。</summary>
+    public Geometry? ThemeIcon => Icons.Get(_lightTheme ? "IconMoon" : "IconSun");
+
+    public string ThemeTooltip => _lightTheme ? "暗い配色にする" : "明るい配色にする";
 
     /// <summary>テーマが変わったときに、開いている画面が行を作り直すための知らせ。</summary>
     public event Action? ThemeChanged;
 
-    public HomeViewModel Home { get; }
+    /// <summary>初回だけ読む。呼び出し側は必ず作業スレッドから呼ぶこと。</summary>
+    public Embedder GetEmbedder() => _embedder ??= Embedder.CreateFromDefaultAssets();
 
-    public object Current
+    private void Go(object content)
     {
-        get => _current;
-        private set
+        foreach (var item in Items)
         {
-            if (Set(ref _current, value))
+            if (ReferenceEquals(item.Content, content))
             {
-                OnPropertyChanged(nameof(CanGoHome));
+                Selected = item;
+                return;
             }
         }
     }
 
-    public bool CanGoHome => Current is not HomeViewModel;
+    // --- 画面を開く。指定があれば入れてから走らせる ---
 
-    /// <summary>初回だけ読む。呼び出し側は必ず作業スレッドから呼ぶこと。</summary>
-    public Embedder GetEmbedder() => _embedder ??= Embedder.CreateFromDefaultAssets();
-
-    public void GoHome() => Current = Home;
+    public void ShowText(string left, string right)
+    {
+        Text.LeftPath = left;
+        Text.RightPath = right;
+        Go(Text);
+        Text.CompareCommand.Execute(null);
+    }
 
     public void ShowFolders(string left, string right)
-        => Current = new FolderCompareViewModel(this, left, right);
-
-    /// <summary>テキスト比較を開く。フォルダー一覧からも起動画面からも呼ばれる。</summary>
-    public void ShowText(string left, string right, object? back = null)
     {
-        var model = new TextCompareViewModel(this, back);
-        model.LeftPath = left;
-        model.RightPath = right;
-        Current = model;
-        model.CompareCommand.Execute(null);
+        Folder.LeftRoot = left;
+        Folder.RightRoot = right;
+        Go(Folder);
+        Folder.RefreshCommand.Execute(null);
     }
 
-    public void ShowEmptyText() => Current = new TextCompareViewModel(this, null);
-
-    /// <summary>出来合いの画面をそのまま出す。読み込み方を差し替えた比較などに使う。</summary>
-    public void Show(object model) => Current = model;
-
-    /// <summary>3 方向マージの画面を開く。</summary>
-    public void ShowMerge(string basePath, string left, string right, object? back = null)
+    public void ShowStructured(string left, string right)
     {
-        var model = new MergeViewModel(this, back)
-        {
-            BasePath = basePath,
-            LeftPath = left,
-            RightPath = right,
-        };
-        Current = model;
-        if (basePath.Length > 0 && left.Length > 0 && right.Length > 0)
-        {
-            model.MergeCommand.Execute(null);
-        }
-    }
-
-    /// <summary>Git の画面を開く。</summary>
-    public void ShowGit(string path, object? back = null)
-    {
-        var model = new GitViewModel(this, path, back);
-        Current = model;
-        _ = model.RefreshAsync();
-    }
-
-    /// <summary>構造として比較する画面を開く。</summary>
-    public void ShowStructured(string left, string right, object? back = null)
-    {
-        var model = new StructuredCompareViewModel(this, back)
-        {
-            LeftPath = left,
-            RightPath = right,
-        };
-        Current = model;
+        Structured.LeftPath = left;
+        Structured.RightPath = right;
+        Go(Structured);
         if (left.Length > 0 && right.Length > 0)
         {
-            model.CompareCommand.Execute(null);
+            Structured.CompareCommand.Execute(null);
         }
     }
 
-    /// <summary>フォルダー一覧など、元いた画面へ戻る。</summary>
-    public void GoBack(object? target) => Current = target ?? Home;
+    public void ShowMerge(string basePath, string left, string right)
+    {
+        Merge.BasePath = basePath;
+        Merge.LeftPath = left;
+        Merge.RightPath = right;
+        Go(Merge);
+        if (basePath.Length > 0 && left.Length > 0 && right.Length > 0)
+        {
+            Merge.MergeCommand.Execute(null);
+        }
+    }
+
+    public void ShowGit(string path)
+    {
+        Git.Path = path;
+        Go(Git);
+        _ = Git.RefreshAsync();
+    }
+
+    public void ShowSaved() => Go(Home);
+
+    /// <summary>
+    /// 中身の取り出し方を差し替えたテキスト比較を出す。git のある時点の中身を
+    /// 比べるときに使う。**同じテキスト比較画面を使い回す**ので、サイドバーの
+    /// 「テキスト」に居ることが見た目からも分かる。
+    /// </summary>
+    public void ShowTextWith(
+        string leftLabel, string rightLabel, Func<string, byte[]> loader,
+        bool leftReadOnly, bool rightReadOnly)
+    {
+        Text.ContentLoader = loader;
+        Text.LeftReadOnly = leftReadOnly;
+        Text.RightReadOnly = rightReadOnly;
+        Text.LeftPath = leftLabel;
+        Text.RightPath = rightLabel;
+        Go(Text);
+        Text.CompareCommand.Execute(null);
+    }
+
+    /// <summary>普通のファイル比較へ戻す。読み込み方の差し替えを解く。</summary>
+    public void ResetTextLoader()
+    {
+        Text.ContentLoader = null;
+        Text.LeftReadOnly = false;
+        Text.RightReadOnly = false;
+    }
 }

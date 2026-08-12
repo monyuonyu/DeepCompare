@@ -63,19 +63,16 @@ public sealed class StructuralChangeRow(StructuralChange change)
 public sealed class StructuredCompareViewModel : ViewModelBase
 {
     private readonly ShellViewModel _shell;
-    private readonly object? _back;
 
-    public StructuredCompareViewModel(ShellViewModel shell, object? back = null)
+    public StructuredCompareViewModel(ShellViewModel shell)
     {
         _shell = shell;
-        _back = back;
         CompareCommand = new RelayCommand(CompareAsync, () => !_busy);
-        BackCommand = new RelayCommand(() => { _shell.GoBack(_back); return Task.CompletedTask; });
         SaveCommand = new RelayCommand(SaveAsync, () => Changes.Count > 0);
         OpenAsTextCommand = new RelayCommand(() =>
         {
             // 構造では説明しきれないときのために、生のテキスト比較へ移れるようにする。
-            _shell.ShowText(LeftPath, RightPath, this);
+            _shell.ShowText(LeftPath, RightPath);
             return Task.CompletedTask;
         }, () => LeftPath.Length > 0 && RightPath.Length > 0);
     }
@@ -83,7 +80,6 @@ public sealed class StructuredCompareViewModel : ViewModelBase
     public ObservableCollection<StructuralChangeRow> Changes { get; } = [];
 
     public RelayCommand CompareCommand { get; }
-    public RelayCommand BackCommand { get; }
     public RelayCommand SaveCommand { get; }
     public RelayCommand OpenAsTextCommand { get; }
 

@@ -1,0 +1,95 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    アイコン。すべて **16×16 の座標系**で描く。使う側は Viewbox で寸法を決める。
+
+    **書体の絵文字は使わない。** 環境によって出たり出なかったり、色が勝手に付いたり
+    （絵文字は書体側の色を持つ）、幅が揃わなかったりする。実際、等幅書体すら
+    解決できない環境があった。図形なら必ず同じ形で出て、色も指定どおりになる。
+
+    形は輪郭線で描く（Stroke で使う）。塗りで描くと小さいときに潰れる。
+    線幅は使う側で 1.5 を指定する前提。
+  -->
+
+  <!-- ==== サイドバー ==== -->
+
+  <!-- テキスト比較: 2 枚の紙が並ぶ -->
+  <StreamGeometry x:Key="IconText">M2,2 H7 V14 H2 Z M9,2 H14 V14 H9 Z M3.5,5 H5.5 M3.5,8 H5.5 M10.5,5 H12.5 M10.5,8 H12.5</StreamGeometry>
+
+  <!-- フォルダー比較 -->
+  <StreamGeometry x:Key="IconFolder">M1.5,4 H6 L7.5,6 H14.5 V13 H1.5 Z M1.5,4 V13</StreamGeometry>
+
+  <!-- 構造比較: 木 -->
+  <StreamGeometry x:Key="IconStructure">M3,3 V13 M3,5 H8 M3,9 H8 M3,13 H8 M10,3.5 H14 M10,7.5 H14 M10,11.5 H14</StreamGeometry>
+
+  <!-- マージ: 2 本が 1 本に合わさる -->
+  <StreamGeometry x:Key="IconMerge">M3,2 V6 C3,9 8,9 8,12 V14 M13,2 V6 C13,9 8,9 8,12</StreamGeometry>
+
+  <!-- Git: 枝分かれ -->
+  <StreamGeometry x:Key="IconGit">M4.5,4 V12 M4.5,7 H9.5 C11,7 11.5,6.5 11.5,5.5</StreamGeometry>
+  <StreamGeometry x:Key="IconGitDots">M4.5,2.5 A1.6,1.6 0 1 1 4.5,2.6 Z M4.5,12.4 A1.6,1.6 0 1 1 4.5,12.5 Z M11.5,4 A1.6,1.6 0 1 1 11.5,4.1 Z</StreamGeometry>
+
+  <!-- 保存した比較: しおり -->
+  <StreamGeometry x:Key="IconSaved">M4,2 H12 V14 L8,10.5 L4,14 Z</StreamGeometry>
+
+  <!-- ==== 操作 ==== -->
+
+  <!-- 比較しなおす: 輪になった矢印 -->
+  <StreamGeometry x:Key="IconRefresh">M13.5,8 A5.5,5.5 0 1 1 11.6,3.8 M13.8,1.5 V4.3 H11</StreamGeometry>
+
+  <!-- 前後の差分: 二重の山 -->
+  <StreamGeometry x:Key="IconPrev">M4,9.5 L8,5.5 L12,9.5 M4,13 L8,9 L12,13</StreamGeometry>
+  <StreamGeometry x:Key="IconNext">M4,6.5 L8,10.5 L12,6.5 M4,3 L8,7 L12,3</StreamGeometry>
+
+  <!-- 検索 -->
+  <StreamGeometry x:Key="IconSearch">M7,2.5 A4.5,4.5 0 1 1 6.9,2.5 Z M10.4,10.4 L14,14</StreamGeometry>
+
+  <!-- 取り消す / やり直す -->
+  <StreamGeometry x:Key="IconUndo">M6,4 L2.5,7 L6,10 M2.5,7 H9.5 A3.5,3.5 0 0 1 9.5,14 H6</StreamGeometry>
+  <StreamGeometry x:Key="IconRedo">M10,4 L13.5,7 L10,10 M13.5,7 H6.5 A3.5,3.5 0 0 0 6.5,14 H10</StreamGeometry>
+
+  <!-- 保存: 下向きの矢印と受け皿 -->
+  <StreamGeometry x:Key="IconSave">M8,2 V10 M4.5,7 L8,10.5 L11.5,7 M2.5,13 H13.5</StreamGeometry>
+
+  <!-- 書き出す: 箱から出ていく -->
+  <StreamGeometry x:Key="IconExport">M8,10 V2 M4.5,5 L8,1.5 L11.5,5 M2.5,9 V14 H13.5 V9</StreamGeometry>
+
+  <!-- 設定: つまみの付いた 3 本のすべり -->
+  <StreamGeometry x:Key="IconSettings">M2,4 H14 M2,8 H14 M2,12 H14</StreamGeometry>
+  <StreamGeometry x:Key="IconSettingsKnobs">M5,4 A1.5,1.5 0 1 1 5,4.1 Z M10.5,8 A1.5,1.5 0 1 1 10.5,8.1 Z M6.5,12 A1.5,1.5 0 1 1 6.5,12.1 Z</StreamGeometry>
+
+  <!-- 左右を入れ替える -->
+  <StreamGeometry x:Key="IconSwap">M2.5,5.5 H12 M9.5,3 L12,5.5 L9.5,8 M13.5,10.5 H4 M6.5,8 L4,10.5 L6.5,13</StreamGeometry>
+
+  <!-- 明るい / 暗い -->
+  <StreamGeometry x:Key="IconSun">M8,4.5 A3.5,3.5 0 1 1 8,4.6 Z M8,0.8 V2.4 M8,13.6 V15.2 M0.8,8 H2.4 M13.6,8 H15.2 M2.9,2.9 L4,4 M12,12 L13.1,13.1 M13.1,2.9 L12,4 M4,12 L2.9,13.1</StreamGeometry>
+  <StreamGeometry x:Key="IconMoon">M13,10.2 A5.8,5.8 0 1 1 6.2,3 A5,5 0 0 0 13,10.2 Z</StreamGeometry>
+
+  <!-- 表示の絞り込み。押している状態はボタン側の見た目で示す -->
+  <StreamGeometry x:Key="IconFilterAll">M2.5,4 H13.5 M2.5,8 H13.5 M2.5,12 H13.5</StreamGeometry>
+  <StreamGeometry x:Key="IconFilterDiff">M2.5,4 H13.5 M2.5,12 H13.5</StreamGeometry>
+  <StreamGeometry x:Key="IconFilterSame">M2.5,8 H13.5</StreamGeometry>
+
+  <!-- 折り畳み -->
+  <StreamGeometry x:Key="IconExpand">M8,3 V13 M4,7 L8,3 L12,7 M4,9 L8,13 L12,9</StreamGeometry>
+  <StreamGeometry x:Key="IconCollapse">M4,3 L8,7 L12,3 M4,13 L8,9 L12,13</StreamGeometry>
+
+  <!-- 差分を反映する向き -->
+  <StreamGeometry x:Key="IconToRight">M3,8 H12 M9,5 L12,8 L9,11</StreamGeometry>
+  <StreamGeometry x:Key="IconToLeft">M13,8 H4 M7,5 L4,8 L7,11</StreamGeometry>
+
+  <!-- 参照（フォルダーを開く） -->
+  <StreamGeometry x:Key="IconBrowse">M1.5,4.5 H6 L7.5,6.5 H14.5 V12.5 H1.5 Z</StreamGeometry>
+
+  <!-- 索引へ載せる / 降ろす -->
+  <StreamGeometry x:Key="IconStage">M8,12 V4 M4.5,7.5 L8,4 L11.5,7.5</StreamGeometry>
+  <StreamGeometry x:Key="IconUnstage">M8,4 V12 M4.5,8.5 L8,12 L11.5,8.5</StreamGeometry>
+
+  <!-- 開く（詳しく見る） -->
+  <StreamGeometry x:Key="IconOpen">M6.5,3 H3 V13 H13 V9.5 M9.5,2.5 H13.5 V6.5 M13.5,2.5 L7.5,8.5</StreamGeometry>
+
+  <!-- 閉じる -->
+  <StreamGeometry x:Key="IconClose">M4,4 L12,12 M12,4 L4,12</StreamGeometry>
+
+</ResourceDictionary>

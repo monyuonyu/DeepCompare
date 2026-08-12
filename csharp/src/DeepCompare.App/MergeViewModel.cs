@@ -116,15 +116,12 @@ public sealed class MergeRegionRow(MergeRegion region, int index) : ViewModelBas
 public sealed class MergeViewModel : ViewModelBase
 {
     private readonly ShellViewModel _shell;
-    private readonly object? _back;
     private DecodedText? _baseSource;
 
-    public MergeViewModel(ShellViewModel shell, object? back = null)
+    public MergeViewModel(ShellViewModel shell)
     {
         _shell = shell;
-        _back = back;
 
-        BackCommand = new RelayCommand(() => { _shell.GoBack(_back); return Task.CompletedTask; });
         MergeCommand = new RelayCommand(MergeAsync, () => !_busy);
         SaveCommand = new RelayCommand(SaveAsync, () => Regions.Count > 0);
         TakeLeftCommand = new RelayCommand<MergeRegionRow>(row => Decide(row, ConflictChoice.Left));
@@ -137,7 +134,6 @@ public sealed class MergeViewModel : ViewModelBase
 
     public ObservableCollection<MergeRegionRow> Regions { get; } = [];
 
-    public RelayCommand BackCommand { get; }
     public RelayCommand MergeCommand { get; }
     public RelayCommand SaveCommand { get; }
     public RelayCommand<MergeRegionRow> TakeLeftCommand { get; }

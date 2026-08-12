@@ -68,3 +68,33 @@ public static class Palette
         return brush;
     }
 }
+
+/// <summary>
+/// アイコンの図形を引く。
+///
+/// 図形は <c>Theme/Icons.axaml</c> が唯一の持ち場。C# 側で座標を書くと、
+/// 同じ形が 2 箇所に増えて片方だけ直し忘れる。色と同じ扱いにする。
+/// </summary>
+public static class Icons
+{
+    private static readonly Dictionary<string, Geometry?> Cache = new(StringComparer.Ordinal);
+
+    public static Geometry? Get(string key)
+    {
+        if (Cache.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        Geometry? geometry = null;
+        if (Application.Current?.Resources.TryGetResource(key, null, out var value) == true)
+        {
+            geometry = value as Geometry;
+        }
+
+        // 見つからないときは null。図形が欠けても画面は出したい（色と違い、
+        // 目立つ代替を出す方法が無いので、ここは静かに空ける）。
+        Cache[key] = geometry;
+        return geometry;
+    }
+}

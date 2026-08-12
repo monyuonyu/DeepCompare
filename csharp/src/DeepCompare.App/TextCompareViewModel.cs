@@ -14,7 +14,6 @@ namespace DeepCompare.App;
 public sealed class TextCompareViewModel : ViewModelBase
 {
     private readonly ShellViewModel _shell;
-    private readonly object? _backTarget;
     private Comparison? _comparison;
     private List<RowView> _allRows = [];
     private int _compareGeneration;
@@ -73,10 +72,9 @@ public sealed class TextCompareViewModel : ViewModelBase
     private string _ignoredPatterns = string.Empty;
     private string _importanceError = string.Empty;
 
-    public TextCompareViewModel(ShellViewModel shell, object? backTarget)
+    public TextCompareViewModel(ShellViewModel shell)
     {
         _shell = shell;
-        _backTarget = backTarget;
         // 行の文字色は C# 側で焼き込むので、テーマが変わったら作り直す。
         _shell.ThemeChanged += RebuildForTheme;
         BrowseLeftCommand = new RelayCommand(() => PickAsync(left: true));
@@ -97,14 +95,12 @@ public sealed class TextCompareViewModel : ViewModelBase
         PreviousDifferenceCommand = new RelayCommand(() => { MoveToDifference(forward: false); return Task.CompletedTask; });
         FindNextCommand = new RelayCommand(() => { FindFrom(forward: true); return Task.CompletedTask; });
         FindPreviousCommand = new RelayCommand(() => { FindFrom(forward: false); return Task.CompletedTask; });
-        BackCommand = new RelayCommand(() => { _shell.GoBack(_backTarget); return Task.CompletedTask; });
     }
 
     public ObservableCollection<RowView> VisibleRows { get; } = [];
     public ICommand BrowseLeftCommand { get; }
     public ICommand BrowseRightCommand { get; }
     public ICommand CompareCommand { get; }
-    public ICommand BackCommand { get; }
 
     /// <summary>テーマの切り替えなど、画面をまたぐ操作。</summary>
     public ShellViewModel Shell => _shell;
@@ -216,7 +212,6 @@ public sealed class TextCompareViewModel : ViewModelBase
     public bool HasUnsavedChanges => LeftModified || RightModified;
 
     /// <summary>戻り先がフォルダー一覧なら、そう分かる文言にする。</summary>
-    public string BackText => _backTarget is FolderCompareViewModel ? "一覧へ戻る" : "最初の画面へ";
 
     public string LeftPath
     {
@@ -352,10 +347,19 @@ public sealed class TextCompareViewModel : ViewModelBase
     private void UpdateTextWidth()
     {
         // 画面幅が分からないうちは内容だけで決める。起動直後に一度だけ通る。
-        var share = _viewportWidth > 0
-            ? Math.Max(300, (_viewportWidth - GutterWidth) / 2)
-            : 0;
-        TextWidth = Math.Max(_contentWidth, share);
+        if (_viewportWidth <= 0)
+        {
+            TextWidth = _contentWidth;
+            return;
+        }
+
+        // **内容の幅で広げない。** 以前は「内容に要る幅」と「画面を分け合った幅」の
+        // 大きい方を採っていたが、片側に長い行が 1 本あるだけで両側がその幅まで
+        // 広がり、右のペインが画面の外へ押し出されていた。
+        //
+        // 左右は必ず半分ずつにする。長い行は横スクロールで見る（左右が同時に
+        // 動くので、対応する行が画面から外れない）。
+        TextWidth = Math.Max(300, (_viewportWidth - GutterWidth) / 2);
     }
 
     private async Task PickAsync(bool left)

@@ -81,23 +81,57 @@ public sealed class FolderCompareViewModel : ViewModelBase
     private bool _detectRenames;
     private string _renameText = string.Empty;
 
-    public FolderCompareViewModel(ShellViewModel shell, string leftRoot, string rightRoot)
+    public FolderCompareViewModel(ShellViewModel shell)
     {
         _shell = shell;
         _shell.ThemeChanged += RebuildForTheme;
-        LeftRoot = leftRoot;
-        RightRoot = rightRoot;
-        BackCommand = new RelayCommand(() => { _shell.GoHome(); return Task.CompletedTask; });
         RefreshCommand = new RelayCommand(RunAsync);
         OpenSelectedCommand = new RelayCommand(() => { OpenSelected(); return Task.CompletedTask; });
         ExportCsvCommand = new RelayCommand(ExportCsvAsync);
-        _ = RunAsync();
+        BrowseLeftCommand = new RelayCommand(() => PickAsync(left: true));
+        BrowseRightCommand = new RelayCommand(() => PickAsync(left: false));
     }
 
-    public string LeftRoot { get; }
-    public string RightRoot { get; }
+    private string _leftRoot = string.Empty;
+    private string _rightRoot = string.Empty;
+
+    /// <summary>
+    /// 比べる場所。**書き換えられる。**
+    ///
+    /// 以前はコンストラクタで固定していたが、画面をサイドバーで行き来する形に
+    /// したので、同じ画面のまま別のフォルダーを指定できる必要がある。
+    /// </summary>
+    public string LeftRoot
+    {
+        get => _leftRoot;
+        set => Set(ref _leftRoot, value);
+    }
+
+    public string RightRoot
+    {
+        get => _rightRoot;
+        set => Set(ref _rightRoot, value);
+    }
+
     public ObservableCollection<FolderRowView> Rows { get; } = [];
-    public ICommand BackCommand { get; }
+    public ICommand BrowseLeftCommand { get; }
+    public ICommand BrowseRightCommand { get; }
+
+    private async Task PickAsync(bool left)
+    {
+        var title = left ? "左のフォルダーを選択" : "右のフォルダーを選択";
+        if (await _shell.PickPath(title, true) is { } path)
+        {
+            if (left)
+            {
+                LeftRoot = path;
+            }
+            else
+            {
+                RightRoot = path;
+            }
+        }
+    }
 
     /// <summary>テーマの切り替えなど、画面をまたぐ操作。</summary>
     public ShellViewModel Shell => _shell;
@@ -326,7 +360,7 @@ public sealed class FolderCompareViewModel : ViewModelBase
         if (File.Exists(left) && File.Exists(right))
         {
             // 戻り先としてこの画面自身を渡す。走査し直さずに一覧へ帰れる。
-            _shell.ShowText(left, right, this);
+            _shell.ShowText(left, right);
         }
     }
 }

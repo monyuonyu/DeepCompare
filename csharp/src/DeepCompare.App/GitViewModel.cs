@@ -85,16 +85,13 @@ public sealed class GitCommitRow(GitCommit commit)
 public sealed class GitViewModel : ViewModelBase
 {
     private readonly ShellViewModel _shell;
-    private readonly object? _back;
     private GitRepository? _repository;
 
-    public GitViewModel(ShellViewModel shell, string path, object? back = null)
+    public GitViewModel(ShellViewModel shell, string path)
     {
         _shell = shell;
-        _back = back;
         _path = path;
 
-        BackCommand = new RelayCommand(() => { _shell.GoBack(_back); return Task.CompletedTask; });
         RefreshCommand = new RelayCommand(RefreshAsync, () => !_busy);
         OpenFileCommand = new RelayCommand<GitFileRow>(
             row => { OpenFile(row); return Task.CompletedTask; }, row => row.CanOpen);
@@ -110,7 +107,6 @@ public sealed class GitViewModel : ViewModelBase
     public ObservableCollection<GitFileRow> Files { get; } = [];
     public ObservableCollection<GitCommitRow> Commits { get; } = [];
 
-    public RelayCommand BackCommand { get; }
     public RelayCommand RefreshCommand { get; }
     public RelayCommand<GitFileRow> OpenFileCommand { get; }
     public RelayCommand<GitFileRow> StageCommand { get; }
@@ -253,18 +249,13 @@ public sealed class GitViewModel : ViewModelBase
         var relative = row.Status.Path;
         var absolute = System.IO.Path.Combine(repository.Root, relative);
 
-        var model = new TextCompareViewModel(_shell, this)
-        {
-            // 左は HEAD の中身。拡張子が残る形にして、構文強調をそのまま効かせる。
-            LeftPath = $"HEAD:{relative}",
-            RightPath = absolute,
-            LeftReadOnly = true,
-            ContentLoader = path => path.StartsWith("HEAD:", StringComparison.Ordinal)
+        // 左は HEAD の中身。拡張子が残る形にして、構文強調をそのまま効かせる。
+        _shell.ShowTextWith(
+            $"HEAD:{relative}", absolute,
+            path => path.StartsWith("HEAD:", StringComparison.Ordinal)
                 ? repository.Show("HEAD", path[5..])
                 : File.ReadAllBytes(path),
-        };
-        _shell.Show(model);
-        model.CompareCommand.Execute(null);
+            leftReadOnly: true, rightReadOnly: false);
     }
 
     /// <summary>そのコミットで何が変わったかを見る。親と比べる。</summary>
@@ -292,13 +283,9 @@ public sealed class GitViewModel : ViewModelBase
         var parent = row.Commit.Parents[0];
         var relative = selected.Status.Path;
 
-        var model = new TextCompareViewModel(_shell, this)
-        {
-            LeftPath = $"{parent[..7]}:{relative}",
-            RightPath = $"{hash[..7]}:{relative}",
-            LeftReadOnly = true,
-            RightReadOnly = true,
-            ContentLoader = path =>
+        _shell.ShowTextWith(
+            $"{parent[..7]}:{relative}", $"{hash[..7]}:{relative}",
+            path =>
             {
                 var separator = path.IndexOf(':');
                 var revision = separator < 0 ? "HEAD" : path[..separator];
@@ -306,9 +293,7 @@ public sealed class GitViewModel : ViewModelBase
                 // 片側に存在しないことは異常ではない（作られた／消された）。空として扱う。
                 return repository.Exists(revision, file) ? repository.Show(revision, file) : [];
             },
-        };
-        _shell.Show(model);
-        model.CompareCommand.Execute(null);
+            leftReadOnly: true, rightReadOnly: true);
     }
 
     private GitFileRow? _selectedFile;

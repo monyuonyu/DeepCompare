@@ -167,6 +167,86 @@
     <Setter Property="Margin" Value="4,2" />
   </Style>
 
+  <!--
+    アイコンだけのボタン。**説明はツールチップに逃がす。**
+    画面に文字が並ぶほど、目が読む対象を探すのに時間がかかる。よく使う操作は
+    形で覚えられるので、常時の文字は要らない。ただし**必ずツールチップを付ける**
+    こと。形だけで意味が分かるアイコンは、実際にはほとんど無い。
+  -->
+  <Style Selector="Button.icon">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="6" />
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="MinWidth" Value="30" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+  </Style>
+  <Style Selector="Button.icon:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ControlBgHover}" />
+  </Style>
+  <Style Selector="Button.icon:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ControlBgPressed}" />
+  </Style>
+
+  <!-- 図形の描き方。輪郭線で描くので Fill は使わない -->
+  <Style Selector="Path.icon">
+    <Setter Property="Stroke" Value="{DynamicResource FgNormal}" />
+    <Setter Property="StrokeThickness" Value="1.5" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+    <Setter Property="Fill" Value="Transparent" />
+    <Setter Property="Width" Value="16" />
+    <Setter Property="Height" Value="16" />
+    <Setter Property="Stretch" Value="Uniform" />
+  </Style>
+  <Style Selector="Button.icon:pointerover Path.icon">
+    <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+  </Style>
+  <Style Selector="Button:disabled Path.icon">
+    <Setter Property="Stroke" Value="{DynamicResource FgDisabled}" />
+  </Style>
+  <Style Selector="Path.icon.dim">
+    <Setter Property="Stroke" Value="{DynamicResource FgDim}" />
+  </Style>
+
+  <!--
+    絞り込みの切り替え。**押している状態が一目で分かること**が要点。
+    Beyond Compare の All / Diffs / Same に当たる。
+  -->
+  <Style Selector="ToggleButton.filter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMedium}" />
+    <Setter Property="Foreground" Value="{DynamicResource FgDim}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontTiny}" />
+  </Style>
+  <Style Selector="ToggleButton.filter:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ControlBgHover}" />
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource FgNormal}" />
+  </Style>
+  <Style Selector="ToggleButton.filter:checked /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource NavSelectedBg}" />
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource Accent}" />
+  </Style>
+  <Style Selector="ToggleButton.filter:checked Path.icon">
+    <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+  </Style>
+  <Style Selector="ToggleButton.filter Path.icon">
+    <Setter Property="Stroke" Value="{DynamicResource FgDim}" />
+  </Style>
+
+  <!-- ツールチップ。すぐ出したい。既定は遅すぎて「効かない」と思われる -->
+  <Style Selector="ToolTip">
+    <Setter Property="Background" Value="{DynamicResource TooltipBg}" />
+    <Setter Property="Foreground" Value="{DynamicResource TooltipFg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Divider}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="FontSize" Value="{DynamicResource FontTiny}" />
+  </Style>
+
   <!-- 左のサイドバー -->
   <Style Selector="Border.sidebar">
     <Setter Property="Background" Value="{DynamicResource SidebarBg}" />
@@ -176,10 +256,10 @@
 
   <!--
     サイドバーの項目。押せる場所を広く取り、いま居る画面は面で示す。
-    RadioButton を土台にするのは、**排他であることが構造に出る**から。
+    ListBox を土台にするのは、**排他であることが構造に出る**から。
     自前で「どれが選ばれているか」を持つと、必ずどこかでずれる。
   -->
-  <Style Selector="RadioButton.nav">
+  <Style Selector="ListBoxItem.nav">
     <Setter Property="Foreground" Value="{DynamicResource FgDim}" />
     <Setter Property="FontSize" Value="{DynamicResource FontBody}" />
     <Setter Property="Padding" Value="0" />
@@ -191,18 +271,19 @@
                 CornerRadius="{DynamicResource RadiusMedium}"
                 Padding="10,7">
           <ContentPresenter Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
                             VerticalAlignment="Center" />
         </Border>
       </ControlTemplate>
     </Setter>
   </Style>
-  <Style Selector="RadioButton.nav:pointerover /template/ Border#NavRoot">
+  <Style Selector="ListBoxItem.nav:pointerover /template/ Border#NavRoot">
     <Setter Property="Background" Value="{DynamicResource ControlBgHover}" />
   </Style>
-  <Style Selector="RadioButton.nav:checked /template/ Border#NavRoot">
+  <Style Selector="ListBoxItem.nav:selected /template/ Border#NavRoot">
     <Setter Property="Background" Value="{DynamicResource NavSelectedBg}" />
   </Style>
-  <Style Selector="RadioButton.nav:checked">
+  <Style Selector="ListBoxItem.nav:selected">
     <Setter Property="Foreground" Value="{DynamicResource Accent}" />
     <Setter Property="FontWeight" Value="SemiBold" />
   </Style>
