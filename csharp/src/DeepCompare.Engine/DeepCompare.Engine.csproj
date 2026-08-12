@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- NativeAOT で発行するので、非対応の書き方を早い段階で弾く。 -->
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <!--
+    Shift_JIS / EUC-JP を扱うために CodePagesEncodingProvider を登録しているが、
+    .NET 10 では System.Text.Encoding.CodePages が本体に含まれるため、
+    パッケージ参照は不要（付けると NU1510 で弾かれる）。
+  -->
+
+  <ItemGroup>
+    <!-- 行列積の内側で使う SIMD 化された内積など。純粋なマネージドコードなので
+         NativeAOT でも実行ファイルに畳み込まれ、別ファイルにならない。 -->
+    <PackageReference Include="System.Numerics.Tensors" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 正規化・記号判定といった内部の段は、単体で試験できないと
+         「埋め込みが合わない」までしか分からず原因を切り分けられない。 -->
+    <InternalsVisibleTo Include="DeepCompare.Engine.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      モデルと語彙は exe に埋め込む。実行時に外部ファイルを探さずに済み、
+      配布が実行ファイル 1 つで完結する。
+
+      重みはリポジトリ直下の assets/ を直に参照する。ここへ複製すると 22MB の
+      同じファイルが 2 箇所に居座り、片方だけ更新される事故の元になる。
+    -->
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)../../../assets/minilm.dcm"
+                      LogicalName="minilm.dcm" />
+    <EmbeddedResource Include="Assets/vocab.txt" LogicalName="vocab.txt" />
+  </ItemGroup>
+
+</Project>

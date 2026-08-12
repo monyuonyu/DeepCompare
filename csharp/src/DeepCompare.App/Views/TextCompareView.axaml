@@ -1,0 +1,101 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:DeepCompare.App"
+             x:Class="DeepCompare.App.Views.TextCompareView"
+             x:DataType="vm:TextCompareViewModel">
+
+  <UserControl.Styles>
+    <!-- 行の高さを固定する。仮想化は「n 行目は n * 高さ の位置」で成り立つ。 -->
+    <Style Selector="TextBlock.cell">
+      <Setter Property="FontFamily" Value="Consolas,DejaVu Sans Mono,MS Gothic,monospace" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Height" Value="20" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextWrapping" Value="NoWrap" />
+    </Style>
+    <Style Selector="TextBlock.gutter">
+      <Setter Property="Foreground" Value="{StaticResource FgDim}" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Width" Value="52" />
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="Margin" Value="0,0,6,0" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+
+    <StackPanel DockPanel.Dock="Top" Margin="8,6" Spacing="6">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Button Content="{Binding BackText}" Command="{Binding BackCommand}" />
+        <Border Width="1" Background="{StaticResource FgDim}" Margin="4,2" />
+        <TextBlock Text="ファイル1:" VerticalAlignment="Center" />
+        <TextBox Text="{Binding LeftPath}" Width="290" />
+        <Button Content="参照" Command="{Binding BrowseLeftCommand}" />
+        <TextBlock Text="ファイル2:" VerticalAlignment="Center" />
+        <TextBox Text="{Binding RightPath}" Width="290" />
+        <Button Content="参照" Command="{Binding BrowseRightCommand}" />
+      </StackPanel>
+
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <Button Content="比較開始" Command="{Binding CompareCommand}" IsEnabled="{Binding !IsBusy}" />
+        <CheckBox Content="変更のある行だけ表示" IsChecked="{Binding ChangesOnly}" />
+        <Border Width="1" Background="{StaticResource FgDim}" Margin="2,2" />
+        <TextBlock Text="対応とみなす類似度:" VerticalAlignment="Center"
+                   ToolTip.Tip="これを下回る行同士は、対にせず削除と追加として別々に並べる。&#x0a;短いコード行は似ていても値が伸びにくいので、対応が取れないときは下げる。" />
+        <Slider Value="{Binding PairThreshold}" Minimum="0" Maximum="0.95"
+                Width="150" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding PairThreshold, StringFormat={}{0:F2}}"
+                   VerticalAlignment="Center" Width="34" />
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}"
+                     Width="90" VerticalAlignment="Center" />
+      </StackPanel>
+    </StackPanel>
+
+    <Border DockPanel.Dock="Bottom" Padding="8,4" Background="#1A1A1A">
+      <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{StaticResource FgDim}" />
+    </Border>
+
+    <Panel>
+      <TextBlock Text="{Binding Placeholder}" IsVisible="{Binding ShowPlaceholder}"
+                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                 Foreground="{StaticResource FgDim}" TextWrapping="Wrap" />
+
+      <!--
+        ListBox は既定で VirtualizingStackPanel を使い、画面に映っている行だけを
+        実体化する。旧 PyQt6 実装は行ごとにウィジェットを作っていたため数千行で
+        操作不能になった。
+      -->
+      <ListBox ItemsSource="{Binding VisibleRows}"
+               IsVisible="{Binding !ShowPlaceholder}"
+               Background="Transparent" BorderThickness="0"
+               ScrollViewer.HorizontalScrollBarVisibility="Auto"
+               ScrollViewer.VerticalScrollBarVisibility="Auto">
+        <ListBox.Styles>
+          <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Height" Value="20" />
+          </Style>
+        </ListBox.Styles>
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="vm:RowView">
+            <Border Background="{Binding Background}" Height="20">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Classes="cell gutter" Text="{Binding LeftNumber}" />
+                <TextBlock Classes="cell"
+                           Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}"
+                           Inlines="{Binding LeftInlines}" />
+                <TextBlock Classes="cell gutter" Text="{Binding RightNumber}" />
+                <TextBlock Classes="cell"
+                           Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}"
+                           Inlines="{Binding RightInlines}" />
+                <TextBlock Classes="cell gutter" Text="{Binding ScoreText}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Panel>
+
+  </DockPanel>
+</UserControl>

@@ -13,3 +13,19 @@ __pycache__/
 
 # VSCode の設定ファイル
 .vscode/
+
+# Rust
+/target/
+
+# 参照実装用の venv
+.venv-ref/
+
+# モデルの元データと中間物（生成できるので追跡しない）
+# assets/minilm.dcm だけは exe に埋め込む実体なので追跡する。
+assets/src/
+assets/minilm-f32.dcm
+
+# .NET のビルド生成物
+bin/
+obj/
+*.user

@@ -1,0 +1,21 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="DeepCompare.App.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.Styles>
+    <FluentTheme />
+  </Application.Styles>
+
+  <Application.Resources>
+    <!-- 暗い背景に載せる前提の配色。egui 版と同じ値を使い、見た目を揃える。 -->
+    <SolidColorBrush x:Key="BgChanged">#2E3350</SolidColorBrush>
+    <SolidColorBrush x:Key="BgRemoved">#40262A</SolidColorBrush>
+    <SolidColorBrush x:Key="BgAdded">#223A2A</SolidColorBrush>
+    <SolidColorBrush x:Key="FgNormal">#D6D8DE</SolidColorBrush>
+    <SolidColorBrush x:Key="FgDim">#7E838F</SolidColorBrush>
+    <!-- 行内で変わった部分。旧実装と同じオレンジ。 -->
+    <SolidColorBrush x:Key="FgInline">#FFA500</SolidColorBrush>
+  </Application.Resources>
+
+</Application>

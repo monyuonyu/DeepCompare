@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:DeepCompare.App"
+             x:Class="DeepCompare.App.Views.HomeView"
+             x:DataType="vm:HomeViewModel">
+
+  <ScrollViewer>
+    <StackPanel MaxWidth="820" Margin="32,28" Spacing="20">
+
+      <StackPanel Spacing="4">
+        <TextBlock Text="DeepCompare" FontSize="26" FontWeight="SemiBold" />
+        <TextBlock Foreground="{StaticResource FgDim}" TextWrapping="Wrap"
+                   Text="意味的な類似度で行を対応付けるコード比較ツール。変数名を一括で変えた行のように、文字列としては別物でも役割が同じ行を同じ行として並べます。" />
+      </StackPanel>
+
+      <Border Background="#1E1E1E" CornerRadius="6" Padding="20" >
+        <StackPanel Spacing="14">
+          <TextBlock Text="比較するものを選ぶ" FontSize="15" FontWeight="SemiBold" />
+
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto" >
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="左" VerticalAlignment="Center"
+                       Margin="0,0,10,0" Width="20" />
+            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding LeftPath}"
+                     PlaceholderText="ファイルまたはフォルダーのパス" Margin="0,0,6,6" />
+            <Button Grid.Row="0" Grid.Column="2" Content="ファイル…" Margin="0,0,6,6"
+                    Command="{Binding BrowseLeftFileCommand}" />
+            <Button Grid.Row="0" Grid.Column="3" Content="フォルダー…" Margin="0,0,0,6"
+                    Command="{Binding BrowseLeftFolderCommand}" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="右" VerticalAlignment="Center"
+                       Margin="0,0,10,0" Width="20" />
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RightPath}"
+                     PlaceholderText="ファイルまたはフォルダーのパス" Margin="0,0,6,0" />
+            <Button Grid.Row="1" Grid.Column="2" Content="ファイル…" Margin="0,0,6,0"
+                    Command="{Binding BrowseRightFileCommand}" />
+            <Button Grid.Row="1" Grid.Column="3" Content="フォルダー…"
+                    Command="{Binding BrowseRightFolderCommand}" />
+          </Grid>
+
+          <TextBlock Text="ウィンドウにドラッグ＆ドロップしても指定できます。"
+                     FontSize="11" Foreground="{StaticResource FgDim}" />
+        </StackPanel>
+      </Border>
+
+      <Grid ColumnDefinitions="*,16,*">
+        <Border Grid.Column="0" Background="#1E1E1E" CornerRadius="6" Padding="18">
+          <StackPanel Spacing="10">
+            <TextBlock Text="テキストを比較" FontSize="15" FontWeight="SemiBold" />
+            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource FgDim}"
+                       Text="2 つのファイルを行単位で突き合わせます。意味的な類似度で対応を決めるので、名前を変えただけの行も並びます。" />
+            <Button Content="テキストを比較" HorizontalAlignment="Left"
+                    Command="{Binding CompareTextCommand}" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="2" Background="#1E1E1E" CornerRadius="6" Padding="18">
+          <StackPanel Spacing="10">
+            <TextBlock Text="フォルダーを比較" FontSize="15" FontWeight="SemiBold" />
+            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource FgDim}"
+                       Text="2 つのフォルダーを再帰的に走査し、差異のあるファイルを一覧にします。行を開くとテキスト比較へ移ります。" />
+            <Button Content="フォルダーを比較" HorizontalAlignment="Left"
+                    Command="{Binding CompareFoldersCommand}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <TextBlock Text="{Binding Message}" Foreground="#E0A060" TextWrapping="Wrap"
+                 IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

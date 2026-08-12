@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>model-prep</AssemblyName>
+    <!-- 開発用の道具。配布物には含めない。 -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 保存形式の定義はエンジン側が正本。ここから参照して、
+         書き出しと読み込みが食い違わないようにする。 -->
+    <ProjectReference Include="../DeepCompare.Engine/DeepCompare.Engine.csproj" />
+  </ItemGroup>
+
+</Project>

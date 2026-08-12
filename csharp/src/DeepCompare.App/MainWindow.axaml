@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:DeepCompare.App"
+        xmlns:views="clr-namespace:DeepCompare.App.Views"
+        x:Class="DeepCompare.App.MainWindow"
+        x:DataType="vm:ShellViewModel"
+        Title="DeepCompare"
+        Width="1200" Height="780"
+        MinWidth="720" MinHeight="440"
+        DragDrop.AllowDrop="True">
+
+  <Window.DataTemplates>
+    <!-- 出す画面は今の状態の型で決まる。切り替えのための分岐をコード側に持たない。 -->
+    <DataTemplate DataType="vm:HomeViewModel">
+      <views:HomeView />
+    </DataTemplate>
+    <DataTemplate DataType="vm:FolderCompareViewModel">
+      <views:FolderCompareView />
+    </DataTemplate>
+    <DataTemplate DataType="vm:TextCompareViewModel">
+      <views:TextCompareView />
+    </DataTemplate>
+  </Window.DataTemplates>
+
+  <ContentControl Content="{Binding Current}" />
+</Window>

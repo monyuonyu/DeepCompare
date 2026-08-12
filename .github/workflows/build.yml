@@ -1,0 +1,83 @@
+name: build
+
+on:
+  push:
+    branches: [master, rust-rewrite]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+
+      # engine は GUI に依存しないので、X11 も GL も無しで検証できる。
+      - name: fmt
+        run: cargo fmt --all --check
+      - name: clippy
+        run: cargo clippy -p deepcompare-engine -- -D warnings
+      - name: test
+        run: cargo test -p deepcompare-engine
+
+      # 自前で書いた BERT が独立実装と一致することの確認。ここが崩れたら
+      # 類似度も対応付けも意味を持たないので、CI で押さえる。
+      - name: 参照実装との突き合わせ
+        run: |
+          B=https://huggingface.co/sentence-transformers/paraphrase-MiniLM-L6-v2/resolve/main
+          mkdir -p assets/src
+          curl -sSL -o assets/src/model.onnx "$B/onnx/model.onnx"
+          python3 -m venv .venv-ref
+          .venv-ref/bin/pip install --quiet onnxruntime numpy tokenizers
+          .venv-ref/bin/python tools/reference_embeddings.py
+          cargo test -p deepcompare-engine --release --test reference -- --nocapture
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: deepcompare-linux-x86_64
+            binary: deepcompare
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: deepcompare-windows-x86_64
+            binary: deepcompare.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+
+      # eframe が要求する X11 / Wayland / GL のヘッダ。
+      - name: Linux の依存を導入
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxcursor-dev libxrandr-dev \
+            libxi-dev libgl1-mesa-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev
+
+      # Windows 向けは MSVC 版を CI で作る。手元の Linux からは mingw で
+      # x86_64-pc-windows-gnu を作れるが、配布物は MSVC ABI に揃える。
+      - name: ビルド
+        run: cargo build --release --target ${{ matrix.target }} -p deepcompare
+
+      - name: サイズを表示
+        shell: bash
+        run: ls -l target/${{ matrix.target }}/release/${{ matrix.binary }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: target/${{ matrix.target }}/release/${{ matrix.binary }}
