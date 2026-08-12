@@ -18,6 +18,7 @@ internal static class Cli
         "--include", "--exclude", "--tolerance", "--min-size", "--max-size",
         "--merge", "--block", "--report", "--context",
         "--key", "--ignore-column", "--delimiter",
+        "--array-key", "--ignore-path",
     ];
 
     /// <summary>画面を開かずに済む要求なら処理して終了コードを返す。GUI を開くなら null。</summary>
@@ -34,6 +35,17 @@ internal static class Cli
         if (args.Contains("--font-check"))
         {
             return Report(() => RunFontCheck(output));
+        }
+        if (args.Contains("--print-json"))
+        {
+            var files = Positional(args);
+            if (files.Length < 2)
+            {
+                Console.Error.WriteLine("--print-json には比較する 2 つのファイルが必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return RunStructuredCompare(files[0], files[1], args, output);
         }
         if (args.Contains("--print-table"))
         {
@@ -138,6 +150,47 @@ internal static class Cli
             }
         }
         return result.ToArray();
+    }
+
+    /// <summary>
+    /// 構造化データの比較。
+    ///
+    /// 終了コードは --print-folder と揃える。0 差異なし / 1 差異あり / 2 異常。
+    /// CI で「設定ファイルが意図せず変わっていないか」を見る使い方を想定している。
+    /// </summary>
+    private static int RunStructuredCompare(string leftPath, string rightPath, string[] args, string? output)
+    {
+        StructuredCompareOptions options;
+        IReadOnlyList<StructuralChange> changes;
+        try
+        {
+            var arrayKeys = ValuesOf(args, "--array-key");
+            options = new StructuredCompareOptions
+            {
+                // 指定が無ければ既定の候補（id, name, key, path）を使う。
+                ArrayKeys = arrayKeys.Count > 0 ? arrayKeys : new StructuredCompareOptions().ArrayKeys,
+                IgnoredPaths = ValuesOf(args, "--ignore-path"),
+                ReportMoves = !args.Contains("--ignore-order"),
+                NumbersByValue = !args.Contains("--strict-numbers"),
+            };
+            changes = StructuredCompare.CompareJson(
+                File.ReadAllText(leftPath), File.ReadAllText(rightPath), options);
+        }
+        catch (Exception error) when (error is StructuredParseException or IOException)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+
+        var text = new StringBuilder();
+        text.AppendLine($"left  {leftPath}");
+        text.AppendLine($"right {rightPath}");
+        text.AppendLine("legend + 右のみ / - 左のみ / ~ 変更 / ! 型の変化 / → 位置の変化");
+        text.AppendLine("---");
+        text.Append(StructuredCompare.Format(changes));
+
+        Emit(text.ToString(), output);
+        return changes.Count == 0 ? 0 : 1;
     }
 
     /// <summary>

@@ -18,6 +18,10 @@ internal static class Program
                                      -o か --in-place を付けない限り何も書かない
           deepcompare --print-table 左 右
                                      CSV/TSV を列単位で比較する
+          deepcompare --print-json 左 右
+                                     JSON を**構造として**比較する。キーの順序や
+                                     整形の違いは差分にしない。終了コードは
+                                     0 差異なし / 1 差異あり / 2 異常
           deepcompare --merge3 祖先 左 右
                                      3 方向マージ。競合は <<<<<<< で囲む。
                                      終了コードは 0 競合なし / 1 競合あり
@@ -46,6 +50,17 @@ internal static class Program
                            比較から外す列。複数回指定可
           --delimiter <字> 区切り文字。tab も指定できる（既定は拡張子から推定）
           --no-header      1 行目を見出しとして扱わない
+
+        構造化データの比較のオプション（--print-json と併用）
+          --array-key <名前>
+                           配列の要素を対応付ける名前（既定は id / name / key / path）。
+                           複数回指定可。**並び順が違っても照合できる**
+          --ignore-path <位置>
+                           比較しない位置。$.metadata.generated_at のように書く。
+                           * で 1 段ぶんの任意に当たる（$.cells[*].execution_count）。
+                           複数回指定可
+          --ignore-order   配列の並び順の違いを報告しない
+          --strict-numbers 1.0 と 1 を別のものとして扱う
 
         書き出しのオプション
           --report <形式>  unified（patch で適用できる差分）か html（左右並記）。
