@@ -121,7 +121,17 @@
     </StackPanel>
 
     <Border DockPanel.Dock="Bottom" Padding="8,4" Background="{DynamicResource StatusBarBg}">
-      <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource FgDim}" />
+      <StackPanel Orientation="Horizontal" Spacing="16">
+        <TextBlock Text="{Binding StatusText}" FontSize="11"
+                   Foreground="{DynamicResource FgDim}" />
+        <!--
+          「同じに見えるのに一致しない」の原因を、聞かれる前に出す。
+          符号化と改行を出しているのと同じ理由。
+        -->
+        <TextBlock Text="{Binding InvisibleWarning}" FontSize="11"
+                   Foreground="{DynamicResource FgWarning}"
+                   IsVisible="{Binding HasInvisibleWarning}" />
+      </StackPanel>
     </Border>
 
     <Panel>

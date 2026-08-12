@@ -244,6 +244,50 @@ public sealed class TextCompareViewModel : ViewModelBase
 
     public bool ShowPlaceholder => VisibleRows.Count == 0;
 
+    private string _invisibleWarning = string.Empty;
+
+    /// <summary>
+    /// 見えない差分の知らせ。
+    ///
+    /// **聞かれてから答えるのでは遅い。** 「なぜか一致しない」と悩む前に、
+    /// ゼロ幅文字や全角空白が混じっていることを出す。何も無ければ空。
+    /// </summary>
+    public string InvisibleWarning
+    {
+        get => _invisibleWarning;
+        private set
+        {
+            if (Set(ref _invisibleWarning, value))
+            {
+                OnPropertyChanged(nameof(HasInvisibleWarning));
+            }
+        }
+    }
+
+    public bool HasInvisibleWarning => _invisibleWarning.Length > 0;
+
+    private void UpdateInvisibleWarning(DecodedText left, DecodedText right)
+    {
+        // 行末の空白と最終行の改行は、ここで騒ぐほどではない（前者は
+        // 「重要でない差分」で畳めるし、後者は既に差分として出る）。
+        static IEnumerable<InvisibleFinding> Notable(DecodedText text)
+            => InvisibleScanner.Scan(text).Where(f =>
+                f.Kind is not (InvisibleKind.TrailingWhitespace or InvisibleKind.NoFinalNewline));
+
+        var findings = Notable(left).Concat(Notable(right)).ToList();
+        if (findings.Count == 0)
+        {
+            InvisibleWarning = string.Empty;
+            return;
+        }
+
+        var parts = findings
+            .GroupBy(f => f.Kind)
+            .OrderByDescending(g => g.Count())
+            .Select(g => $"{InvisibleFinding.Label(g.Key)} {g.Count()}");
+        InvisibleWarning = "見えない差分: " + string.Join("、", parts);
+    }
+
     public bool IsBusy
     {
         get => _isBusy;
@@ -556,6 +600,10 @@ public sealed class TextCompareViewModel : ViewModelBase
             + (!refining && stats.SkippedBlocks > 0
                 ? $"    {stats.SkippedBlocks} 箇所は構造的な対応付けのまま"
                 : string.Empty);
+
+        // 「同じに見えるのに一致しない」の原因を、聞かれる前に出す。
+        // 符号化と改行を出しているのと同じ理由。
+        UpdateInvisibleWarning(left, right);
 
         RebuildVisibleRows();
     }
