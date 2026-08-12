@@ -1,0 +1,481 @@
+using System.Diagnostics;
+using System.Text;
+using Xunit;
+using DeepCompare.Engine;
+
+namespace DeepCompare.Engine.Tests;
+
+/// <summary>
+/// git の呼び出し。
+///
+/// **本物の git に対して試す。** 出力を文字列で作って解析器だけ試すと、
+/// 「私が思っている git の出力」しか固定できない。実際に踏むのは、
+/// 版によって形が違う所と、名前に妙な文字が入った所。
+///
+/// git が入っていない環境ではこの一式を飛ばす。試験が動かないことと
+/// 実装が壊れていることを混同しない。
+/// </summary>
+public sealed class GitRepositoryTests : IDisposable
+{
+    private readonly string _root;
+
+    public GitRepositoryTests()
+    {
+        // **git が無ければ黙って通さない。** 「試験が動かない」と「実装が正しい」を
+        // 混同すると、壊れていることに気づけない。落として理由を出す。
+        if (GitRepository.Version() is null)
+        {
+            throw new InvalidOperationException(
+                "この一式には git が要ります。git を入れてから走らせてください。");
+        }
+        _root = Path.Combine(Path.GetTempPath(), "dc-git-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(_root);
+
+        Git("init", "--initial-branch=main");
+        // 利用者の設定に依存させない。CI でも同じ結果にする。
+        Git("config", "user.email", "t@example.com");
+        Git("config", "user.name", "試験");
+        Git("config", "commit.gpgsign", "false");
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            if (Directory.Exists(_root))
+            {
+                Directory.Delete(_root, recursive: true);
+            }
+        }
+        catch (IOException)
+        {
+            // 消せなくても試験の結果は変わらない。
+        }
+    }
+
+    private void Git(params string[] arguments)
+    {
+        var info = new ProcessStartInfo("git")
+        {
+            WorkingDirectory = _root,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        foreach (var argument in arguments)
+        {
+            info.ArgumentList.Add(argument);
+        }
+        using var process = Process.Start(info)!;
+        var error = process.StandardError.ReadToEnd();
+        process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"git {string.Join(' ', arguments)}: {error}");
+        }
+    }
+
+    private void WriteFile(string name, string content)
+    {
+        var path = Path.Combine(_root, name);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, content, new UTF8Encoding(false));
+    }
+
+    private GitRepository Open()
+    {
+        var repository = GitRepository.Discover(_root);
+        Assert.NotNull(repository);
+        return repository;
+    }
+
+    // --- 解析だけの試験（git が無くても走る） ---
+
+    [Fact]
+    public void 名前が変わった項目で一個ずれない()
+    {
+        // porcelain v2 の -z では、リネームのレコードだけ後ろに元の名前が続く。
+        // 一律に NUL で切ると 1 個ずれ、以降が全部おかしくなる。
+        var output =
+            "1 .M N... 100644 100644 100644 aaa bbb ふつう.txt\0"
+            + "2 R. N... 100644 100644 100644 ccc ddd R100 あたらしい.txt\0ふるい.txt\0"
+            + "1 M. N... 100644 100644 100644 eee fff つぎ.txt\0";
+
+        var result = GitRepository.ParseStatus(output);
+
+        Assert.Equal(3, result.Count);
+        Assert.Equal("ふつう.txt", result[0].Path);
+        Assert.Equal("あたらしい.txt", result[1].Path);
+        Assert.Equal("ふるい.txt", result[1].OriginalPath);
+        // ここがずれていないことが要点。元の名前を項目として数えていない。
+        Assert.Equal("つぎ.txt", result[2].Path);
+        Assert.Null(result[2].OriginalPath);
+    }
+
+    [Fact]
+    public void 見出し行を項目として数えない()
+    {
+        var output =
+            "# branch.oid aaaaaa\0# branch.head main\0"
+            + "1 .M N... 100644 100644 100644 aaa bbb a.txt\0";
+
+        Assert.Single(GitRepository.ParseStatus(output));
+    }
+
+    [Fact]
+    public void 進みと遅れを読む()
+    {
+        Assert.Equal((2, 1), GitRepository.ParseTrack("[ahead 2, behind 1]"));
+        Assert.Equal((3, 0), GitRepository.ParseTrack("[ahead 3]"));
+        Assert.Equal((0, 5), GitRepository.ParseTrack("[behind 5]"));
+        Assert.Equal((0, 0), GitRepository.ParseTrack(""));
+        Assert.Equal((0, 0), GitRepository.ParseTrack("[gone]"));
+    }
+
+    [Fact]
+    public void 親を持たないコミットを読める()
+    {
+        var record = "abc123abc著者2026-08-13T10:00:00+09:00最初";
+
+        var log = GitRepository.ParseLog(record);
+
+        var commit = Assert.Single(log);
+        Assert.Empty(commit.Parents);
+        Assert.Equal("最初", commit.Subject);
+        Assert.False(commit.IsMerge);
+    }
+
+    [Fact]
+    public void 親が二つならマージとみなす()
+    {
+        var record = "hha2026-08-13T10:00:00+09:00p1 p2まーじ";
+
+        Assert.True(Assert.Single(GitRepository.ParseLog(record)).IsMerge);
+    }
+
+    // --- 本物の git に対する試験 ---
+
+    [Fact]
+    public void リポジトリを見つける()
+    {
+        WriteFile("a.txt", "あ\n");
+
+        var repository = Open();
+
+        // /tmp が symlink の環境（macOS）では realpath が違う。名前で比べる。
+        Assert.Equal(Path.GetFileName(_root), Path.GetFileName(repository.Root));
+    }
+
+    [Fact]
+    public void リポジトリでない場所ではnullを返す()
+    {
+        var outside = Path.Combine(Path.GetTempPath(), "dc-plain-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(outside);
+        try
+        {
+            // 一時領域そのものが git の中にあると、この試験は成り立たない。
+            // その場合だけ確かめずに済ませる（起きないはずだが、黙って通さない）。
+            if (GitRepository.Discover(Path.GetTempPath()) is not null)
+            {
+                Assert.Fail("一時領域が git リポジトリの中にあるため確かめられません");
+            }
+
+            Assert.Null(GitRepository.Discover(outside));
+        }
+        finally
+        {
+            Directory.Delete(outside, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void 追跡されていないファイルと変更を見分ける()
+    {
+        WriteFile("committed.txt", "もと\n");
+        Git("add", "."); Git("commit", "-m", "最初");
+        WriteFile("committed.txt", "かえた\n");
+        WriteFile("new.txt", "あたらしい\n");
+
+        var status = Open().Status();
+
+        var committed = Assert.Single(status, s => s.Path == "committed.txt");
+        Assert.Equal(GitStatusCode.Modified, committed.WorkTree);
+        Assert.Equal(GitStatusCode.Unchanged, committed.Index);
+        Assert.False(committed.IsStaged);
+
+        var added = Assert.Single(status, s => s.Path == "new.txt");
+        Assert.Equal(GitStatusCode.Untracked, added.Index);
+    }
+
+    [Fact]
+    public void 索引と作業ツリーを分けて持つ()
+    {
+        WriteFile("f.txt", "1\n");
+        Git("add", "."); Git("commit", "-m", "最初");
+
+        WriteFile("f.txt", "2\n");
+        Git("add", "f.txt");
+        WriteFile("f.txt", "3\n");   // stage した後にもう一度変える
+
+        var status = Assert.Single(Open().Status(), s => s.Path == "f.txt");
+
+        // 1 つの符号に潰すとこの状態は表現できない。
+        Assert.Equal(GitStatusCode.Modified, status.Index);
+        Assert.Equal(GitStatusCode.Modified, status.WorkTree);
+        Assert.True(status.IsStaged);
+        Assert.True(status.IsDirty);
+    }
+
+    [Fact]
+    public void 日本語のファイル名が化けない()
+    {
+        // core.quotepath を切っていないと \346\227\245 の形で返り、突き合わせが壊れる。
+        WriteFile("日本語のファイル.txt", "中身\n");
+
+        var status = Open().Status();
+
+        Assert.Single(status, s => s.Path == "日本語のファイル.txt");
+    }
+
+    [Fact]
+    public void 空白を含むファイル名を扱える()
+    {
+        WriteFile("a b c.txt", "x\n");
+
+        // path は最後の欄なので、空白で切りすぎると途中で落ちる。
+        Assert.Single(Open().Status(), s => s.Path == "a b c.txt");
+    }
+
+    [Fact]
+    public void 名前が変わったことを本物のgitでも読める()
+    {
+        WriteFile("もと.txt", string.Join("\n", Enumerable.Range(0, 40).Select(i => $"行 {i}")));
+        Git("add", "."); Git("commit", "-m", "最初");
+        Git("mv", "もと.txt", "さき.txt");
+        WriteFile("べつ.txt", "べつのファイル\n");
+
+        var status = Open().Status();
+
+        var renamed = Assert.Single(status, s => s.Path == "さき.txt");
+        Assert.Equal(GitStatusCode.Renamed, renamed.Index);
+        Assert.Equal("もと.txt", renamed.OriginalPath);
+        // ずれていなければ、後ろの項目も正しく読めている。
+        Assert.Single(status, s => s.Path == "べつ.txt");
+    }
+
+    [Fact]
+    public void 履歴を新しい順に返す()
+    {
+        WriteFile("a.txt", "1\n"); Git("add", "."); Git("commit", "-m", "ひとつめ");
+        WriteFile("a.txt", "2\n"); Git("add", "."); Git("commit", "-m", "ふたつめ");
+
+        var log = Open().Log();
+
+        Assert.Equal(2, log.Count);
+        Assert.Equal("ふたつめ", log[0].Subject);
+        Assert.Equal("ひとつめ", log[1].Subject);
+        Assert.Equal("試験", log[0].Author);
+        Assert.Empty(log[1].Parents);
+        Assert.Single(log[0].Parents);
+    }
+
+    [Fact]
+    public void 件数を絞れる()
+    {
+        for (var i = 0; i < 5; i++)
+        {
+            WriteFile("a.txt", $"{i}\n");
+            Git("add", "."); Git("commit", "-m", $"こみっと {i}");
+        }
+
+        Assert.Equal(2, Open().Log(limit: 2).Count);
+    }
+
+    [Fact]
+    public void 題に制御文字が無くても改行を含む本文で崩れない()
+    {
+        WriteFile("a.txt", "1\n"); Git("add", ".");
+        Git("commit", "-m", "題", "-m", "本文の 1 行目\n本文の 2 行目");
+
+        var commit = Assert.Single(Open().Log());
+
+        // %s は題だけを返す。本文の改行で記録が割れていないこと。
+        Assert.Equal("題", commit.Subject);
+    }
+
+    [Fact]
+    public void ファイルを指定した履歴を取れる()
+    {
+        WriteFile("a.txt", "1\n"); Git("add", "."); Git("commit", "-m", "a を作る");
+        WriteFile("b.txt", "1\n"); Git("add", "."); Git("commit", "-m", "b を作る");
+
+        var log = Open().Log(path: "a.txt");
+
+        Assert.Equal("a を作る", Assert.Single(log).Subject);
+    }
+
+    [Fact]
+    public void 枝の名前とどれが今かを返す()
+    {
+        WriteFile("a.txt", "1\n"); Git("add", "."); Git("commit", "-m", "最初");
+        Git("branch", "べつの枝");
+
+        var repository = Open();
+        var branches = repository.Branches();
+
+        Assert.Equal(2, branches.Count);
+        Assert.True(Assert.Single(branches, b => b.Name == "main").IsCurrent);
+        Assert.False(Assert.Single(branches, b => b.Name == "べつの枝").IsCurrent);
+        Assert.Equal("main", repository.CurrentBranch());
+    }
+
+    [Fact]
+    public void 切り離されたHEADでは枝の名前が無い()
+    {
+        WriteFile("a.txt", "1\n"); Git("add", "."); Git("commit", "-m", "最初");
+        var repository = Open();
+        Git("checkout", "--detach", "HEAD");
+
+        Assert.Null(repository.CurrentBranch());
+    }
+
+    [Fact]
+    public void ある時点の中身をバイト列で取れる()
+    {
+        WriteFile("a.txt", "むかし\n"); Git("add", "."); Git("commit", "-m", "1");
+        WriteFile("a.txt", "いま\n"); Git("add", "."); Git("commit", "-m", "2");
+
+        var repository = Open();
+
+        Assert.Equal("いま\n", Encoding.UTF8.GetString(repository.Show("HEAD", "a.txt")));
+        Assert.Equal("むかし\n", Encoding.UTF8.GetString(repository.Show("HEAD~1", "a.txt")));
+    }
+
+    [Fact]
+    public void 中身を符号化で決め打たない()
+    {
+        // Shift_JIS のファイルを入れ、バイト列がそのまま返ることを見る。
+        // ここで文字列に直していると、この時点で化けて戻せなくなる。
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        var sjis = Encoding.GetEncoding(932);
+        var bytes = sjis.GetBytes("日本語\n");
+        File.WriteAllBytes(Path.Combine(_root, "sjis.txt"), bytes);
+        Git("add", "."); Git("commit", "-m", "sjis");
+
+        Assert.Equal(bytes, Open().Show("HEAD", "sjis.txt"));
+    }
+
+    [Fact]
+    public void 大きい出力でも詰まらない()
+    {
+        // 標準出力と標準エラーを同時に読んでいないと、パイプが埋まった時点で
+        // 相手が書き込みで止まり、こちらは読み終わらない。
+        var big = string.Join("\n", Enumerable.Range(0, 200_000).Select(i => $"行 {i} の中身"));
+        WriteFile("big.txt", big);
+        Git("add", "."); Git("commit", "-m", "大きいファイル");
+
+        var content = Open().Show("HEAD", "big.txt");
+
+        Assert.True(content.Length > 2_000_000, $"実際の大きさ {content.Length}");
+    }
+
+    [Fact]
+    public void 無いファイルを求めたら理由を添えて失敗する()
+    {
+        WriteFile("a.txt", "1\n"); Git("add", "."); Git("commit", "-m", "最初");
+        var repository = Open();
+
+        var error = Assert.Throws<GitException>(() => repository.Show("HEAD", "無い.txt"));
+
+        Assert.Contains("無い.txt", error.Message);
+        Assert.False(repository.Exists("HEAD", "無い.txt"));
+        Assert.True(repository.Exists("HEAD", "a.txt"));
+    }
+
+    [Fact]
+    public void 絶対パスでも根からの相対に直す()
+    {
+        WriteFile("nested/a.txt", "1\n"); Git("add", "."); Git("commit", "-m", "最初");
+        var repository = Open();
+
+        var content = repository.Show("HEAD", Path.Combine(repository.Root, "nested", "a.txt"));
+
+        Assert.Equal("1\n", Encoding.UTF8.GetString(content));
+    }
+
+    [Fact]
+    public void 索引へ載せたり降ろしたりできる()
+    {
+        WriteFile("a.txt", "1\n"); Git("add", "."); Git("commit", "-m", "最初");
+        WriteFile("a.txt", "2\n");
+        var repository = Open();
+
+        repository.Stage("a.txt");
+        Assert.True(Assert.Single(repository.Status(), s => s.Path == "a.txt").IsStaged);
+
+        repository.Unstage("a.txt");
+        var after = Assert.Single(repository.Status(), s => s.Path == "a.txt");
+        Assert.False(after.IsStaged);
+        // 中身は変えていない。降ろすだけ。
+        Assert.Equal("2\n", File.ReadAllText(Path.Combine(_root, "a.txt")));
+    }
+
+    [Fact]
+    public void 競合の三つの材料を取れる()
+    {
+        WriteFile("f.txt", "もと\n"); Git("add", "."); Git("commit", "-m", "祖先");
+        Git("checkout", "-b", "あちら");
+        WriteFile("f.txt", "あちらの変更\n"); Git("add", "."); Git("commit", "-m", "あちら");
+        Git("checkout", "main");
+        WriteFile("f.txt", "こちらの変更\n"); Git("add", "."); Git("commit", "-m", "こちら");
+
+        var repository = Open();
+        // 競合させる。失敗して当然なので、終了コードは見ない。
+        try { Git("merge", "あちら"); } catch (InvalidOperationException) { }
+
+        var status = Assert.Single(repository.Status(), s => s.Path == "f.txt");
+        Assert.True(status.IsConflicted);
+
+        var (ancestor, ours, theirs) = repository.ConflictSources("f.txt");
+        Assert.Equal("もと\n", Encoding.UTF8.GetString(ancestor!));
+        Assert.Equal("こちらの変更\n", Encoding.UTF8.GetString(ours!));
+        Assert.Equal("あちらの変更\n", Encoding.UTF8.GetString(theirs!));
+    }
+
+    [Fact]
+    public void 競合の材料をそのまま三方向マージへ渡せる()
+    {
+        // 5.2 と 2.1 が繋がることの確認。
+        // **離れた行だけを変えると git は競合しない**（自動でマージが済み、
+        // ステージ 1/2/3 が残らない）。競合する行と、競合しない行の両方を作る。
+        WriteFile("f.txt", "1\n2\n3\n4\n5\n"); Git("add", "."); Git("commit", "-m", "祖先");
+        Git("checkout", "-b", "あちら");
+        WriteFile("f.txt", "1\n2\nあちらの 3\n4\nあちらの 5\n");
+        Git("add", "."); Git("commit", "-m", "あちら");
+        Git("checkout", "main");
+        WriteFile("f.txt", "こちらの 1\n2\nこちらの 3\n4\n5\n");
+        Git("add", "."); Git("commit", "-m", "こちら");
+
+        var repository = Open();
+        // 3 行目で競合する。失敗して当然なので終了コードは見ない。
+        try { Git("merge", "あちら"); } catch (InvalidOperationException) { }
+
+        var (ancestor, ours, theirs) = repository.ConflictSources("f.txt");
+        Assert.NotNull(ancestor);
+        Assert.NotNull(ours);
+        Assert.NotNull(theirs);
+
+        // バイト列をそのまま渡せる。符号化の判定は TextDecoder に任せたまま。
+        var merged = ThreeWayMerge.Merge(
+            TextDecoder.Decode(ancestor), TextDecoder.Decode(ours), TextDecoder.Decode(theirs));
+
+        // git と同じく 3 行目を競合と見る。
+        Assert.True(merged.HasConflicts);
+
+        // 片側だけが変えた行は、競合の外で自動的に入る。
+        var lines = merged.ToLines();
+        Assert.Contains("こちらの 1", lines);
+        Assert.Contains("あちらの 5", lines);
+    }
+}

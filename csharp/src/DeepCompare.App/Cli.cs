@@ -19,6 +19,7 @@ internal static class Cli
         "--merge", "--block", "--report", "--context",
         "--key", "--ignore-column", "--delimiter",
         "--array-key", "--ignore-path",
+        "--limit", "--rev", "--path",
     ];
 
     /// <summary>画面を開かずに済む要求なら処理して終了コードを返す。GUI を開くなら null。</summary>
@@ -35,6 +36,27 @@ internal static class Cli
         if (args.Contains("--font-check"))
         {
             return Report(() => RunFontCheck(output));
+        }
+        if (args.Contains("--git-status"))
+        {
+            var where = Positional(args);
+            return RunGitStatus(where.Length > 0 ? where[0] : Environment.CurrentDirectory, args, output);
+        }
+        if (args.Contains("--git-log"))
+        {
+            var where = Positional(args);
+            return RunGitLog(where.Length > 0 ? where[0] : Environment.CurrentDirectory, args, output);
+        }
+        if (args.Contains("--git-diff"))
+        {
+            var where = Positional(args);
+            if (where.Length < 1)
+            {
+                Console.Error.WriteLine("--git-diff には比較するファイルが必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return RunGitDiff(where[0], args, output);
         }
         if (args.Contains("--print-json"))
         {
@@ -150,6 +172,170 @@ internal static class Cli
             }
         }
         return result.ToArray();
+    }
+
+    /// <summary>git が使えなければ理由を出して 2 を返す。呼ぶ側の分岐をまとめる。</summary>
+    private static GitRepository? OpenRepository(string path)
+    {
+        if (GitRepository.Version() is null)
+        {
+            Console.Error.WriteLine("git が見つかりません。Git 機能を使うには git を入れてください。");
+            return null;
+        }
+        var repository = GitRepository.Discover(path);
+        if (repository is null)
+        {
+            Console.Error.WriteLine($"{path} は git リポジトリの中にありません。");
+        }
+        return repository;
+    }
+
+    /// <summary>
+    /// 作業ツリーの状態。
+    ///
+    /// 終了コードは 0 きれい / 1 変更あり / 2 異常。CI で「作業ツリーが汚れていないか」
+    /// を見る使い方ができる。
+    /// </summary>
+    private static int RunGitStatus(string path, string[] args, string? output)
+    {
+        var repository = OpenRepository(path);
+        if (repository is null)
+        {
+            return 2;
+        }
+
+        List<GitFileStatus> files;
+        try
+        {
+            files = [.. repository.Status()];
+        }
+        catch (GitException error)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+
+        if (args.Contains("--changes-only"))
+        {
+            files.RemoveAll(f => f.Index == GitStatusCode.Unchanged
+                && f.WorkTree == GitStatusCode.Unchanged);
+        }
+
+        var text = new StringBuilder();
+        text.AppendLine($"root   {repository.Root}");
+        text.AppendLine($"branch {repository.CurrentBranch() ?? "(切り離された HEAD)"}");
+        text.AppendLine("legend 索引 / 作業ツリー の順。. は変化なし");
+        text.AppendLine("---");
+        foreach (var file in files.OrderBy(f => f.Path, StringComparer.Ordinal))
+        {
+            var mark = file.IsConflicted ? "競合" : $"{Mark(file.Index)}{Mark(file.WorkTree)}";
+            var name = file.OriginalPath is { Length: > 0 } original
+                ? $"{original} -> {file.Path}"
+                : file.Path;
+            text.AppendLine($"{mark} {name}");
+        }
+        text.AppendLine("---");
+        var untracked = files.Count(f => f.Index == GitStatusCode.Untracked);
+        text.AppendLine($"合計 {files.Count} 件"
+            + $"（stage 済み {files.Count(f => f.IsStaged)}"
+            + $" / 未 stage {files.Count(f => f.IsDirty && f.Index != GitStatusCode.Untracked)}"
+            + $" / 未追跡 {untracked}"
+            + $" / 競合 {files.Count(f => f.IsConflicted)}）");
+
+        Emit(text.ToString(), output);
+        return files.Count == 0 ? 0 : 1;
+
+        static string Mark(GitStatusCode code) => code switch
+        {
+            GitStatusCode.Unchanged => ".",
+            GitStatusCode.Modified => "M",
+            GitStatusCode.Added => "A",
+            GitStatusCode.Deleted => "D",
+            GitStatusCode.Renamed => "R",
+            GitStatusCode.Copied => "C",
+            GitStatusCode.TypeChanged => "T",
+            GitStatusCode.Untracked => "?",
+            GitStatusCode.Ignored => "!",
+            GitStatusCode.Unmerged => "U",
+            _ => " ",
+        };
+    }
+
+    private static int RunGitLog(string path, string[] args, string? output)
+    {
+        var repository = OpenRepository(path);
+        if (repository is null)
+        {
+            return 2;
+        }
+
+        try
+        {
+            var limit = int.TryParse(ValueOf(args, "--limit"), out var n) ? n : 50;
+            var commits = repository.Log(limit, ValueOf(args, "--rev"), ValueOf(args, "--path"));
+
+            var text = new StringBuilder();
+            foreach (var commit in commits)
+            {
+                var merge = commit.IsMerge ? " [マージ]" : string.Empty;
+                text.AppendLine(
+                    $"{commit.ShortHash} {commit.When:yyyy-MM-dd HH:mm} {commit.Author}{merge}");
+                text.AppendLine($"    {commit.Subject}");
+            }
+            text.AppendLine($"--- {commits.Count} 件");
+            Emit(text.ToString(), output);
+            return 0;
+        }
+        catch (GitException error)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+    }
+
+    /// <summary>
+    /// ある時点のファイルと、いまの中身を比べる。
+    ///
+    /// **git 本体の diff ではなく、こちらの比較エンジンに掛ける。** 意味的な行の
+    /// 対応付けが効くので、名前を変えただけの行が並ぶ。ここが git だけでは出せない部分。
+    /// </summary>
+    private static int RunGitDiff(string path, string[] args, string? output)
+    {
+        var repository = OpenRepository(path);
+        if (repository is null)
+        {
+            return 2;
+        }
+
+        try
+        {
+            var revision = ValueOf(args, "--rev") ?? "HEAD";
+            // 中身はバイト列で受け、符号化の判定は普段と同じ経路に通す。
+            var left = TextDecoder.Decode(repository.Show(revision, path));
+            var right = TextDecoder.Decode(File.ReadAllBytes(path));
+
+            var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets();
+            var comparison = DiffComparer.Compare(left, right, embedder, new CompareOptions(
+                float.TryParse(ValueOf(args, "--threshold"), out var t) ? t : Aligner.DefaultPairThreshold));
+
+            var text = new StringBuilder();
+            text.AppendLine($"left  {revision}:{repository.ToRelative(path)}");
+            text.AppendLine($"right {path}（作業ツリー）");
+            text.AppendLine("---");
+            text.Append(DeepCompare.Engine.Report.UnifiedDiff(
+                comparison, left, right,
+                $"a/{repository.ToRelative(path)}",
+                $"b/{repository.ToRelative(path)}",
+                int.TryParse(ValueOf(args, "--context"), out var ctx) ? ctx : 3));
+
+            Emit(text.ToString(), output);
+            return comparison.Rows.Any(r => !r.IsUnchanged) ? 1 : 0;
+        }
+        catch (Exception error) when (error is GitException or IOException)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
     }
 
     /// <summary>

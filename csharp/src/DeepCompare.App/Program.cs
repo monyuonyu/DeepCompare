@@ -25,6 +25,15 @@ internal static class Program
           deepcompare --merge3 祖先 左 右
                                      3 方向マージ。競合は <<<<<<< で囲む。
                                      終了コードは 0 競合なし / 1 競合あり
+          deepcompare --git-status [場所]
+                                     作業ツリーの状態。終了コードは
+                                     0 きれい / 1 変更あり / 2 異常
+          deepcompare --git-log [場所]
+                                     履歴を一覧にする
+          deepcompare --git-diff <ファイル>
+                                     ある時点と今の中身を比べる。**git 本体の diff
+                                     ではなく、こちらの比較エンジンに掛ける**ので、
+                                     意味的な行の対応付けが効く
           deepcompare --font-check   日本語を表示できる書体があるかを調べる
 
         オプション
@@ -50,6 +59,13 @@ internal static class Program
                            比較から外す列。複数回指定可
           --delimiter <字> 区切り文字。tab も指定できる（既定は拡張子から推定）
           --no-header      1 行目を見出しとして扱わない
+
+        Git のオプション
+          --limit <数>     --git-log で出す件数（既定 50）
+          --rev <revision> 対象の時点。--git-log と --git-diff で使う
+                           （--git-diff の既定は HEAD）
+          --path <パス>    --git-log をそのファイルに絞る
+          --changes-only   --git-status で変化のない項目を出さない
 
         構造化データの比較のオプション（--print-json と併用）
           --array-key <名前>
