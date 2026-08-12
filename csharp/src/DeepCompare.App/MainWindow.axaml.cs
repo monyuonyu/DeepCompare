@@ -9,11 +9,12 @@ public partial class MainWindow : Window
 {
     private readonly ShellViewModel _shell;
 
-    public MainWindow() : this([], false, false)
+    public MainWindow() : this([], false, false, false)
     {
     }
 
-    public MainWindow(string[] startupPaths, bool structured = false, bool git = false)
+    public MainWindow(
+        string[] startupPaths, bool structured = false, bool git = false, bool merge = false)
     {
         InitializeComponent();
         _shell = new ShellViewModel(PickPathAsync, PickSavePathAsync);
@@ -21,6 +22,14 @@ public partial class MainWindow : Window
 
         AddHandler(DragDrop.DropEvent, OnDrop);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
+
+        // 3 方向マージは 祖先 左 右 の 3 つ。
+        if (merge && startupPaths.Length >= 3)
+        {
+            var (ancestor, ours, theirs) = (startupPaths[0], startupPaths[1], startupPaths[2]);
+            Opened += (_, _) => _shell.ShowMerge(ancestor, ours, theirs);
+            return;
+        }
 
         // Git は場所 1 つで開ける。引数が無ければ今いる場所。
         if (git)

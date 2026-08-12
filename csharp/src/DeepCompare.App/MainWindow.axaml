@@ -26,6 +26,9 @@
     <DataTemplate DataType="vm:GitViewModel">
       <views:GitView />
     </DataTemplate>
+    <DataTemplate DataType="vm:MergeViewModel">
+      <views:MergeView />
+    </DataTemplate>
   </Window.DataTemplates>
 
   <ContentControl Content="{Binding Current}" />

@@ -1,0 +1,128 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:DeepCompare.App"
+             x:Class="DeepCompare.App.Views.MergeView"
+             x:DataType="vm:MergeViewModel">
+
+  <UserControl.Styles>
+    <!-- monospace 単体では解決できない環境がある。代替を並べる。 -->
+    <Style Selector="TextBlock.mono">
+      <Setter Property="FontFamily" Value="Consolas,DejaVu Sans Mono,MS Gothic,monospace" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- 上の帯 -->
+    <Border Grid.Row="0" Background="{DynamicResource PanelBg}" Padding="12,10">
+      <StackPanel Spacing="8">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Content="戻る" Command="{Binding BackCommand}" />
+          <TextBlock Text="3 方向マージ" FontWeight="SemiBold"
+                     VerticalAlignment="Center" Margin="6,0,0,0" />
+          <TextBlock VerticalAlignment="Center" FontSize="11"
+                     Foreground="{DynamicResource FgDim}"
+                     Text="競合は決めるまで未決のままにします。勝手に片方を採りません" />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
+          <TextBlock Grid.Row="0" Grid.Column="0" Text="祖先" VerticalAlignment="Center"
+                     Margin="0,0,8,4" Width="34" />
+          <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding BasePath}" Margin="0,0,0,4"
+                   PlaceholderText="共通の元になったファイル" />
+          <TextBlock Grid.Row="1" Grid.Column="0" Text="左" VerticalAlignment="Center"
+                     Margin="0,0,8,4" Width="34" />
+          <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LeftPath}" Margin="0,0,0,4" />
+          <TextBlock Grid.Row="2" Grid.Column="0" Text="右" VerticalAlignment="Center"
+                     Margin="0,0,8,0" Width="34" />
+          <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding RightPath}" />
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Content="マージ" Command="{Binding MergeCommand}" />
+          <Button Content="全部 左を採る" Command="{Binding TakeAllLeftCommand}" />
+          <Button Content="全部 右を採る" Command="{Binding TakeAllRightCommand}" />
+          <Button Content="書き出す" Command="{Binding SaveCommand}" />
+          <CheckBox Content="変化のない部分も出す" IsChecked="{Binding ShowUnchanged}"
+                    VerticalAlignment="Center" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <!-- まとまりの一覧 -->
+    <ScrollViewer Grid.Row="1" Margin="12,8">
+      <ItemsControl ItemsSource="{Binding Regions}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:MergeRegionRow">
+            <Border Background="{Binding Background}" CornerRadius="3"
+                    Padding="10,7" Margin="0,0,0,5">
+              <StackPanel Spacing="5">
+
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                  <TextBlock Text="{Binding SourceLabel}" FontWeight="SemiBold" FontSize="12" />
+                  <TextBlock Text="{Binding ChoiceLabel}" FontSize="11"
+                             Foreground="{DynamicResource FgDim}"
+                             IsVisible="{Binding IsConflict}" />
+                </StackPanel>
+
+                <!-- 競合していないところは結果だけ出す -->
+                <TextBlock Text="{Binding ResultText}" Classes="mono" FontSize="12"
+                           TextWrapping="NoWrap"
+                           IsVisible="{Binding !IsConflict}" />
+
+                <!-- 競合は三者を並べて、選ばせる -->
+                <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding IsConflict}">
+                  <StackPanel Grid.Column="0" Spacing="2">
+                    <TextBlock Text="左" FontSize="11" Foreground="{DynamicResource FgDim}" />
+                    <Border Background="{DynamicResource CardBg}" CornerRadius="2" Padding="6,4">
+                      <TextBlock Text="{Binding LeftText}" Classes="mono" FontSize="12"
+                                 TextWrapping="NoWrap" />
+                    </Border>
+                  </StackPanel>
+                  <StackPanel Grid.Column="2" Spacing="2">
+                    <TextBlock Text="右" FontSize="11" Foreground="{DynamicResource FgDim}" />
+                    <Border Background="{DynamicResource CardBg}" CornerRadius="2" Padding="6,4">
+                      <TextBlock Text="{Binding RightText}" Classes="mono" FontSize="12"
+                                 TextWrapping="NoWrap" />
+                    </Border>
+                  </StackPanel>
+                </Grid>
+
+                <StackPanel Orientation="Horizontal" Spacing="6"
+                            IsVisible="{Binding IsConflict}">
+                  <Button Content="左を採る" FontSize="11" Padding="10,3"
+                          Command="{Binding $parent[UserControl].((vm:MergeViewModel)DataContext).TakeLeftCommand}"
+                          CommandParameter="{Binding}" />
+                  <Button Content="右を採る" FontSize="11" Padding="10,3"
+                          Command="{Binding $parent[UserControl].((vm:MergeViewModel)DataContext).TakeRightCommand}"
+                          CommandParameter="{Binding}" />
+                  <Button Content="両方残す" FontSize="11" Padding="10,3"
+                          Command="{Binding $parent[UserControl].((vm:MergeViewModel)DataContext).TakeBothCommand}"
+                          CommandParameter="{Binding}" />
+                  <Button Content="どちらも採らない" FontSize="11" Padding="10,3"
+                          Command="{Binding $parent[UserControl].((vm:MergeViewModel)DataContext).TakeNeitherCommand}"
+                          CommandParameter="{Binding}" />
+                </StackPanel>
+
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <!-- 下の帯 -->
+    <Border Grid.Row="2" Background="{DynamicResource StatusBarBg}" Padding="12,6">
+      <StackPanel Orientation="Horizontal" Spacing="14">
+        <TextBlock Text="{Binding Summary}" VerticalAlignment="Center" FontSize="12" />
+        <TextBlock Text="{Binding DecisionText}" VerticalAlignment="Center" FontSize="12"
+                   Foreground="{DynamicResource FgDim}" />
+        <TextBlock Text="マージ中…" VerticalAlignment="Center" FontSize="12"
+                   IsVisible="{Binding Busy}" />
+        <TextBlock Text="{Binding Message}" Foreground="{DynamicResource FgWarning}"
+                   VerticalAlignment="Center" FontSize="12" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+
+  </Grid>
+</UserControl>

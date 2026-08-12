@@ -105,6 +105,22 @@ public sealed class ShellViewModel : ViewModelBase
     /// <summary>出来合いの画面をそのまま出す。読み込み方を差し替えた比較などに使う。</summary>
     public void Show(object model) => Current = model;
 
+    /// <summary>3 方向マージの画面を開く。</summary>
+    public void ShowMerge(string basePath, string left, string right, object? back = null)
+    {
+        var model = new MergeViewModel(this, back)
+        {
+            BasePath = basePath,
+            LeftPath = left,
+            RightPath = right,
+        };
+        Current = model;
+        if (basePath.Length > 0 && left.Length > 0 && right.Length > 0)
+        {
+            model.MergeCommand.Execute(null);
+        }
+    }
+
     /// <summary>Git の画面を開く。</summary>
     public void ShowGit(string path, object? back = null)
     {

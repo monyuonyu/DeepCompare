@@ -38,6 +38,7 @@ public sealed class HomeViewModel : ViewModelBase
         CompareFoldersCommand = new RelayCommand(() => { StartFolders(); return Task.CompletedTask; });
         CompareStructuredCommand = new RelayCommand(() => { StartStructured(); return Task.CompletedTask; });
         OpenGitCommand = new RelayCommand(() => { StartGit(); return Task.CompletedTask; });
+        OpenMergeCommand = new RelayCommand(() => { StartMerge(); return Task.CompletedTask; });
         SaveSessionCommand = new RelayCommand(() => { SaveSession(); return Task.CompletedTask; });
         OpenSessionCommand = new RelayCommand<SessionEntry>(entry => { OpenSession(entry); return Task.CompletedTask; });
         RemoveSessionCommand = new RelayCommand<SessionEntry>(entry => { RemoveSession(entry); return Task.CompletedTask; });
@@ -148,6 +149,15 @@ public sealed class HomeViewModel : ViewModelBase
     public ICommand CompareFoldersCommand { get; }
     public ICommand CompareStructuredCommand { get; }
     public ICommand OpenGitCommand { get; }
+    public ICommand OpenMergeCommand { get; }
+
+    private string _basePath = string.Empty;
+    /// <summary>3 方向マージの祖先。ここだけ 3 つ目の入力が要る。</summary>
+    public string BasePath
+    {
+        get => _basePath;
+        set => Set(ref _basePath, value);
+    }
 
     private async Task PickAsync(bool isFolder, bool left)
     {
@@ -209,6 +219,26 @@ public sealed class HomeViewModel : ViewModelBase
         }
         Message = string.Empty;
         _shell.ShowGit(where);
+    }
+
+    private void StartMerge()
+    {
+        var ancestor = BasePath.Trim();
+        if (ancestor.Length == 0)
+        {
+            Message = "3 方向マージには祖先のファイルも要ります。";
+            return;
+        }
+        if (!Validate(out var left, out var right))
+        {
+            return;
+        }
+        if (!File.Exists(ancestor) || !File.Exists(left) || !File.Exists(right))
+        {
+            Message = "祖先・左・右の 3 つともファイルを指定してください。";
+            return;
+        }
+        _shell.ShowMerge(ancestor, left, right);
     }
 
     private void StartFolders()

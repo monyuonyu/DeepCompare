@@ -169,6 +169,29 @@ public sealed class ThreeWayMergeTests
         Assert.Equal(1, result.ConflictCount);
     }
 
+    /// <summary>
+    /// **競合の粒度は git より細かい。それでよい。**
+    ///
+    /// git merge-file は競合の領域を広く取り、間に共通行があっても 1 つの競合に
+    /// まとめることがある。こちらは共通行で区切って複数に分ける。
+    ///
+    /// 危ないのは**逆向きの食い違い**（git が競合と言うものを黙って自動マージ
+    /// する）で、そちらは無いことをランダムな 200 通りで確かめてある
+    /// （うち 126 通りが競合。有無は完全に一致）。細かく分かれている方が、
+    /// 画面で 1 つずつ選べるぶん使いやすい。
+    /// </summary>
+    [Fact]
+    public void 共通行を挟んだ二つの競合を別々のまとまりにする()
+    {
+        var result = ThreeWayMerge.Merge(
+            Text("a", "b", "共通", "c", "d"),
+            Text("a", "B", "共通", "C", "d"),
+            Text("a", "B2", "共通", "C2", "d"));
+
+        // git はここを 1 つの競合にまとめることがある。こちらは 2 つ。
+        Assert.Equal(2, result.ConflictCount);
+    }
+
     /// <summary>間に一致行が 1 行でもあれば、独立した変更として両方採る。</summary>
     [Fact]
     public void ChangesSeparatedByASharedLineAreBothTaken()

@@ -15,13 +15,17 @@ public partial class App : Application
     /// <summary>起動と同時に Git の画面を開くか（<c>--git</c>）。</summary>
     public static bool StartGit { get; set; }
 
+    /// <summary>起動と同時に 3 方向マージの画面を開くか（<c>--merge-view</c>）。</summary>
+    public static bool StartMerge { get; set; }
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow(StartupFiles, StartStructured, StartGit);
+            desktop.MainWindow = new MainWindow(
+                StartupFiles, StartStructured, StartGit, StartMerge);
         }
         base.OnFrameworkInitializationCompleted();
     }

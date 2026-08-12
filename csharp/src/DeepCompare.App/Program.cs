@@ -11,6 +11,8 @@ internal static class Program
           deepcompare --structured 左 右
                                      GUI を開き、構造として比較する画面を出す
           deepcompare --git [場所]   GUI を開き、Git の画面を出す
+          deepcompare --merge-view 祖先 左 右
+                                     GUI を開き、3 方向マージの画面を出す
           deepcompare --print 左 右  画面を開かず、比較結果をテキストで出す
           deepcompare --print-folder 左 右
                                      フォルダーを比較して一覧を出す。終了コードは
@@ -135,6 +137,7 @@ internal static class Program
         App.StartupFiles = Cli.Positional(args);
         App.StartStructured = args.Contains("--structured");
         App.StartGit = args.Contains("--git");
+        App.StartMerge = args.Contains("--merge-view");
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
