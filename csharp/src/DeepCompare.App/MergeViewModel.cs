@@ -244,8 +244,11 @@ public sealed class MergeViewModel : ViewModelBase
             _result = result.merged;
             Rebuild();
 
+            // **書き出しは禁じない。** git のマージ中に、印を付けたまま保存して
+            // 後で続きをやりたいことがある。決めていないことが結果から消えない
+            // ようにするのが目的なので、印を残せば足りる。
             Summary = _result.HasConflicts
-                ? $"{_result.ConflictCount} 件の競合があります。決めるまで書き出せません。"
+                ? $"{_result.ConflictCount} 件の競合があります。決めていないものは印を付けて書き出します。"
                 : "競合はありません。そのまま書き出せます。";
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
