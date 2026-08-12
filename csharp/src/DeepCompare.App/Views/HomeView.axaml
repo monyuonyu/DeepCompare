@@ -74,6 +74,16 @@
         </Border>
       </Grid>
 
+      <Border Background="{DynamicResource PanelBg}" CornerRadius="6" Padding="18">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Git" FontSize="15" FontWeight="SemiBold" />
+          <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource FgDim}"
+                     Text="作業ツリーの変更と履歴を見ます。差分は git の diff ではなく、こちらの比較エンジンに掛けるので、意味的な行の対応付けが効きます。左の欄にリポジトリの中のどこかを入れてください（空なら今いる場所）。" />
+          <Button Content="Git を開く" HorizontalAlignment="Left"
+                  Command="{Binding OpenGitCommand}" />
+        </StackPanel>
+      </Border>
+
       <TextBlock Text="{Binding Message}" Foreground="{DynamicResource FgWarning}" TextWrapping="Wrap"
                  IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 

@@ -12,13 +12,16 @@ public partial class App : Application
     /// <summary>起動と同時に構造比較を開くか（<c>--structured</c>）。</summary>
     public static bool StartStructured { get; set; }
 
+    /// <summary>起動と同時に Git の画面を開くか（<c>--git</c>）。</summary>
+    public static bool StartGit { get; set; }
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow(StartupFiles, StartStructured);
+            desktop.MainWindow = new MainWindow(StartupFiles, StartStructured, StartGit);
         }
         base.OnFrameworkInitializationCompleted();
     }

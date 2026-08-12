@@ -102,6 +102,17 @@ public sealed class ShellViewModel : ViewModelBase
 
     public void ShowEmptyText() => Current = new TextCompareViewModel(this, null);
 
+    /// <summary>出来合いの画面をそのまま出す。読み込み方を差し替えた比較などに使う。</summary>
+    public void Show(object model) => Current = model;
+
+    /// <summary>Git の画面を開く。</summary>
+    public void ShowGit(string path, object? back = null)
+    {
+        var model = new GitViewModel(this, path, back);
+        Current = model;
+        _ = model.RefreshAsync();
+    }
+
     /// <summary>構造として比較する画面を開く。</summary>
     public void ShowStructured(string left, string right, object? back = null)
     {

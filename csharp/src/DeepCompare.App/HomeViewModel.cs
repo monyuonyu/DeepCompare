@@ -37,6 +37,7 @@ public sealed class HomeViewModel : ViewModelBase
         CompareTextCommand = new RelayCommand(() => { StartText(); return Task.CompletedTask; });
         CompareFoldersCommand = new RelayCommand(() => { StartFolders(); return Task.CompletedTask; });
         CompareStructuredCommand = new RelayCommand(() => { StartStructured(); return Task.CompletedTask; });
+        OpenGitCommand = new RelayCommand(() => { StartGit(); return Task.CompletedTask; });
         SaveSessionCommand = new RelayCommand(() => { SaveSession(); return Task.CompletedTask; });
         OpenSessionCommand = new RelayCommand<SessionEntry>(entry => { OpenSession(entry); return Task.CompletedTask; });
         RemoveSessionCommand = new RelayCommand<SessionEntry>(entry => { RemoveSession(entry); return Task.CompletedTask; });
@@ -146,6 +147,7 @@ public sealed class HomeViewModel : ViewModelBase
     public ICommand CompareTextCommand { get; }
     public ICommand CompareFoldersCommand { get; }
     public ICommand CompareStructuredCommand { get; }
+    public ICommand OpenGitCommand { get; }
 
     private async Task PickAsync(bool isFolder, bool left)
     {
@@ -195,6 +197,18 @@ public sealed class HomeViewModel : ViewModelBase
             return;
         }
         _shell.ShowStructured(left, right);
+    }
+
+    private void StartGit()
+    {
+        // Git は左の欄だけで足りる。リポジトリの中のどこかを指していればよい。
+        var where = LeftPath.Trim();
+        if (where.Length == 0)
+        {
+            where = Environment.CurrentDirectory;
+        }
+        Message = string.Empty;
+        _shell.ShowGit(where);
     }
 
     private void StartFolders()

@@ -9,11 +9,11 @@ public partial class MainWindow : Window
 {
     private readonly ShellViewModel _shell;
 
-    public MainWindow() : this([], false)
+    public MainWindow() : this([], false, false)
     {
     }
 
-    public MainWindow(string[] startupPaths, bool structured = false)
+    public MainWindow(string[] startupPaths, bool structured = false, bool git = false)
     {
         InitializeComponent();
         _shell = new ShellViewModel(PickPathAsync, PickSavePathAsync);
@@ -21,6 +21,14 @@ public partial class MainWindow : Window
 
         AddHandler(DragDrop.DropEvent, OnDrop);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
+
+        // Git は場所 1 つで開ける。引数が無ければ今いる場所。
+        if (git)
+        {
+            var where = startupPaths.Length > 0 ? startupPaths[0] : Environment.CurrentDirectory;
+            Opened += (_, _) => _shell.ShowGit(where);
+            return;
+        }
 
         // 旧実装と同じく、引数 2 つで比較対象を渡せる。
         // フォルダーが渡されたらフォルダー比較へ、ファイルならテキスト比較へ。

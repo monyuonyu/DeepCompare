@@ -23,6 +23,9 @@
     <DataTemplate DataType="vm:StructuredCompareViewModel">
       <views:StructuredCompareView />
     </DataTemplate>
+    <DataTemplate DataType="vm:GitViewModel">
+      <views:GitView />
+    </DataTemplate>
   </Window.DataTemplates>
 
   <ContentControl Content="{Binding Current}" />

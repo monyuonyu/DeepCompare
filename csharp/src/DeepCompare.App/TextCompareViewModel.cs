@@ -19,6 +19,26 @@ public sealed class TextCompareViewModel : ViewModelBase
     private List<RowView> _allRows = [];
     private int _compareGeneration;
 
+    /// <summary>
+    /// 中身の取り出し方。既定はファイルから読む。
+    ///
+    /// git のある時点の中身を比べるときに差し替える。**バイト列で受け取る**ので、
+    /// 符号化の判定は普段と同じ経路（<see cref="TextDecoder"/>）を通る。
+    /// パスは表示にも使うので、<c>HEAD:src/A.cs</c> のように拡張子が残る形で渡すと
+    /// 構文強調もそのまま効く。
+    /// </summary>
+    public Func<string, byte[]>? ContentLoader { get; set; }
+
+    /// <summary>
+    /// 書き戻せない側。git のある時点の中身は書き換えられない。
+    ///
+    /// 保存できないものを保存できるように見せると、押した後に失敗する。
+    /// 最初から押せないようにする。
+    /// </summary>
+    public bool LeftReadOnly { get; set; }
+
+    public bool RightReadOnly { get; set; }
+
     // 編集の対象。読み込んだ時点の符号化と改行を保つため、DecodedText も持っておく。
     private DecodedText? _leftSource;
     private DecodedText? _rightSource;
@@ -66,8 +86,10 @@ public sealed class TextCompareViewModel : ViewModelBase
         CopyToLeftCommand = new RelayCommand<RowView>(row => ApplyBlockAsync(row, toRight: false));
         UndoCommand = new RelayCommand(UndoAsync, () => _undoSides.Count > 0);
         RedoCommand = new RelayCommand(RedoAsync, () => _redoSides.Count > 0);
-        SaveLeftCommand = new RelayCommand(() => SaveAsync(left: true), () => LeftModified);
-        SaveRightCommand = new RelayCommand(() => SaveAsync(left: false), () => RightModified);
+        SaveLeftCommand = new RelayCommand(
+            () => SaveAsync(left: true), () => LeftModified && !LeftReadOnly);
+        SaveRightCommand = new RelayCommand(
+            () => SaveAsync(left: false), () => RightModified && !RightReadOnly);
         ApplyImportanceCommand = new RelayCommand(RecompareAsync);
         ExportUnifiedCommand = new RelayCommand(() => ExportAsync(unified: true));
         ExportHtmlCommand = new RelayCommand(() => ExportAsync(unified: false));
@@ -357,8 +379,9 @@ public sealed class TextCompareViewModel : ViewModelBase
             // 段階 1: 文字列一致だけで組む。2000 行で 20ms 程度なので、体感は即座。
             var first = await Task.Run(() =>
             {
-                var left = TextDecoder.Decode(File.ReadAllBytes(leftPath));
-                var right = TextDecoder.Decode(File.ReadAllBytes(rightPath));
+                var load = ContentLoader ?? File.ReadAllBytes;
+                var left = TextDecoder.Decode(load(leftPath));
+                var right = TextDecoder.Decode(load(rightPath));
                 var started = DateTime.UtcNow;
                 var comparison = DiffComparer.Compare(
                     left, right, embedder: null, compareOptions);
