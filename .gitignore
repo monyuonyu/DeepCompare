@@ -14,8 +14,6 @@ __pycache__/
 # VSCode の設定ファイル
 .vscode/
 
-# Rust
-/target/
 
 # 参照実装用の venv
 .venv-ref/

@@ -17,10 +17,11 @@ public sealed record Tensor(float[] Data, int[] Shape)
 /// 対称 int8 で保存し、読み込み時に f32 へ戻す。演算は f32 のままなので、量子化された
 /// 行列積を書き起こす必要がない。
 ///
-/// この形式は Rust 版（crates/engine/src/weights.rs）が書き出したものと同一で、
-/// assets/minilm.dcm をそのまま共用する。配布物として出回っている量子化 ONNX と違い、
-/// 量子化されるのは重みだけで活性値は f32 のままなので、束ねた相手によって結果が
-/// 変わることがない。
+/// 書き出しは DeepCompare.ModelPrep、読み込みはこの中の Load。片方だけを直すと
+/// 無言で壊れるので、定数の定義をここに集めてある。
+///
+/// 配布物として出回っている量子化 ONNX と違い、量子化されるのは重みだけで活性値は
+/// f32 のままなので、束ねた相手によって結果が変わることがない。
 /// </summary>
 public static class DcmWeights
 {

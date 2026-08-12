@@ -5,32 +5,15 @@
 行を MiniLM で埋め込み、コサイン類似度を手がかりに Needleman-Wunsch で対応を決める。
 変数名を一括で変えた行のように、文字列としては別物でも役割が同じ行を同じ行として並べられる。
 
+C# + Avalonia。外部ランタイムを必要としないネイティブ実行ファイルとして配布する。
+
 ---
 
-## 現状
+## 画面
 
-**書き直しの最中。** `master` に元の Python 版があり、`rust-rewrite` ブランチに
-2 つの実装が並んでいる。
-
-| | `crates/`（Rust） | `csharp/`（C# + Avalonia） |
-|---|---|---|
-| GUI | egui（独自描画） | Avalonia + XAML（Fluent） |
-| 推論 | candle | 自前実装（`System.Numerics.Tensors`） |
-| 画面 | テキスト比較のみ | 起動画面 / フォルダー比較 / テキスト比較 |
-| 配布（Linux） | **単一 exe 35 MB** | 46 MB + Skia/HarfBuzz 14 MB（3 ファイル） |
-| 配布（Windows） | **単一 exe 33 MB** | 単一 exe 72.8 MB（非 AOT） |
-
-**両者は同じ重みファイル（`assets/minilm.dcm`）を使い、比較結果は完全に一致する**
-（行データ部の SHA256 が一致）。違いは見た目と配布形態だけ。
-
-Rust 版は動作する状態のまま残してある。C# へ舵を切った判断が変わったときに戻れるようにするため。
-
-### 進捗
-
-- [x] エンジン（符号化判定・アライメント・行内差分・推論）— Rust 56 相当 / C# 56 テスト
-- [x] テキスト比較の画面
-- [x] フォルダー比較の画面と起動画面（C# 版のみ）
-- [ ] Windows での AOT 発行（VS Build Tools 導入待ち）
+- **起動画面** — 比較するものを選ぶ。ファイルでもフォルダーでも、ドラッグ＆ドロップでも指定できる。
+- **フォルダー比較** — 再帰的に走査し、差異のあるファイルを一覧にする。行を開くとテキスト比較へ移る。
+- **テキスト比較** — 行を対応付けて左右に並べ、行内の変わった部分だけ色を変える。
 
 ---
 
@@ -38,10 +21,11 @@ Rust 版は動作する状態のまま残してある。C# へ舵を切った判
 
 ### 重みを int8 で自前量子化し、推論も自前で持つ
 
-同じ結論に二度到達した。Rust では `ort`（ONNX Runtime）が静的リンクにソースからの
-ビルドを要求しクロスコンパイルが現実的でないため candle を選び、C# では
-`libonnxruntime`（28.5 MB）がネイティブライブラリゆえ NativeAOT でも実行ファイルに
-畳み込めず別ファイルとして残るため、推論そのものを書いた。
+「軽量な単一 exe にしたい」という要求が、この選択のすべての根拠になっている。
+
+推論に ONNX Runtime を使うと `libonnxruntime`（28.5 MB）が付いて回る。あれは
+ネイティブライブラリなので NativeAOT でも実行ファイルに畳み込めず、別ファイルとして
+残ってしまう。必要なのは 6 層の BERT encoder 一本だけなので、そこだけ書いた。
 
 重みは行ごとの対称 int8 で保存し、読み込み時に f32 へ戻す。演算は f32 のままなので
 量子化された行列積を書き起こす必要がない。
@@ -58,31 +42,48 @@ Rust 版は動作する状態のまま残してある。C# へ舵を切った判
 後に置くか、注意マスクの向き、プーリングの分母——どれを取り違えても「それらしい数字」は
 出てしまう。そこで **ONNX Runtime（完全に独立した実装）と突き合わせている**。
 
-| 実装 | 参照実装との一致（コサイン、最小 / 平均） |
+| 重み | 参照実装との一致（コサイン、最小 / 平均） |
 |---|---|
-| Rust f32 | 0.999999 / 1.000000 |
-| Rust int8 | 0.999095 / 0.999422 |
-| C# f32 | **1.000000** / 1.000000 |
-| C# int8 | **0.999095** / 0.999422 |
+| f32 | **1.000000** / 1.000000 |
+| int8 | **0.999095** / 0.999422 |
 
-Rust 版と C# 版が小数 6 桁まで同値。この段があったおかげで、移植中の不具合を
-「実装の誤り」と「量子化の誤差」に切り分けられた。
+`dotnet test csharp/tests/DeepCompare.Engine.Tests/DeepCompare.Engine.Tests.csproj` で再現できる。
+この段があるおかげで、不具合を「実装の誤り」と「量子化の誤差」に切り分けられる。
 
 ### 対応付けを二段に分ける
 
-旧実装は両ファイルの全行の総当たりで類似度行列を作っていた。1000 行同士なら
+素朴にやると、両ファイルの全行の総当たりで類似度行列を作ることになる。1000 行同士なら
 100 万マスの DP に 100 万回のモデル推論が乗る。
 
-新実装はまず文字列一致で確実に対応する区間を畳み、残った「変化した塊」に対してだけ
+そうはせず、まず文字列一致で確実に対応する区間を畳み、残った「変化した塊」に対してだけ
 意味的アライメントを行う。完全に一致するファイル同士なら**モデルは一度も動かない**。
 
-3000 行対 3000 行、2% の行が変化という条件での実測（どちらも同じ Rust 実装なので、
-差は言語ではなく手順によるもの）:
+3000 行対 3000 行、2% の行が変化という条件での実測:
 
 | | 所要 | 埋め込んだ行 |
 |---|---|---|
-| 二段構え | **0.423 秒** | 108 / 6000（1.8%） |
-| 素朴（全行を埋め込み、全面 DP） | 9.159 秒 | 6000 |
+| 二段構え | **0.42 秒** | 108 / 6000（1.8%） |
+| 素朴（全行を埋め込み、全面 DP） | 9.16 秒 | 6000 |
+
+### 対応とみなす類似度は閾値として表す
+
+対角のスコアを `類似度 - 閾値`、空きを 0 とする。こうすると「類似度がこの値を上回るときだけ
+対にする」がそのまま式の意味になる。
+
+罰則として表すと壊れる。「空き 1 つにつき -0.5」を置いて類似度をそのまま加算すると、
+類似度が 0..1 に収まる以上、対にすれば 0 以上、空き 2 つなら -1.0 なので、
+**どれだけ無関係な行同士でも必ず対にされ、空きが選ばれることが原理的に無くなる**。
+左が `[A, B]`、右が `[B', C]` で B だけが対応する場合でも A↔B' と B↔C という誤った対ができる。
+
+閾値は画面から調整できる。短いコード行は似ていても値が伸びにくく、
+`self.config = config` と `self.settings = settings` のように明らかに対応する行でも
+既定の 0.50 付近に落ちることがあるため。
+
+### 行内差分は範囲の列として返す
+
+文字列を組み立てて返すと、書式のために本文を加工することになる。範囲の列を返せば
+書式付けの責任は描画側に移り、`<` や `&` を含む行——C++ のテンプレート、HTML、XML、
+ジェネリクス——が壊れる余地がなくなる。
 
 ### フォルダー比較は「同じかどうか」までしか見ない
 
@@ -96,31 +97,19 @@ Rust 版と C# 版が小数 6 桁まで同値。この段があったおかげ�
 
 ---
 
-## 旧実装から直したこと
+## 実装中に見つけた、道具側の問題
 
-書き直しにあたって、元の `DeepCompare.py` を読んで見つかった問題を仕様として扱った。
-
-| 箇所 | 問題 | 対処 |
-|---|---|---|
-| `diff_characters` | 差分を HTML 文字列として組み立て、本文をエスケープしていなかった。`<`, `&` を含む行——C++ のテンプレート、HTML、XML、ジェネリクス——は表示が壊れるか内容が消えた | 文字列ではなく範囲の列を返す。書式付けは描画側の責任にした |
-| `compare_files` | GUI スレッドで同期実行。起動引数つきだとモデル読み込み前に走り、スプラッシュ画面ごと固まった | 比較もモデル読み込みも作業スレッドが持つ |
-| `align_lines` | 類似度行列を丸ごと実体化した上での全面 DP | 一致区間を畳んでから、変化した塊だけを DP にかける |
-| `align_lines` の罰則 | 空き 1 つにつき -0.5、類似度は 0..1。**対にすれば必ず得なので、空きが選ばれることが原理的に無かった**。左が `[A, B]`、右が `[B', C]` で B だけが対応する場合も A↔B' と B↔C という誤った対を作る | 対角のスコアを `類似度 - 閾値` とし、空きを 0 にした。閾値は画面から調整できる |
-| `update_table` | 差分行ごとに `QLabel` を生成。行数分のウィジェットが並ぶので数千行で操作不能 | 画面に映っている行だけを描く |
-| `open(..., encoding="utf-8")` | 固定。Shift_JIS のファイルで即エラー | BOM・UTF-8・Shift_JIS・EUC-JP・UTF-16 を判定 |
-| `create_local_server` | `os.path.exists(INSTANCE_KEY)` がパスではなく名前を見ていて無意味 | シングルインスタンス機能自体を落とした |
-
-## 移植中に見つけた、道具側の問題
-
-C# へ移す過程で 3 件出た。いずれも fp32 と比較して切り分けることで特定できた。
+いずれも f32 と比較して切り分けることで特定できた。
 
 - **`Microsoft.ML.Tokenizers` の `BertTokenizer` が記号を黙って捨てる。** `+`(1009)、
   `<`(1026)、`>`(1028) は語彙にあるのに出力から消え、`x + 1` が `x 1` になっていた。
-  コード比較では `x + 1` と `x - 1` の区別が失われるため許容できず、トークナイザを自前で実装した。
+  コード比較では `x + 1` と `x - 1` の区別が失われるため許容できず、
+  [トークナイザを自前で実装した](csharp/src/DeepCompare.Engine/WordPieceTokenizer.cs)。
 - **.NET のコードページ 20932 は不正な EUC-JP を受理する。** `0xC3 0x28` を「構」として
   読むためバイナリを EUC-JP と誤判定していた。正しい日本語はどちらのコードページでも同じ
   バイト列で往復するので、壊れた入力を与えたときにだけ表面化する。51932 が正しい。
-- **量子化 ONNX の詰め物が結果に漏れる**（上記）。
+- **`MathF.Round` の既定は偶数丸め。** Rust の `round()` は 0 から遠い側へ丸めるので、
+  同じ重みから別のバイト列が出る。`MidpointRounding.AwayFromZero` を明示する。
 
 ## 既知の限界
 
@@ -133,29 +122,26 @@ C# へ移す過程で 3 件出た。いずれも fp32 と比較して切り分�
 
 ## ビルド
 
-### C# 版
-
     cd csharp
     dotnet test tests/DeepCompare.Engine.Tests/DeepCompare.Engine.Tests.csproj
     dotnet run --project src/DeepCompare.App/DeepCompare.App.csproj
 
-単一 exe の発行（Linux、NativeAOT）:
+### 発行
 
-    dotnet publish src/DeepCompare.App/DeepCompare.App.csproj -c Release -r linux-x64 -o out
+ネイティブ実行ファイル（NativeAOT）:
 
-Windows 向けは NativeAOT のリンクに MSVC が要るため、Windows 上で発行する。
-MSVC を用意できない場合は非 AOT の単一ファイルで代替でき、これは Linux からでも作れる:
+    dotnet publish csharp/src/DeepCompare.App/DeepCompare.App.csproj -c Release -r linux-x64 -o out
+    dotnet publish csharp/src/DeepCompare.App/DeepCompare.App.csproj -c Release -r win-x64 -o out
 
-    dotnet publish src/DeepCompare.App/DeepCompare.App.csproj -c Release -r win-x64 \
+Linux では `clang` と `zlib1g-dev`、Windows では MSVC（Visual Studio Build Tools の
+C++ ワークロード）がリンクに要る。Skia と HarfBuzz はネイティブライブラリなので、
+実行ファイルの隣に置かれる。
+
+MSVC を用意できない場合は、非 AOT の単一ファイルで代替できる。こちらは Linux からでも作れる:
+
+    dotnet publish csharp/src/DeepCompare.App/DeepCompare.App.csproj -c Release -r win-x64 \
         --self-contained true -p:PublishAot=false -p:PublishSingleFile=true \
         -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
-
-### Rust 版
-
-    cargo build --release
-    sudo apt-get install gcc-mingw-w64-x86-64   # Windows 向けクロスビルド用
-    rustup target add x86_64-pc-windows-gnu
-    cargo build --release --target x86_64-pc-windows-gnu
 
 ### モデルアセットの再生成
 
@@ -165,7 +151,8 @@ MSVC を用意できない場合は非 AOT の単一ファイルで代替でき�
     B=https://huggingface.co/sentence-transformers/paraphrase-MiniLM-L6-v2/resolve/main
     curl -sSLO $B/model.safetensors && curl -sSLO $B/vocab.txt
     cd ../..
-    cargo run --release -p deepcompare-model-prep -- assets/src/model.safetensors assets/minilm.dcm
+    dotnet run --project csharp/src/DeepCompare.ModelPrep/DeepCompare.ModelPrep.csproj -c Release \
+        -- assets/src/model.safetensors assets/minilm.dcm
 
 参照実装との突き合わせをやり直す場合は、加えて ONNX 版と検証用の環境が要る:
 
@@ -175,8 +162,7 @@ MSVC を用意できない場合は非 AOT の単一ファイルで代替でき�
 
 ## 画面を開かずに使う
 
-どちらの実装にも同じ経路がある。遠隔での検証や CI で、別環境の出力と機械的に
-突き合わせるために用意した。
+遠隔での検証や CI で、別環境の出力と機械的に突き合わせるために用意した。
 
     deepcompare --print 左 右 -o 出力    比較結果を 1 行 1 レコードのテキストで出す
     deepcompare --font-check             日本語を表示できる書体があるかを調べる
@@ -184,8 +170,11 @@ MSVC を用意できない場合は非 AOT の単一ファイルで代替でき�
 `-o` があるのは Windows の都合で、GUI サブシステムの exe には標準出力が繋がらないため
 コンソールから実行しても何も見えない。
 
-Rust 版にはさらに `--screenshot out.png` があり、自分の描画結果を PNG に保存する。
-画面を撮るのではないので、Windows がロックされていても本物の描画が得られる。
+## 履歴
+
+元は Python + PyQt6 + sentence-transformers（`master` ブランチ）。
+配布サイズを理由に書き直し、途中 Rust + egui + candle の実装を経ている
+（コミット `1ce2d16` に残っている。同じ重みを使い、比較結果は C# 版と完全に一致していた）。
 
 ## ライセンス
 
