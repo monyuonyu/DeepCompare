@@ -121,6 +121,16 @@ public sealed record FolderCompareOptions
     public FolderComparisonMode Mode { get; init; } = FolderComparisonMode.Content;
 
     /// <summary>
+    /// ファイル名の突き合わせ方。
+    ///
+    /// 既定は大小文字を無視する（従来どおり）。**Unicode 正規化は既定では揃えない。**
+    /// macOS を経由したファイルを比べるときだけ NormalizeUnicode を立てる。
+    /// 常に揃えると、正規化だけが違う 2 つのファイルが同じ場所に共存している状態を
+    /// 見落とす（Linux では実際に共存できる）。
+    /// </summary>
+    public NameMatching Matching { get; init; } = new NameMatching(IgnoreCase: true);
+
+    /// <summary>
     /// 更新時刻の差をどこまで同じとみなすか（秒）。
     ///
     /// FAT は 2 秒刻みでしか時刻を持てず、NTFS との間でコピーすると 1〜2 秒ずれる。
@@ -211,14 +221,18 @@ public static class FolderComparer
         }
 
         // 名前順に並べる。左右の一覧を突き合わせるので、順序が安定していないと読めない。
-        var allNames = leftNames.Keys.Union(rightNames.Keys, StringComparer.OrdinalIgnoreCase)
+        // 突き合わせの鍵と表示する名前は別。鍵は正規化した形、表示は実際の名前。
+        var allKeys = leftNames.Keys.Union(rightNames.Keys, StringComparer.Ordinal)
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase);
 
-        foreach (var name in allNames)
+        foreach (var key in allKeys)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            leftNames.TryGetValue(name, out var left);
-            rightNames.TryGetValue(name, out var right);
+            leftNames.TryGetValue(key, out var left);
+            rightNames.TryGetValue(key, out var right);
+            // 表示は実際のファイル名を使う。鍵をそのまま出すと、大小文字を無視した
+            // ときに片側の綴りだけが出てしまい、どちらの名前なのか分からなくなる。
+            var name = left?.Name ?? right?.Name ?? key;
             var childRelative = relative.Length == 0 ? name : $"{relative}/{name}";
 
             var leftIsDir = left?.Attributes.HasFlag(FileAttributes.Directory) ?? false;
@@ -335,7 +349,9 @@ public static class FolderComparer
         string? directory, FolderCompareOptions options, out string? error)
     {
         error = null;
-        var result = new Dictionary<string, FileSystemInfo>(StringComparer.OrdinalIgnoreCase);
+        // 鍵は options.Matching で作る。辞書の比較子で大小文字を吸収すると、
+        // Unicode 正規化のような別の揃え方を足せない。
+        var result = new Dictionary<string, FileSystemInfo>(StringComparer.Ordinal);
         if (directory is null)
         {
             return result;
@@ -364,7 +380,7 @@ public static class FolderComparer
                     continue;
                 }
 
-                result[info.Name] = info;
+                result[options.Matching.Key(info.Name)] = info;
             }
         }
         catch (Exception ex)

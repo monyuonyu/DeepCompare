@@ -53,6 +53,13 @@ internal static class Program
           --ws <方式>      空白の扱い。respect（既定）/ trailing（行末）/
                            ends（行頭行末）/ collapse（連続空白を 1 つ）/ all（全部）
           -i, --ignore-case   大文字小文字を区別しない
+          --normalize-unicode
+                           Unicode 正規化を揃えてから比べる（NFC に寄せる）。
+                           macOS が作ったファイルは「が」が 2 文字で書かれている
+                           ことがあり、表示は同じなのに一致しない。
+                           **既定は切ってある。** 揃えると、正規化の違いそのものを
+                           直したい場面で差分が見えなくなるため。
+                           見つけたいときは --invisible を使う
           --ignore-pattern <正規表現>
                            一致した部分を比較から除く。複数回指定できる。
                            例: --ignore-pattern '\d{4}-\d{2}-\d{2}'
@@ -105,6 +112,8 @@ internal static class Program
           --max-size <数>  この大きさを超えるファイルを対象から外す
           --no-recurse     直下だけを比べる
           --changes-only   一致した項目を一覧に出さない
+          --case-sensitive-names
+                           ファイル名の大小文字を区別する（既定は区別しない）
           --detect-renames 名前が変わっただけのファイルを見つけて併記する。
                            BC は名前一致しか見ないので、ここは差になる部分
 

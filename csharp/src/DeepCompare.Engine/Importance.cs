@@ -43,7 +43,19 @@ public sealed record Importance(
     /// ここに一致した部分は比較から除く。タイムスタンプ、著作権年、ビルド番号のように
     /// 「毎回変わるが意味は無い」箇所を落とすために使う。
     /// </summary>
-    IReadOnlyList<string>? IgnoredPatterns = null)
+    IReadOnlyList<string>? IgnoredPatterns = null,
+
+    /// <summary>
+    /// Unicode 正規化を揃えてから比べる（NFC に寄せる）。
+    ///
+    /// macOS が作ったファイルは「が」が「か」＋濁点の 2 文字で書かれていることが
+    /// ある。表示は同じなのに一致しない。これを立てると同じ行として畳まれる。
+    ///
+    /// 既定は切っておく。**黙って揃えると、正規化の違いそのものを直したい人が
+    /// 差分を見つけられなくなる。** 揃えたい場面と、見つけたい場面の両方がある。
+    /// 見つけたいときは <see cref="InvisibleScanner"/> を使う。
+    /// </summary>
+    bool NormalizeUnicode = false)
 {
     public static readonly Importance Default = new();
 
@@ -51,7 +63,8 @@ public sealed record Importance(
 
     /// <summary>何も無視しない。正規化を丸ごと省ける。</summary>
     public bool IgnoresNothing =>
-        Whitespace == WhitespaceMode.Respect && !IgnoreCase && _ignored is null;
+        Whitespace == WhitespaceMode.Respect && !IgnoreCase && _ignored is null
+        && !NormalizeUnicode;
 
     /// <summary>
     /// 複数の正規表現を 1 本にまとめる。順に適用してはいけない。
@@ -102,7 +115,15 @@ public sealed record Importance(
 
         var text = line;
 
-        // 正規表現を先に落とす。空白の畳み込みより前にやらないと、落とした跡に
+        // **正規化を最初に行う。** 後に回すと、正規表現が NFD の文字列に対して
+        // 意図どおり当たらない（\p{L} などは合成済みを前提に書かれることが多い）。
+        // IsNormalized を先に見るのは、既に NFC なら割り当てを避けるため。
+        if (NormalizeUnicode && !text.IsNormalized(NormalizationForm.FormC))
+        {
+            text = text.Normalize(NormalizationForm.FormC);
+        }
+
+        // 正規表現を落とす。空白の畳み込みより前にやらないと、落とした跡に
         // 残った空白が畳まれず、無視したはずの箇所が差分として残る。
         if (_ignored is not null)
         {

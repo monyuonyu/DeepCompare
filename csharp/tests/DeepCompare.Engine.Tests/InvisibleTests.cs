@@ -315,3 +315,139 @@ public sealed class InvisibleTests
         Assert.Contains("見つかりませんでした", InvisibleScanner.Format(Scan("普通")));
     }
 }
+
+/// <summary>
+/// 見えない差分が比較に効くこと。検出（InvisibleScanner）とは別に、
+/// 無視する側（Importance）と、フォルダー比較の名前の突き合わせを確かめる。
+/// </summary>
+public sealed class InvisibleInComparisonTests : IDisposable
+{
+    private readonly string _root =
+        Path.Combine(Path.GetTempPath(), "dc-nfc-" + Guid.NewGuid().ToString("N")[..8]);
+
+    public InvisibleInComparisonTests() => Directory.CreateDirectory(_root);
+
+    public void Dispose()
+    {
+        try
+        {
+            Directory.Delete(_root, recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+    }
+
+    [Fact]
+    public void 既定では正規化の違いを差分として残す()
+    {
+        // 黙って揃えると、正規化そのものを直したい人が差分を見つけられなくなる。
+        var importance = Importance.Default;
+
+        Assert.NotEqual(importance.Normalize("が"), importance.Normalize("か\u3099"));
+    }
+
+    [Fact]
+    public void 指定すれば正規化を揃えて比べる()
+    {
+        var importance = new Importance(NormalizeUnicode: true);
+
+        Assert.Equal(importance.Normalize("が"), importance.Normalize("か\u3099"));
+    }
+
+    [Fact]
+    public void 正規化だけを指定しても素通しにならない()
+    {
+        Assert.False(new Importance(NormalizeUnicode: true).IgnoresNothing);
+        Assert.True(Importance.Default.IgnoresNothing);
+    }
+
+    [Fact]
+    public void 正規化と他の指定を組み合わせられる()
+    {
+        var importance = new Importance(
+            WhitespaceMode.IgnoreLeadingTrailing, IgnoreCase: true, NormalizeUnicode: true);
+
+        // 大小文字はラテン文字で見る。ひらがなとカタカナは大小文字の関係ではなく、
+        // ToUpperInvariant では変換されない。
+        Assert.Equal(
+            importance.Normalize("  Aが  "),            // 空白あり・大文字・NFC
+            importance.Normalize("a\u304b\u3099"));     // 空白なし・小文字・NFD
+    }
+
+    // --- フォルダー比較 ---
+
+    private static void Write(string directory, string name, string content)
+        => File.WriteAllText(Path.Combine(directory, name), content);
+
+    [Fact]
+    public void 既定では正規化だけが違う名前を別のファイルとして扱う()
+    {
+        var left = Path.Combine(_root, "l1");
+        var right = Path.Combine(_root, "r1");
+        Directory.CreateDirectory(left);
+        Directory.CreateDirectory(right);
+        Write(left, "が.txt", "同じ中身");
+        Write(right, "か\u3099.txt", "同じ中身");
+
+        var result = FolderComparer.Compare(left, right, new FolderCompareOptions());
+
+        // 揃えていないので「片方にしか無い」が 2 件出る。これが macOS と Windows を
+        // またいだときに実際に起きること。
+        Assert.Equal(2, result.Entries.Count(e => !e.IsDirectory));
+        Assert.Contains(result.Entries, e => e.Status == EntryStatus.LeftOnly);
+        Assert.Contains(result.Entries, e => e.Status == EntryStatus.RightOnly);
+    }
+
+    [Fact]
+    public void 正規化を揃えれば同じファイルとして突き合わせる()
+    {
+        var left = Path.Combine(_root, "l2");
+        var right = Path.Combine(_root, "r2");
+        Directory.CreateDirectory(left);
+        Directory.CreateDirectory(right);
+        Write(left, "が.txt", "同じ中身");
+        Write(right, "か\u3099.txt", "同じ中身");
+
+        var result = FolderComparer.Compare(left, right, new FolderCompareOptions
+        {
+            Matching = new NameMatching(NormalizeUnicode: true, IgnoreCase: true),
+        });
+
+        var entry = Assert.Single(result.Entries, e => !e.IsDirectory);
+        Assert.Equal(EntryStatus.Identical, entry.Status);
+    }
+
+    [Fact]
+    public void 大小文字は既定でも揃える()
+    {
+        // 従来どおりの動作。Windows との行き来で困らないようにするため。
+        var left = Path.Combine(_root, "l3");
+        var right = Path.Combine(_root, "r3");
+        Directory.CreateDirectory(left);
+        Directory.CreateDirectory(right);
+        Write(left, "README.md", "x");
+        Write(right, "readme.md", "x");
+
+        var result = FolderComparer.Compare(left, right, new FolderCompareOptions());
+
+        Assert.Single(result.Entries, e => !e.IsDirectory);
+    }
+
+    [Fact]
+    public void 突き合わせても表示は実際の名前を使う()
+    {
+        var left = Path.Combine(_root, "l4");
+        var right = Path.Combine(_root, "r4");
+        Directory.CreateDirectory(left);
+        Directory.CreateDirectory(right);
+        Write(left, "README.md", "x");
+        Write(right, "readme.md", "x");
+
+        var result = FolderComparer.Compare(left, right, new FolderCompareOptions());
+
+        // 鍵（小文字に揃えた形）ではなく、左に実在する綴りが出ること。
+        var entry = Assert.Single(result.Entries, e => !e.IsDirectory);
+        Assert.Equal("README.md", entry.Name);
+    }
+}

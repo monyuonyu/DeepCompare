@@ -147,7 +147,8 @@ internal static class Cli
             importance = new Importance(
                 ParseWhitespace(ValueOf(args, "--ws")),
                 args.Contains("--ignore-case") || args.Contains("-i"),
-                ValuesOf(args, "--ignore-pattern"));
+                ValuesOf(args, "--ignore-pattern"),
+                args.Contains("--normalize-unicode"));
         }
         catch (ArgumentException error)
         {
@@ -630,6 +631,10 @@ internal static class Cli
             MaximumSize = long.TryParse(ValueOf(args, "--max-size"), out var max) ? max : 0,
             Recursive = !args.Contains("--no-recurse"),
             IncludeIdentical = !args.Contains("--changes-only"),
+            // macOS を経由したファイルは名前が NFD。揃えないと「片方にしか無い」が並ぶ。
+            Matching = new NameMatching(
+                NormalizeUnicode: args.Contains("--normalize-unicode"),
+                IgnoreCase: !args.Contains("--case-sensitive-names")),
         };
 
         var started = DateTime.UtcNow;
