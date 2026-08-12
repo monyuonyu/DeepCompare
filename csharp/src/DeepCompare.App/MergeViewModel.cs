@@ -110,7 +110,8 @@ public sealed class MergeRegionRow(MergeRegion region, int index) : ViewModelBas
 /// 3 方向マージの画面。
 ///
 /// 競合は**人が決めるまで未決のまま置く**。既定で片方を採ると、決めたことが
-/// 記録に残らない。未決が残っている間は書き出せないようにする。
+/// 記録に残らない。書き出しは禁じないが、未決の競合は git 風の印を付けて残す
+/// ので、決めていないことが結果から消えることはない。
 /// </summary>
 public sealed class MergeViewModel : ViewModelBase
 {
@@ -196,7 +197,7 @@ public sealed class MergeViewModel : ViewModelBase
         set { if (Set(ref _showUnchanged, value)) { Rebuild(); } }
     }
 
-    /// <summary>未決の競合が残っているか。残っている間は書き出せない。</summary>
+    /// <summary>未決の競合が残っているか。書き出すときに印を付けるかの判断に使う。</summary>
     public bool HasUndecided => Regions.Any(r => r.IsConflict && !r.IsDecided);
 
     public string DecisionText
