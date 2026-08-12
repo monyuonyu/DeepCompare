@@ -52,6 +52,10 @@ public sealed class RowView
     public string RightNumber { get; }
     public string ScoreText { get; }
     public IBrush Background { get; }
+
+    /// <summary>本文のセルごとの背景。対応が無い側は斜線になる。</summary>
+    public IBrush LeftBackground { get; }
+    public IBrush RightBackground { get; }
     public InlineCollection LeftInlines { get; }
     public InlineCollection RightInlines { get; }
 
@@ -72,6 +76,19 @@ public sealed class RowView
             null => string.Empty,
         };
 
+        // **左右で背景を分ける。** 以前は行全体を 1 色で塗っていたので、
+        // 片側にしか行が無いとき、空いている側まで同じ色になっていた。
+        // 空いている側は斜線にして「対応が無い」ことを示す（BC と同じ）。
+        (LeftBackground, RightBackground) = (row.Left, row.Right) switch
+        {
+            (not null, not null) when unchanged => (Transparent, Transparent),
+            (not null, not null) => (Palette.Brush("BgChanged"), Palette.Brush("BgChanged")),
+            (not null, null) => (Palette.Brush("BgRemoved"), Palette.Gap()),
+            (null, not null) => (Palette.Gap(), Palette.Brush("BgAdded")),
+            _ => (Transparent, Transparent),
+        };
+
+        // 行全体の色は行番号の列などに効く。片側だけのときは、その側の色に寄せる。
         Background = (row.Left, row.Right) switch
         {
             (not null, not null) when unchanged => Transparent,

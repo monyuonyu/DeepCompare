@@ -341,6 +341,44 @@ public sealed class TextCompareViewModel : ViewModelBase
         }
     }
 
+    // --- 差分の地図 ---
+
+    private double _mapViewStart;
+    /// <summary>地図に出す「いま見えている範囲」の先頭（0〜1）。</summary>
+    public double MapViewStart
+    {
+        get => _mapViewStart;
+        set => Set(ref _mapViewStart, value);
+    }
+
+    private double _mapViewSize = 1;
+    public double MapViewSize
+    {
+        get => _mapViewSize;
+        set => Set(ref _mapViewSize, value);
+    }
+
+    private double _mapClicked;
+    /// <summary>
+    /// 地図が押された位置（0〜1）。
+    ///
+    /// 選択している行を動かすことでそこへ飛ぶ。ListBox は
+    /// AutoScrollToSelectedItem なので、選択を変えれば付いてくる。
+    /// </summary>
+    public double MapClicked
+    {
+        get => _mapClicked;
+        set
+        {
+            if (!Set(ref _mapClicked, value) || value < 0 || VisibleRows.Count == 0)
+            {
+                return;
+            }
+            var index = (int)Math.Round(value * (VisibleRows.Count - 1));
+            SelectedRowIndex = Math.Clamp(index, 0, VisibleRows.Count - 1);
+        }
+    }
+
     /// <summary>本文以外の列（行番号 3 つ・コピーボタン・移動の印）が使う幅。</summary>
     private const double GutterWidth = 52 * 3 + 40 + 52;
 

@@ -236,6 +236,19 @@
       </StackPanel>
     </Border>
 
+    <!--
+      右端に差分の地図。全体のどこに差分があるかを示し、押すとそこへ飛ぶ。
+      差分ビューは画面に入る 40 行ほどしか見せないので、これが無いと
+      2000 行のファイルで今どこに居るのかが掴めない。
+    -->
+    <vm:DiffMap DockPanel.Dock="Right"
+                Rows="{Binding VisibleRows}"
+                ViewStart="{Binding MapViewStart}"
+                ViewSize="{Binding MapViewSize}"
+                ClickedPosition="{Binding MapClicked, Mode=TwoWay}"
+                IsVisible="{Binding !ShowPlaceholder}"
+                ToolTip.Tip="差分の位置。押すとそこへ移ります" />
+
     <Panel>
       <TextBlock Text="{Binding Placeholder}" IsVisible="{Binding ShowPlaceholder}"
                  HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -265,9 +278,14 @@
             <Border Background="{Binding Background}" Height="20">
               <StackPanel Orientation="Horizontal">
                 <TextBlock Classes="cell gutter" Text="{Binding LeftNumber}" />
-                <TextBlock Classes="cell"
-                           Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}"
-                           Inlines="{Binding LeftInlines}" />
+                <!--
+                  本文のセルは左右それぞれ背景を持つ。対応する行が無い側は斜線に
+                  なるので、「空の行」と「対応が無い」を見分けられる。
+                -->
+                <Border Background="{Binding LeftBackground}"
+                        Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}">
+                  <TextBlock Classes="cell" Inlines="{Binding LeftInlines}" />
+                </Border>
                 <!--
                   塊の先頭行にだけ出すコピーボタン。BC の gutter button に相当する。
                   高さを行に揃えないと、押せる範囲が行からはみ出して隣の行を隠す。
@@ -285,9 +303,10 @@
                   </StackPanel>
                 </Panel>
                 <TextBlock Classes="cell gutter" Text="{Binding RightNumber}" />
-                <TextBlock Classes="cell"
-                           Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}"
-                           Inlines="{Binding RightInlines}" />
+                <Border Background="{Binding RightBackground}"
+                        Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}">
+                  <TextBlock Classes="cell" Inlines="{Binding RightInlines}" />
+                </Border>
                 <TextBlock Classes="cell gutter" Text="{Binding ScoreText}" />
                 <!-- 移動の印。相手側の行番号を出すので、どこへ動いたかが分かる。 -->
                 <TextBlock Classes="cell" Width="52" Text="{Binding MovedText}"

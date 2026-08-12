@@ -39,7 +39,45 @@ public static class Palette
     public static void Invalidate()
     {
         Cache.Clear();
+        _gap = null;
         _cachedFor = null;
+    }
+
+    private static IBrush? _gap;
+
+    /// <summary>
+    /// 「この側には対応する行が無い」ことを示す斜線。
+    ///
+    /// **空白で示さない。** 空白だと「中身が空の行」なのか「対応が無い」のかが
+    /// 区別できない。Beyond Compare も同じ場所に斜線を敷いている。
+    ///
+    /// 敷き詰めなので、1 枚のタイルを作って繰り返す。行ごとに作ると数千行で
+    /// 効いてくる。
+    /// </summary>
+    public static IBrush Gap()
+    {
+        if (_gap is not null)
+        {
+            return _gap;
+        }
+
+        var line = Brush("DividerStrong");
+        var drawing = new GeometryDrawing
+        {
+            // 8×8 の枠に 45 度の線を 1 本。角を跨ぐ 2 本を足して、
+            // タイルの継ぎ目で線が途切れないようにする。
+            Geometry = StreamGeometry.Parse("M0,8 L8,0 M-2,2 L2,-2 M6,10 L10,6"),
+            Pen = new Pen(line, 1),
+        };
+        _gap = new DrawingBrush(drawing)
+        {
+            TileMode = TileMode.Tile,
+            SourceRect = new RelativeRect(0, 0, 8, 8, RelativeUnit.Absolute),
+            DestinationRect = new RelativeRect(0, 0, 8, 8, RelativeUnit.Absolute),
+            Stretch = Stretch.None,
+            Opacity = 0.8,
+        };
+        return _gap;
     }
 
     /// <summary>テーマ辞書から色を引く。見つからなければ目立つ色を返して気づけるようにする。</summary>
