@@ -37,6 +37,17 @@ internal static class Cli
         {
             return Report(() => RunFontCheck(output));
         }
+        if (args.Contains("--invisible"))
+        {
+            var files = Positional(args);
+            if (files.Length < 1)
+            {
+                Console.Error.WriteLine("--invisible には調べるファイルが必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return RunInvisible(files[0], output);
+        }
         if (args.Contains("--git-status"))
         {
             var where = Positional(args);
@@ -172,6 +183,34 @@ internal static class Cli
             }
         }
         return result.ToArray();
+    }
+
+    /// <summary>
+    /// 見えない差分を調べる。
+    ///
+    /// 終了コードは 0 何も無い / 1 見つかった / 2 異常。
+    /// 「同じに見えるのに一致しない」の原因を出すのが役目。
+    /// </summary>
+    private static int RunInvisible(string path, string? output)
+    {
+        IReadOnlyList<InvisibleFinding> findings;
+        try
+        {
+            findings = InvisibleScanner.Scan(TextDecoder.Decode(File.ReadAllBytes(path)));
+        }
+        catch (IOException error)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+
+        var text = new StringBuilder();
+        text.AppendLine($"file {path}");
+        text.AppendLine("---");
+        text.Append(InvisibleScanner.Format(findings));
+
+        Emit(text.ToString(), output);
+        return findings.Count == 0 ? 0 : 1;
     }
 
     /// <summary>git が使えなければ理由を出して 2 を返す。呼ぶ側の分岐をまとめる。</summary>
