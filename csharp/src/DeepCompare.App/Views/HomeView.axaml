@@ -42,7 +42,7 @@
         </StackPanel>
       </Border>
 
-      <Grid ColumnDefinitions="*,16,*">
+      <Grid ColumnDefinitions="*,16,*,16,*">
         <Border Grid.Column="0" Background="{DynamicResource PanelBg}" CornerRadius="6" Padding="18">
           <StackPanel Spacing="10">
             <TextBlock Text="テキストを比較" FontSize="15" FontWeight="SemiBold" />
@@ -60,6 +60,16 @@
                        Text="2 つのフォルダーを再帰的に走査し、差異のあるファイルを一覧にします。行を開くとテキスト比較へ移ります。" />
             <Button Content="フォルダーを比較" HorizontalAlignment="Left"
                     Command="{Binding CompareFoldersCommand}" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="4" Background="{DynamicResource PanelBg}" CornerRadius="6" Padding="18">
+          <StackPanel Spacing="10">
+            <TextBlock Text="構造として比較" FontSize="15" FontWeight="SemiBold" />
+            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource FgDim}"
+                       Text="JSON をテキストではなく構造として比べます。キーの順序や整形が違うだけで全行差分になるのを防ぎます。" />
+            <Button Content="構造として比較" HorizontalAlignment="Left"
+                    Command="{Binding CompareStructuredCommand}" />
           </StackPanel>
         </Border>
       </Grid>

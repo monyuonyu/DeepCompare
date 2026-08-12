@@ -102,6 +102,21 @@ public sealed class ShellViewModel : ViewModelBase
 
     public void ShowEmptyText() => Current = new TextCompareViewModel(this, null);
 
+    /// <summary>構造として比較する画面を開く。</summary>
+    public void ShowStructured(string left, string right, object? back = null)
+    {
+        var model = new StructuredCompareViewModel(this, back)
+        {
+            LeftPath = left,
+            RightPath = right,
+        };
+        Current = model;
+        if (left.Length > 0 && right.Length > 0)
+        {
+            model.CompareCommand.Execute(null);
+        }
+    }
+
     /// <summary>フォルダー一覧など、元いた画面へ戻る。</summary>
     public void GoBack(object? target) => Current = target ?? Home;
 }

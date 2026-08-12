@@ -36,6 +36,7 @@ public sealed class HomeViewModel : ViewModelBase
         BrowseRightFolderCommand = new RelayCommand(() => PickAsync(isFolder: true, left: false));
         CompareTextCommand = new RelayCommand(() => { StartText(); return Task.CompletedTask; });
         CompareFoldersCommand = new RelayCommand(() => { StartFolders(); return Task.CompletedTask; });
+        CompareStructuredCommand = new RelayCommand(() => { StartStructured(); return Task.CompletedTask; });
         SaveSessionCommand = new RelayCommand(() => { SaveSession(); return Task.CompletedTask; });
         OpenSessionCommand = new RelayCommand<SessionEntry>(entry => { OpenSession(entry); return Task.CompletedTask; });
         RemoveSessionCommand = new RelayCommand<SessionEntry>(entry => { RemoveSession(entry); return Task.CompletedTask; });
@@ -144,6 +145,7 @@ public sealed class HomeViewModel : ViewModelBase
     public ICommand BrowseRightFolderCommand { get; }
     public ICommand CompareTextCommand { get; }
     public ICommand CompareFoldersCommand { get; }
+    public ICommand CompareStructuredCommand { get; }
 
     private async Task PickAsync(bool isFolder, bool left)
     {
@@ -179,6 +181,20 @@ public sealed class HomeViewModel : ViewModelBase
             return;
         }
         _shell.ShowText(left, right);
+    }
+
+    private void StartStructured()
+    {
+        if (!Validate(out var left, out var right))
+        {
+            return;
+        }
+        if (!File.Exists(left) || !File.Exists(right))
+        {
+            Message = "構造として比較するにはファイルを指定してください。";
+            return;
+        }
+        _shell.ShowStructured(left, right);
     }
 
     private void StartFolders()

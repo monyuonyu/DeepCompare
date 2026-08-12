@@ -20,6 +20,9 @@
     <DataTemplate DataType="vm:TextCompareViewModel">
       <views:TextCompareView />
     </DataTemplate>
+    <DataTemplate DataType="vm:StructuredCompareViewModel">
+      <views:StructuredCompareView />
+    </DataTemplate>
   </Window.DataTemplates>
 
   <ContentControl Content="{Binding Current}" />

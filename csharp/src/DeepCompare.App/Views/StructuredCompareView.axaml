@@ -1,0 +1,121 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:DeepCompare.App"
+             x:Class="DeepCompare.App.Views.StructuredCompareView"
+             x:DataType="vm:StructuredCompareViewModel">
+
+  <UserControl.Styles>
+    <!--
+      **monospace だけでは解決できない環境がある。** 実際にこの指定で
+      「Could not create glyphTypeface」で落ちた。代替を並べて、
+      日本語を持つ書体（MS Gothic）も含める。テキスト比較画面と同じ並び。
+    -->
+    <Style Selector="TextBlock.mono">
+      <Setter Property="FontFamily" Value="Consolas,DejaVu Sans Mono,MS Gothic,monospace" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+    <!-- 上の帯。ファイルの指定と操作 -->
+    <Border Grid.Row="0" Background="{DynamicResource PanelBg}" Padding="12,10">
+      <StackPanel Spacing="8">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Content="戻る" Command="{Binding BackCommand}" />
+          <TextBlock Text="構造として比較（JSON）" FontWeight="SemiBold"
+                     VerticalAlignment="Center" Margin="6,0,0,0" />
+          <TextBlock VerticalAlignment="Center" FontSize="11"
+                     Foreground="{DynamicResource FgDim}"
+                     Text="キーの順序や整形の違いは差分にしません" />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="Auto,*,Auto,*,Auto">
+          <TextBlock Grid.Column="0" Text="左" VerticalAlignment="Center" Margin="0,0,6,0" />
+          <TextBox Grid.Column="1" Text="{Binding LeftPath}" Margin="0,0,10,0"
+                   PlaceholderText="JSON のパス" />
+          <TextBlock Grid.Column="2" Text="右" VerticalAlignment="Center" Margin="0,0,6,0" />
+          <TextBox Grid.Column="3" Text="{Binding RightPath}" Margin="0,0,10,0"
+                   PlaceholderText="JSON のパス" />
+          <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6">
+            <Button Content="比較" Command="{Binding CompareCommand}" />
+            <Button Content="テキストとして開く" Command="{Binding OpenAsTextCommand}" />
+            <Button Content="書き出す" Command="{Binding SaveCommand}" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <!-- 設定。既定のままで使えるので畳んでおく -->
+    <Expander Grid.Row="1" Header="対応付けと除外の設定" Margin="12,8,12,0">
+      <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" Margin="4,8">
+        <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4" Margin="0,0,10,8">
+          <TextBlock Text="配列を対応付ける名前" FontSize="12" />
+          <TextBox Text="{Binding ArrayKeys}" />
+          <TextBlock FontSize="11" Foreground="{DynamicResource FgDim}" TextWrapping="Wrap"
+                     Text="この名前の値で要素を組にします。並び順が違っても照合できます。読点か空白で区切ります。" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4" Margin="0,0,0,8">
+          <TextBlock Text="比較しない位置（1 行に 1 つ）" FontSize="12" />
+          <TextBox Text="{Binding IgnoredPaths}" AcceptsReturn="True" Height="64"
+                   TextWrapping="NoWrap" />
+          <TextBlock FontSize="11" Foreground="{DynamicResource FgDim}" TextWrapping="Wrap"
+                     Text="例: $.metadata.generated_at / $.cells[*].execution_count（* は 1 段ぶんの任意）" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                    Orientation="Horizontal" Spacing="16">
+          <CheckBox IsChecked="{Binding ReportMoves}" Content="配列の並び順の違いも報告する" />
+          <CheckBox IsChecked="{Binding StrictNumbers}" Content="1.0 と 1 を別のものとして扱う" />
+        </StackPanel>
+      </Grid>
+    </Expander>
+
+    <!-- 差分の一覧 -->
+    <ScrollViewer Grid.Row="2" Margin="12,8">
+      <ItemsControl ItemsSource="{Binding Changes}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:StructuralChangeRow">
+            <Border Background="{Binding Background}" CornerRadius="3" Padding="8,5" Margin="0,0,0,3">
+              <Grid ColumnDefinitions="20,*,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding Mark}" Classes="mono"
+                           FontWeight="Bold" VerticalAlignment="Top" />
+
+                <StackPanel Grid.Column="1" Spacing="2">
+                  <TextBlock Text="{Binding Path}" Classes="mono"
+                             TextWrapping="Wrap" />
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="{Binding Left}" Classes="mono" FontSize="11"
+                               Foreground="{DynamicResource FgDim}"
+                               TextTrimming="CharacterEllipsis" MaxWidth="360" />
+                    <TextBlock Text="→" FontSize="11" Foreground="{DynamicResource FgDim}" />
+                    <TextBlock Text="{Binding Right}" Classes="mono" FontSize="11"
+                               TextTrimming="CharacterEllipsis" MaxWidth="360" />
+                  </StackPanel>
+                  <TextBlock Text="{Binding TypeNote}" FontSize="11"
+                             Foreground="{DynamicResource FgWarning}"
+                             IsVisible="{Binding HasTypeNote}" />
+                </StackPanel>
+
+                <TextBlock Grid.Column="2" Text="{Binding KindLabel}" FontSize="11"
+                           Foreground="{DynamicResource FgDim}" VerticalAlignment="Top" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <!-- 下の帯。要約と知らせ -->
+    <Border Grid.Row="3" Background="{DynamicResource StatusBarBg}" Padding="12,6">
+      <StackPanel Orientation="Horizontal" Spacing="14">
+        <TextBlock Text="{Binding Summary}" VerticalAlignment="Center" FontSize="12" />
+        <TextBlock Text="比較中…" VerticalAlignment="Center" FontSize="12"
+                   IsVisible="{Binding Busy}" />
+        <TextBlock Text="{Binding Message}" Foreground="{DynamicResource FgWarning}"
+                   VerticalAlignment="Center" FontSize="12" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+
+  </Grid>
+</UserControl>

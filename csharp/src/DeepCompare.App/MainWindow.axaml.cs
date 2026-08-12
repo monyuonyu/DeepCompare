@@ -9,11 +9,11 @@ public partial class MainWindow : Window
 {
     private readonly ShellViewModel _shell;
 
-    public MainWindow() : this([])
+    public MainWindow() : this([], false)
     {
     }
 
-    public MainWindow(string[] startupPaths)
+    public MainWindow(string[] startupPaths, bool structured = false)
     {
         InitializeComponent();
         _shell = new ShellViewModel(PickPathAsync, PickSavePathAsync);
@@ -30,7 +30,11 @@ public partial class MainWindow : Window
             var right = startupPaths[1];
             Opened += (_, _) =>
             {
-                if (Directory.Exists(left) && Directory.Exists(right))
+                if (structured)
+                {
+                    _shell.ShowStructured(left, right);
+                }
+                else if (Directory.Exists(left) && Directory.Exists(right))
                 {
                     _shell.ShowFolders(left, right);
                 }

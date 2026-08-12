@@ -8,6 +8,8 @@ internal static class Program
         DeepCompare - 意味的な類似度で行を対応付けるコード比較ツール
 
           deepcompare [左 右]        GUI を開く（引数 2 つならそのまま比較する）
+          deepcompare --structured 左 右
+                                     GUI を開き、構造として比較する画面を出す
           deepcompare --print 左 右  画面を開かず、比較結果をテキストで出す
           deepcompare --print-folder 左 右
                                      フォルダーを比較して一覧を出す。終了コードは
@@ -130,6 +132,7 @@ internal static class Program
         }
 
         App.StartupFiles = Cli.Positional(args);
+        App.StartStructured = args.Contains("--structured");
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
