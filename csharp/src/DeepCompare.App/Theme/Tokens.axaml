@@ -1,0 +1,52 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    見た目の値の持ち場。**ここ以外に数字を書かない。**
+
+    色を各所へ直書きすると片方のテーマだけ直し忘れる、というのは以前からの決まり。
+    同じことが余白・角丸・書体にも起きる。16 と 18 と 20 が混ざった余白は、
+    個々には気づけないが、並ぶと落ち着かない画面になる。
+
+    寸法は 4 の倍数で刻む。中間の値を足したくなったら、たいていは
+    どちらかに寄せられる。
+  -->
+
+  <!-- 角丸。3 段階だけ。要素の大きさに応じて選ぶ -->
+  <CornerRadius x:Key="RadiusSmall">4</CornerRadius>
+  <CornerRadius x:Key="RadiusMedium">6</CornerRadius>
+  <CornerRadius x:Key="RadiusLarge">10</CornerRadius>
+
+  <!-- 余白 -->
+  <Thickness x:Key="PadTight">6,4</Thickness>
+  <Thickness x:Key="PadControl">12,6</Thickness>
+  <Thickness x:Key="PadCard">16</Thickness>
+  <Thickness x:Key="PadPage">20,16</Thickness>
+  <Thickness x:Key="PadBar">12,8</Thickness>
+
+  <!-- 間隔。StackPanel の Spacing に使う -->
+  <x:Double x:Key="GapTight">4</x:Double>
+  <x:Double x:Key="GapSmall">8</x:Double>
+  <x:Double x:Key="GapMedium">12</x:Double>
+  <x:Double x:Key="GapLarge">20</x:Double>
+
+  <!--
+    書体の大きさ。**4 段階だけ。**
+    情報の重要度は大きさより「太さ」と「色の薄さ」で示す方が、画面が静かになる。
+  -->
+  <x:Double x:Key="FontTiny">11</x:Double>
+  <x:Double x:Key="FontBody">13</x:Double>
+  <x:Double x:Key="FontTitle">15</x:Double>
+  <x:Double x:Key="FontDisplay">22</x:Double>
+
+  <!--
+    等幅書体。
+    **monospace 単体では解決できない環境がある**（実際に起動と同時に落ちた）。
+    代替を並べ、日本語を持つ書体まで含める。ここを唯一の持ち場にする。
+  -->
+  <FontFamily x:Key="MonoFont">Consolas,DejaVu Sans Mono,MS Gothic,monospace</FontFamily>
+
+  <!-- 本文の行の高さ。差分の行が詰まりすぎず、かつ 1 画面に入る量を稼ぐ -->
+  <x:Double x:Key="DiffLineHeight">19</x:Double>
+
+</ResourceDictionary>

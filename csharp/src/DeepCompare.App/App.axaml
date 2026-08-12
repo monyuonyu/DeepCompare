@@ -5,6 +5,8 @@
 
   <Application.Styles>
     <FluentTheme />
+    <!-- FluentTheme の上に重ねる。読み込む順序が効くので、必ず後に置く。 -->
+    <StyleInclude Source="avares://deepcompare/Theme/Controls.axaml" />
   </Application.Styles>
 
   <Application.Resources>
@@ -17,21 +19,46 @@
       GitHub の差分表示に近い、彩度を落とした値にしてある。
     -->
     <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <!-- 寸法と書体。テーマによらない値はこちら。 -->
+        <ResourceInclude Source="avares://deepcompare/Theme/Tokens.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+
       <ResourceDictionary.ThemeDictionaries>
 
         <ResourceDictionary x:Key="Light">
+          <!-- 目立たせる色。**1 色だけ。** 増やすと「どれが強いのか」が消える -->
+          <SolidColorBrush x:Key="Accent">#0969DA</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentHover">#0860C4</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentFg">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentSoft">#DDEBFC</SolidColorBrush>
+
           <!-- 面 -->
           <SolidColorBrush x:Key="WindowBg">#FFFFFF</SolidColorBrush>
           <SolidColorBrush x:Key="PanelBg">#F6F8FA</SolidColorBrush>
           <SolidColorBrush x:Key="CardBg">#EEF1F4</SolidColorBrush>
           <SolidColorBrush x:Key="StatusBarBg">#F0F2F5</SolidColorBrush>
           <SolidColorBrush x:Key="AltRowBg">#F6F8FA</SolidColorBrush>
-          <SolidColorBrush x:Key="Divider">#D0D7DE</SolidColorBrush>
+          <SolidColorBrush x:Key="Divider">#D8DEE4</SolidColorBrush>
+          <SolidColorBrush x:Key="DividerStrong">#BAC2CB</SolidColorBrush>
+          <SolidColorBrush x:Key="SidebarBg">#F6F8FA</SolidColorBrush>
+          <SolidColorBrush x:Key="NavSelectedBg">#DDEBFC</SolidColorBrush>
+
+          <!-- 操作できるもの -->
+          <SolidColorBrush x:Key="ControlBg">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="ControlBgHover">#F0F3F6</SolidColorBrush>
+          <SolidColorBrush x:Key="ControlBgPressed">#E5E9ED</SolidColorBrush>
+          <SolidColorBrush x:Key="InputBg">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="FgDisabled">#A8B0B8</SolidColorBrush>
 
           <!-- 差分の行 -->
           <SolidColorBrush x:Key="BgChanged">#DDF0FF</SolidColorBrush>
           <SolidColorBrush x:Key="BgRemoved">#FFEBE9</SolidColorBrush>
           <SolidColorBrush x:Key="BgAdded">#E6FFEC</SolidColorBrush>
+          <!-- 型の変化。目で気づけない差の筆頭なので、変更とは別の色にする -->
+          <SolidColorBrush x:Key="BgTyped">#FFF6D6</SolidColorBrush>
+          <!-- 片側に対応が無い空き。面ではなく縞で示すので、ごく薄く -->
+          <SolidColorBrush x:Key="BgGap">#FAFBFC</SolidColorBrush>
 
           <!-- 文字 -->
           <SolidColorBrush x:Key="FgNormal">#1F2328</SolidColorBrush>
@@ -56,18 +83,35 @@
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="Accent">#4493F8</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentHover">#58A0FA</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentFg">#0B1220</SolidColorBrush>
+          <SolidColorBrush x:Key="AccentSoft">#1B2A44</SolidColorBrush>
+
           <!-- 面 -->
           <SolidColorBrush x:Key="WindowBg">#141414</SolidColorBrush>
           <SolidColorBrush x:Key="PanelBg">#1E1E1E</SolidColorBrush>
           <SolidColorBrush x:Key="CardBg">#252525</SolidColorBrush>
           <SolidColorBrush x:Key="StatusBarBg">#1A1A1A</SolidColorBrush>
           <SolidColorBrush x:Key="AltRowBg">#181818</SolidColorBrush>
-          <SolidColorBrush x:Key="Divider">#2A2A2A</SolidColorBrush>
+          <SolidColorBrush x:Key="Divider">#2E2E2E</SolidColorBrush>
+          <SolidColorBrush x:Key="DividerStrong">#3D3D3D</SolidColorBrush>
+          <SolidColorBrush x:Key="SidebarBg">#1A1A1A</SolidColorBrush>
+          <SolidColorBrush x:Key="NavSelectedBg">#1B2A44</SolidColorBrush>
+
+          <!-- 操作できるもの -->
+          <SolidColorBrush x:Key="ControlBg">#232323</SolidColorBrush>
+          <SolidColorBrush x:Key="ControlBgHover">#2C2C2C</SolidColorBrush>
+          <SolidColorBrush x:Key="ControlBgPressed">#353535</SolidColorBrush>
+          <SolidColorBrush x:Key="InputBg">#1B1B1B</SolidColorBrush>
+          <SolidColorBrush x:Key="FgDisabled">#5A5F68</SolidColorBrush>
 
           <!-- 差分の行。egui 版と同じ値で、見た目を揃える。 -->
           <SolidColorBrush x:Key="BgChanged">#2E3350</SolidColorBrush>
           <SolidColorBrush x:Key="BgRemoved">#40262A</SolidColorBrush>
           <SolidColorBrush x:Key="BgAdded">#223A2A</SolidColorBrush>
+          <SolidColorBrush x:Key="BgTyped">#3A3320</SolidColorBrush>
+          <SolidColorBrush x:Key="BgGap">#171717</SolidColorBrush>
 
           <!-- 文字 -->
           <SolidColorBrush x:Key="FgNormal">#D6D8DE</SolidColorBrush>
