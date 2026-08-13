@@ -37,6 +37,37 @@ internal static class Cli
         {
             return Report(() => RunFontCheck(output));
         }
+        if (args.Contains("--deps"))
+        {
+            var files = Positional(args);
+            if (files.Length < 2)
+            {
+                Console.Error.WriteLine("--deps には比較する 2 つのファイルが必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            try
+            {
+                var changes = DependencySummary.Compare(
+                    StructuredReaders.ParseFile(files[0]),
+                    StructuredReaders.ParseFile(files[1]));
+
+                var text = new StringBuilder();
+                text.AppendLine($"left  {files[0]}");
+                text.AppendLine($"right {files[1]}");
+                text.AppendLine("legend + 追加 / - 削除 / ↑ 上げた / ↓ 下げた / ~ その他");
+                text.AppendLine("---");
+                text.Append(DependencySummary.Format(changes));
+
+                Emit(text.ToString(), output);
+                return changes.Count == 0 ? 0 : 1;
+            }
+            catch (Exception error) when (error is StructuredParseException or IOException)
+            {
+                Console.Error.WriteLine(error.Message);
+                return 2;
+            }
+        }
         if (args.Contains("--secrets"))
         {
             var files = Positional(args);
