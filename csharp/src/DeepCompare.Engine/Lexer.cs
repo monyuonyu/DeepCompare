@@ -73,11 +73,69 @@ public static class Lexer
         "function", "return", "export", "local", "readonly", "shift", "exit", "echo", "cd",
     };
 
+    private static readonly HashSet<string> Lua = new(StringComparer.Ordinal)
+    {
+        "and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto",
+        "if", "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until",
+        "while", "self",
+    };
+
+    private static readonly HashSet<string> PowerShell = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "if", "else", "elseif", "switch", "foreach", "for", "while", "do", "until", "break",
+        "continue", "return", "function", "param", "begin", "process", "end", "try", "catch",
+        "finally", "throw", "class", "enum", "filter", "in", "true", "false", "null",
+    };
+
+    private static readonly HashSet<string> Docker = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "from", "run", "cmd", "label", "maintainer", "expose", "env", "add", "copy",
+        "entrypoint", "volume", "user", "workdir", "arg", "onbuild", "stopsignal",
+        "healthcheck", "shell", "as",
+    };
+
+    private static readonly HashSet<string> Make = new(StringComparer.Ordinal)
+    {
+        "ifeq", "ifneq", "ifdef", "ifndef", "else", "endif", "include", "define", "endef",
+        "export", "unexport", "override", "vpath", ".PHONY", ".DEFAULT", ".SUFFIXES",
+    };
+
+    private static readonly HashSet<string> Haskell = new(StringComparer.Ordinal)
+    {
+        "module", "where", "import", "data", "type", "newtype", "class", "instance", "deriving",
+        "do", "case", "of", "let", "in", "if", "then", "else", "infix", "infixl", "infixr",
+    };
+
+    private static readonly HashSet<string> Elixir = new(StringComparer.Ordinal)
+    {
+        "def", "defp", "defmodule", "defstruct", "defprotocol", "defimpl", "do", "end", "fn",
+        "if", "unless", "else", "case", "cond", "with", "for", "when", "and", "or", "not",
+        "in", "alias", "import", "require", "use", "true", "false", "nil", "receive", "after",
+    };
+
     private static readonly HashSet<string> None = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 道具の設定ファイルなど、**拡張子を持たないもの**。
+    ///
+    /// Makefile や Dockerfile は拡張子で判定できない。実際に比べる機会が多い
+    /// ファイルなので、名前で拾う。
+    /// </summary>
+    private static Language? ForFileName(string name) => name.ToLowerInvariant() switch
+    {
+        "makefile" or "gnumakefile" or "makefile.am" or "makefile.in"
+            => new Language("Makefile", Make, ["#"]),
+        "dockerfile" or "containerfile" => new Language("Dockerfile", Docker, ["#"]),
+        ".gitignore" or ".dockerignore" or ".npmignore" or ".gitattributes"
+            => new Language("無視の指定", None, ["#"]),
+        ".env" or ".envrc" => new Language("環境変数", None, ["#"]),
+        "cmakelists.txt" => new Language("CMake", CFamily, ["#"]),
+        _ => null,
+    };
 
     /// <summary>拡張子から言語を決める。分からなければ null（色分けなし）。</summary>
     public static Language? ForPath(string path)
-        => Path.GetExtension(path).ToLowerInvariant() switch
+        => ForFileName(Path.GetFileName(path)) ?? Path.GetExtension(path).ToLowerInvariant() switch
         {
             ".c" or ".h" or ".cpp" or ".hpp" or ".cc" or ".cs" or ".java" or ".js" or ".jsx"
                 or ".ts" or ".tsx" or ".go" or ".rs" or ".swift" or ".kt" or ".scala" or ".php"
@@ -92,6 +150,20 @@ public static class Lexer
             ".xml" or ".html" or ".htm" or ".xaml" or ".axaml" or ".svg"
                 => new Language("XML", None, [], "<!--", "-->", ['"', '\'']),
             ".css" or ".scss" or ".less" => new Language("CSS", None, ["//"], "/*", "*/"),
+            ".lua" => new Language("Lua", Lua, ["--"], "--[[", "]]"),
+            ".ps1" or ".psm1" or ".psd1" => new Language("PowerShell", PowerShell, ["#"], "<#", "#>"),
+            ".pl" or ".pm" => new Language("Perl", Python, ["#"]),
+            ".r" => new Language("R", Python, ["#"]),
+            ".dart" => new Language("Dart", CFamily, ["//"], "/*", "*/"),
+            ".zig" or ".nim" or ".v" => new Language("C 系", CFamily, ["//"], "/*", "*/"),
+            ".hs" => new Language("Haskell", Haskell, ["--"], "{-", "-}"),
+            ".ex" or ".exs" => new Language("Elixir", Elixir, ["#"]),
+            ".vim" => new Language("Vim script", None, ["\""]),
+            ".tf" or ".hcl" => new Language("HCL", None, ["#", "//"], "/*", "*/", ['"']),
+            ".proto" => new Language("Protocol Buffers", CFamily, ["//"], "/*", "*/"),
+            ".gradle" or ".groovy" => new Language("Groovy", CFamily, ["//"], "/*", "*/"),
+            ".md" or ".markdown" => new Language("Markdown", None, [], StringDelimiters: ['`']),
+            ".vue" or ".svelte" => new Language("XML", None, [], "<!--", "-->", ['"', '\'']),
             _ => null,
         };
 

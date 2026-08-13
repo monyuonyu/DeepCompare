@@ -105,13 +105,14 @@
           <SolidColorBrush x:Key="StatusDifferent">#CF222E</SolidColorBrush>
 
           <!--
-            差分の地図の色。**一覧の状態色より彩度を落とす。**
+            差分の地図の色。**明るいパステルにする。**
             地図は細長い帯にびっしり並ぶので、一覧と同じ濃さだと目に刺さる。
-            位置が分かればよいので、そこまで強い色は要らない。
+            ただの薄い色（彩度も明度も落とす）だと沈んで見つけにくいので、
+            明度を上げたまま彩度を落とす＝パステルの方向へ寄せる。
           -->
-          <SolidColorBrush x:Key="MapAdded">#8FC7A3</SolidColorBrush>
-          <SolidColorBrush x:Key="MapRemoved">#E2A0A5</SolidColorBrush>
-          <SolidColorBrush x:Key="MapChanged">#E0B98A</SolidColorBrush>
+          <SolidColorBrush x:Key="MapAdded">#A8E6C2</SolidColorBrush>
+          <SolidColorBrush x:Key="MapRemoved">#FBBEC4</SolidColorBrush>
+          <SolidColorBrush x:Key="MapChanged">#FFD9A8</SolidColorBrush>
           <SolidColorBrush x:Key="StatusLeftOnly">#CF222E</SolidColorBrush>
           <SolidColorBrush x:Key="StatusRightOnly">#1A7F37</SolidColorBrush>
           <SolidColorBrush x:Key="StatusSame">#8C959F</SolidColorBrush>
@@ -170,9 +171,10 @@
           <SolidColorBrush x:Key="FgPunctuation">#9AA0AC</SolidColorBrush>
 
           <!-- 差分の地図。暗い背景では明るすぎない方へ寄せる -->
-          <SolidColorBrush x:Key="MapAdded">#5E8F6E</SolidColorBrush>
-          <SolidColorBrush x:Key="MapRemoved">#A0666C</SolidColorBrush>
-          <SolidColorBrush x:Key="MapChanged">#9E7B53</SolidColorBrush>
+          <!-- 暗い配色では、明度を上げると浮きすぎる。彩度だけパステルに寄せる -->
+          <SolidColorBrush x:Key="MapAdded">#79B894</SolidColorBrush>
+          <SolidColorBrush x:Key="MapRemoved">#C98F97</SolidColorBrush>
+          <SolidColorBrush x:Key="MapChanged">#CCA97C</SolidColorBrush>
 
           <!-- フォルダー一覧の状態。「中身が違う」は BC に合わせて赤 -->
           <SolidColorBrush x:Key="StatusDifferent">#F0666F</SolidColorBrush>

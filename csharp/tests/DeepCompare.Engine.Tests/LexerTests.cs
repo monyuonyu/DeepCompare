@@ -172,3 +172,70 @@ public sealed class LexerTests
         Assert.Equal(0, spans[0].Start);
     }
 }
+
+/// <summary>
+/// 言語の判定。**拡張子だけでは足りない。**
+/// Makefile や Dockerfile は実際に比べる機会が多いのに、名前で判定しないと
+/// 色分けが効かない。
+/// </summary>
+public sealed class LexerLanguageTests
+{
+    [Theory]
+    [InlineData("a.lua", "Lua")]
+    [InlineData("a.ps1", "PowerShell")]
+    [InlineData("a.hs", "Haskell")]
+    [InlineData("a.ex", "Elixir")]
+    [InlineData("a.tf", "HCL")]
+    [InlineData("a.md", "Markdown")]
+    [InlineData("a.dart", "Dart")]
+    [InlineData("a.proto", "Protocol Buffers")]
+    public void 拡張子から言語を決める(string path, string expected)
+    {
+        Assert.Equal(expected, Lexer.ForPath(path)?.Name);
+    }
+
+    [Theory]
+    [InlineData("Makefile", "Makefile")]
+    [InlineData("makefile", "Makefile")]
+    [InlineData("Dockerfile", "Dockerfile")]
+    [InlineData("CMakeLists.txt", "CMake")]
+    [InlineData(".gitignore", "無視の指定")]
+    [InlineData(".env", "環境変数")]
+    public void 拡張子が無いものは名前で決める(string name, string expected)
+    {
+        Assert.Equal(expected, Lexer.ForPath(name)?.Name);
+    }
+
+    [Fact]
+    public void 名前の判定は道の途中でも効く()
+    {
+        Assert.Equal("Dockerfile", Lexer.ForPath("/src/docker/Dockerfile")?.Name);
+    }
+
+    [Fact]
+    public void 知らないものは色分けしない()
+    {
+        Assert.Null(Lexer.ForPath("a.unknownext"));
+        Assert.Null(Lexer.ForPath("readme"));
+    }
+
+    [Fact]
+    public void Luaの行注釈は二重ハイフン()
+    {
+        var language = Lexer.ForPath("a.lua")!;
+        var state = LexState.Start;
+        var tokens = Lexer.Tokenize("x = 1 -- めも", language, ref state);
+
+        Assert.Contains(tokens, t => t.Kind == TokenKind.Comment);
+    }
+
+    [Fact]
+    public void Dockerfileの命令を語として拾う()
+    {
+        var language = Lexer.ForPath("Dockerfile")!;
+        var state = LexState.Start;
+        var tokens = Lexer.Tokenize("FROM alpine:3", language, ref state);
+
+        Assert.Contains(tokens, t => t.Kind == TokenKind.Keyword);
+    }
+}
