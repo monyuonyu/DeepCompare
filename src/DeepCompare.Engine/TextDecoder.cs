@@ -86,6 +86,42 @@ public static class TextDecoder
         };
     }
 
+    /// <summary>
+    /// 符号化を指定して読む。
+    ///
+    /// **推定が外れたときの逃げ道。** 短いファイルや、日本語がわずかしか
+    /// 含まれないファイルでは Shift_JIS と UTF-8 の区別が付かないことがある。
+    /// 間違いに気づいた人が、その場で読み直せるようにする。
+    ///
+    /// 読めない箇所は潰して読む。**開けないより、化けていても見える方がよい**
+    /// （指定が違っていることは、化けた画面を見れば分かる）。
+    /// </summary>
+    public static DecodedText Decode(ReadOnlySpan<byte> bytes, TextEncoding forced)
+    {
+        var text = forced switch
+        {
+            TextEncoding.Utf8 or TextEncoding.Utf8Lossy =>
+                new System.Text.UTF8Encoding(false).GetString(Without(bytes, [0xEF, 0xBB, 0xBF])),
+            TextEncoding.Utf8Bom =>
+                new System.Text.UTF8Encoding(false).GetString(Without(bytes, [0xEF, 0xBB, 0xBF])),
+            TextEncoding.Utf16Le =>
+                System.Text.Encoding.Unicode.GetString(Without(bytes, [0xFF, 0xFE])),
+            TextEncoding.Utf16Be =>
+                System.Text.Encoding.BigEndianUnicode.GetString(Without(bytes, [0xFE, 0xFF])),
+            TextEncoding.ShiftJis => System.Text.Encoding.GetEncoding(932).GetString(bytes),
+            TextEncoding.EucJp => System.Text.Encoding.GetEncoding(51932).GetString(bytes),
+            _ => new System.Text.UTF8Encoding(false).GetString(bytes),
+        };
+        return new DecodedText(SplitLines(text), forced, DetectLineEnding(text))
+        {
+            EndsWithNewline = text.Length == 0 || text[^1] is '\n' or '\r',
+        };
+    }
+
+    /// <summary>先頭の BOM を落とす。**指定した符号化のものだけ。**</summary>
+    private static ReadOnlySpan<byte> Without(ReadOnlySpan<byte> bytes, byte[] bom)
+        => bytes.StartsWith(bom) ? bytes[bom.Length..] : bytes;
+
     private static (string, TextEncoding) DecodeToString(ReadOnlySpan<byte> bytes)
     {
         // 1. BOM があればそれが最も確かな根拠なので優先する。

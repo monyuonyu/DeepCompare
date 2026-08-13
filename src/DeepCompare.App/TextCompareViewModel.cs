@@ -122,8 +122,6 @@ public sealed class TextCompareViewModel : ViewModelBase
             row => { CollapseOutline(row); return Task.CompletedTask; }, row => row.IsOutlineHead);
         ExpandFoldCommand = new RelayCommand<RowView>(
             band => { ExpandFold(band); return Task.CompletedTask; }, band => band.IsFoldBand);
-        ApplyDetailCommand = new RelayCommand(
-            ApplyDetailAsync, () => CanEditLeftDetail || CanEditRightDetail);
         SelectBlockCommand = new RelayCommand<RowView>(
             row => { SelectBlock(row); return Task.CompletedTask; }, row => row.BlockIndex >= 0);
 
@@ -258,7 +256,6 @@ public sealed class TextCompareViewModel : ViewModelBase
         ClearManualCommand.Raise();
         LinkRowsCommand.Raise();
     }
-    public RelayCommand ApplyDetailCommand { get; }
     public RelayCommand<RowView> ExpandFoldCommand { get; }
     public RelayCommand<RowView> CollapseOutlineCommand { get; }
     public RelayCommand CompareClipboardCommand { get; }
@@ -673,6 +670,101 @@ public sealed class TextCompareViewModel : ViewModelBase
         private set => Set(ref _statusText, value);
     }
 
+    // ---- 符号化 ----
+
+    /// <summary>
+    /// 選べる符号化。
+    ///
+    /// **推定が外れたときの逃げ道。** 日本語がわずかしか含まれない
+    /// Shift_JIS のファイルは UTF-8 として読めてしまうことがあり、
+    /// そのときは化けた本文を前に、直しようが無かった。
+    /// </summary>
+    public IReadOnlyList<EncodingChoice> Encodings { get; } =
+    [
+        new(TextEncoding.Utf8, "UTF-8"),
+        new(TextEncoding.Utf8Bom, "UTF-8 (BOM)"),
+        new(TextEncoding.ShiftJis, "Shift_JIS"),
+        new(TextEncoding.EucJp, "EUC-JP"),
+        new(TextEncoding.Utf16Le, "UTF-16 LE"),
+        new(TextEncoding.Utf16Be, "UTF-16 BE"),
+    ];
+
+    private TextEncoding? _forcedLeftEncoding;
+    private TextEncoding? _forcedRightEncoding;
+
+    private EncodingChoice? _leftEncoding;
+
+    /// <summary>左の符号化。**変えると読み直す。**</summary>
+    public EncodingChoice? LeftEncoding
+    {
+        get => _leftEncoding;
+        set
+        {
+            var before = _leftEncoding;
+            if (!Set(ref _leftEncoding, value) || value is null || before is null)
+            {
+                return;
+            }
+            // 表示のために入れ直しただけなら読み直さない。
+            if (value.Value == _leftSource?.Encoding)
+            {
+                return;
+            }
+            _forcedLeftEncoding = value.Value;
+            _ = ReloadAsync();
+        }
+    }
+
+    private EncodingChoice? _rightEncoding;
+    public EncodingChoice? RightEncoding
+    {
+        get => _rightEncoding;
+        set
+        {
+            var before = _rightEncoding;
+            if (!Set(ref _rightEncoding, value) || value is null || before is null)
+            {
+                return;
+            }
+            if (value.Value == _rightSource?.Encoding)
+            {
+                return;
+            }
+            _forcedRightEncoding = value.Value;
+            _ = ReloadAsync();
+        }
+    }
+
+    private string _leftEnding = string.Empty;
+    public string LeftEnding
+    {
+        get => _leftEnding;
+        private set => Set(ref _leftEnding, value);
+    }
+
+    private string _rightEnding = string.Empty;
+    public string RightEnding
+    {
+        get => _rightEnding;
+        private set => Set(ref _rightEnding, value);
+    }
+
+    /// <summary>
+    /// 符号化を選び直したので読み直す。
+    ///
+    /// **直していたら断る。** 読み直せば編集は消える。捨ててよいかは
+    /// 人にしか決められない。
+    /// </summary>
+    private async Task ReloadAsync()
+    {
+        if (LeftModified || RightModified)
+        {
+            StatusText = "直した内容があるので読み直せません。保存するか、取り消してください。";
+            return;
+        }
+        await RunCompareAsync();
+    }
+
     public string Placeholder
     {
         get => _placeholder;
@@ -970,8 +1062,13 @@ public sealed class TextCompareViewModel : ViewModelBase
             var first = await Task.Run(() =>
             {
                 var load = ContentLoader ?? File.ReadAllBytes;
-                var left = TextDecoder.Decode(load(leftPath));
-                var right = TextDecoder.Decode(load(rightPath));
+                // 人が指定した符号化があればそれで読む。無ければ推定に任せる。
+                var left = _forcedLeftEncoding is { } fl
+                    ? TextDecoder.Decode(load(leftPath), fl)
+                    : TextDecoder.Decode(load(leftPath));
+                var right = _forcedRightEncoding is { } fr
+                    ? TextDecoder.Decode(load(rightPath), fr)
+                    : TextDecoder.Decode(load(rightPath));
                 var started = DateTime.UtcNow;
                 var comparison = DiffComparer.Compare(
                     left, right, embedder: null, compareOptions);
@@ -1163,15 +1260,19 @@ public sealed class TextCompareViewModel : ViewModelBase
         StatusText =
             $"{stats.Rows} 行 / 一致 {stats.IdenticalLines} 行 / "
             + (refining
-                ? "意味的な対応付けを計算中…    "
-                : $"埋め込み {stats.EmbeddedLines} 行 / {elapsed.TotalSeconds:F2} 秒    ")
-            // 符号化と改行コードを出すのは、「中身は同じなのに全行差分になる」
-            // という混乱の原因がここで一目で分かるから。
-            + $"左: {TextDecoder.Label(left.Encoding)} / {TextDecoder.Label(left.LineEnding)}    "
-            + $"右: {TextDecoder.Label(right.Encoding)} / {TextDecoder.Label(right.LineEnding)}"
+                ? "意味的な対応付けを計算中…"
+                : $"埋め込み {stats.EmbeddedLines} 行 / {elapsed.TotalSeconds:F2} 秒")
             + (!refining && stats.SkippedBlocks > 0
                 ? $"    {stats.SkippedBlocks} 箇所は構造的な対応付けのまま"
                 : string.Empty);
+
+        // **符号化と改行は左右それぞれの下に出す。** ひとまとめに並べていたが、
+        // どちらの話なのかを読み取るのに文字を追う必要があった。
+        // 「中身は同じなのに全行差分になる」の原因がここで一目で分かる。
+        LeftEncoding = Encodings.FirstOrDefault(e => e.Value == left.Encoding);
+        RightEncoding = Encodings.FirstOrDefault(e => e.Value == right.Encoding);
+        LeftEnding = TextDecoder.Label(left.LineEnding);
+        RightEnding = TextDecoder.Label(right.LineEnding);
 
         // 「同じに見えるのに一致しない」の原因を、聞かれる前に出す。
         // 符号化と改行を出しているのと同じ理由。
@@ -1244,18 +1345,45 @@ public sealed class TextCompareViewModel : ViewModelBase
     ///
     /// **全幅で出るので、横に長い行も折り返さずに読める**という利点もある。
     /// </summary>
+    /// <summary>
+    /// 選んだ行の左。
+    ///
+    /// **打った内容はその場で本文へ入る。** 以前は「直す」ボタンを
+    /// 押させていたが、押し忘れると黙って消えた。欄を離れた時点で
+    /// 反映される（画面側で LostFocus にしてある）。
+    /// </summary>
     public string DetailLeft
     {
         get => _detailLeft;
-        set => Set(ref _detailLeft, value);
+        set
+        {
+            if (Set(ref _detailLeft, value) && !_fillingDetail)
+            {
+                _ = ApplyDetailAsync();
+            }
+        }
     }
 
     private string _detailRight = string.Empty;
     public string DetailRight
     {
         get => _detailRight;
-        set => Set(ref _detailRight, value);
+        set
+        {
+            if (Set(ref _detailRight, value) && !_fillingDetail)
+            {
+                _ = ApplyDetailAsync();
+            }
+        }
     }
+
+    /// <summary>
+    /// 選んだ行の中身を欄へ入れている最中か。
+    ///
+    /// **これが無いと、行を選び直しただけで本文を書き換えてしまう。**
+    /// 欄への代入と、人が打ったのとを区別する術がこれしかない。
+    /// </summary>
+    private bool _fillingDetail;
 
     private int _searchSide;
 
@@ -1277,7 +1405,12 @@ public sealed class TextCompareViewModel : ViewModelBase
         set => Set(ref _searchWrap, value);
     }
 
-    private bool _fullEdit;
+    /// <summary>
+    /// **既定で入れておく。** 「本文を直接直せない道具」だと思われる方が
+    /// 損が大きい。切っていると気づける仕掛けが、押していないボタン 1 つ
+    /// しか無かった。読み取り専用の側は、これが入っていても触れない。
+    /// </summary>
+    private bool _fullEdit = true;
 
     /// <summary>
     /// 本文のペインで直接編集するか（BC の Full Edit）。
@@ -1684,8 +1817,10 @@ public sealed class TextCompareViewModel : ViewModelBase
     private void ShowDetailFor(RowView? row)
     {
         _detailRow = row;
+        _fillingDetail = true;
         DetailLeft = row?.LeftText ?? string.Empty;
         DetailRight = row?.RightText ?? string.Empty;
+        _fillingDetail = false;
         OnPropertyChanged(nameof(DetailLeftHex));
         OnPropertyChanged(nameof(DetailRightHex));
         // **行を選び直したら対応も測り直す。** 前の行の対応が残ると、
@@ -1695,7 +1830,6 @@ public sealed class TextCompareViewModel : ViewModelBase
         OnPropertyChanged(nameof(DetailRightLabel));
         OnPropertyChanged(nameof(CanEditLeftDetail));
         OnPropertyChanged(nameof(CanEditRightDetail));
-        ApplyDetailCommand.Raise();
     }
 
     /// <summary>

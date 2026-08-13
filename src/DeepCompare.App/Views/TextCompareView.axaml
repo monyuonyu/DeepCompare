@@ -303,9 +303,14 @@
     <Border DockPanel.Dock="Bottom" Background="{DynamicResource PanelBg}"
             BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0"
             Padding="10,8" IsVisible="{Binding ShowDetails}">
-      <Grid ColumnDefinitions="*,8,*,Auto" RowDefinitions="Auto,Auto">
-        <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8"
-                    Margin="2,0,0,3">
+      <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*">
+
+        <!--
+          **左右ではなく上下に並べる。** 横に割ると 1 行あたりの幅が半分になり、
+          長い行はどちらも右端で切れて、見るのに横スクロールが要る。
+          上下なら、左右のどちらも画面いっぱいの幅で読める。
+        -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="2,0,0,3">
           <TextBlock Text="{Binding DetailLeftLabel}" Classes="hint" VerticalAlignment="Center" />
           <!--
             文字の対応で見る（BC の Alignment Details）。
@@ -321,44 +326,78 @@
             <TextBlock Text="16 進" FontSize="10" />
           </ToggleButton>
         </StackPanel>
-        <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding DetailRightLabel}"
-                   Classes="hint" Margin="2,0,0,3" />
 
-        <!-- 文字で見る（直せる） -->
-        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding DetailLeft}"
+        <!--
+          文字で見る（直せる）。
+          **打った内容は欄を離れた時点で本文へ入る。** 「直す」ボタンを
+          押させていたが、押し忘れると黙って消える。打鍵ごとに入れると
+          今度は取り消しが 1 文字ずつになるので、離れたときにする。
+        -->
+        <TextBox Grid.Row="1" Text="{Binding DetailLeft, UpdateSourceTrigger=LostFocus}"
                  FontFamily="{DynamicResource MonoFont}" FontSize="13"
                  IsEnabled="{Binding CanEditLeftDetail}"
                  IsVisible="{Binding DetailShowsText}"
                  AcceptsReturn="False" />
-        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding DetailRight}"
+
+        <TextBlock Grid.Row="2" Text="{Binding DetailRightLabel}"
+                   Classes="hint" Margin="2,6,0,3"
+                   IsVisible="{Binding DetailShowsText}" />
+
+        <TextBox Grid.Row="3" Text="{Binding DetailRight, UpdateSourceTrigger=LostFocus}"
                  FontFamily="{DynamicResource MonoFont}" FontSize="13"
                  IsEnabled="{Binding CanEditRightDetail}"
                  IsVisible="{Binding DetailShowsText}"
                  AcceptsReturn="False" />
 
         <!-- バイトで見る（読むだけ。ここから直すのは危ないので許さない） -->
-        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding DetailLeftHex}"
+        <TextBox Grid.Row="1" Text="{Binding DetailLeftHex}"
                  FontFamily="{DynamicResource MonoFont}" FontSize="12"
                  IsReadOnly="True" IsVisible="{Binding DetailAsHex}" />
-        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding DetailRightHex}"
+        <TextBox Grid.Row="3" Text="{Binding DetailRightHex}"
                  FontFamily="{DynamicResource MonoFont}" FontSize="12"
                  IsReadOnly="True" IsVisible="{Binding DetailAsHex}" />
 
         <!--
           文字の対応（BC の Alignment Details）。
-          **左右をまたいで 1 つの欄に出す。** 桁を揃えて見せるのが目的なので、
-          左右の欄に分けると意味が無い。
+          **1 つの欄に左右をまたいで出す。** 桁を揃えて見せるのが目的。
         -->
-        <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+        <TextBox Grid.Row="1" Grid.RowSpan="3"
                  Text="{Binding DetailAlignment}"
                  FontFamily="{DynamicResource MonoFont}" FontSize="12"
                  IsReadOnly="True" IsVisible="{Binding DetailAsAlignment}"
                  AcceptsReturn="True" />
 
-        <Button Grid.Row="1" Grid.Column="3" Classes="accent" Margin="8,0,0,0"
-                Content="直す" Command="{Binding ApplyDetailCommand}"
-                IsVisible="{Binding DetailShowsText}"
-                ToolTip.Tip="直した内容を本文へ戻す。取り消しで元に戻せる" />
+      </Grid>
+    </Border>
+
+    <!--
+      **符号化と改行は左右それぞれの側に置く。** 全部を横一列に並べていたので、
+      「左: UTF-8 / LF    右: UTF-8 / LF」のどちらの話か文字を追う必要があった。
+      押すと選び直せる（推定が外れたときの逃げ道）。
+    -->
+    <Border DockPanel.Dock="Bottom" Classes="statusbar"
+            IsVisible="{Binding !ShowPlaceholder}">
+      <Grid ColumnDefinitions="*,*">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+          <TextBlock Text="左" FontSize="11" VerticalAlignment="Center"
+                     Foreground="{DynamicResource FgDim}" />
+          <ComboBox ItemsSource="{Binding Encodings}" SelectedItem="{Binding LeftEncoding}"
+                    DisplayMemberBinding="{Binding Label}"
+                    FontSize="11" Padding="6,1" MinHeight="0"
+                    ToolTip.Tip="読み方が違うと思ったら選び直す（読み直します）" />
+          <TextBlock Text="{Binding LeftEnding}" FontSize="11" VerticalAlignment="Center"
+                     Foreground="{DynamicResource FgDim}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+          <TextBlock Text="右" FontSize="11" VerticalAlignment="Center"
+                     Foreground="{DynamicResource FgDim}" />
+          <ComboBox ItemsSource="{Binding Encodings}" SelectedItem="{Binding RightEncoding}"
+                    DisplayMemberBinding="{Binding Label}"
+                    FontSize="11" Padding="6,1" MinHeight="0"
+                    ToolTip.Tip="読み方が違うと思ったら選び直す（読み直します）" />
+          <TextBlock Text="{Binding RightEnding}" FontSize="11" VerticalAlignment="Center"
+                     Foreground="{DynamicResource FgDim}" />
+        </StackPanel>
       </Grid>
     </Border>
 
