@@ -19,7 +19,7 @@ internal static class Cli
         "--merge", "--block", "--report", "--context",
         "--key", "--ignore-column", "--delimiter",
         "--array-key", "--ignore-path",
-        "--limit", "--rev", "--path",
+        "--limit", "--rev", "--path", "--secret-level",
     ];
 
     /// <summary>画面を開かずに済む要求なら処理して終了コードを返す。GUI を開くなら null。</summary>
@@ -36,6 +36,17 @@ internal static class Cli
         if (args.Contains("--font-check"))
         {
             return Report(() => RunFontCheck(output));
+        }
+        if (args.Contains("--secrets"))
+        {
+            var files = Positional(args);
+            if (files.Length < 1)
+            {
+                Console.Error.WriteLine("--secrets には調べるファイルが必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return RunSecrets(files, args, output);
         }
         if (args.Contains("--print-binary"))
         {
@@ -213,6 +224,57 @@ internal static class Cli
             }
         }
         return result.ToArray();
+    }
+
+    /// <summary>
+    /// 秘密が混ざっていないか調べる。
+    ///
+    /// ファイルを 1 つ渡せばその全体を、2 つ渡せば**増えた側だけ**を見る。
+    /// 終了コードは 0 何も無い / 1 見つかった / 2 異常。CI で止められる。
+    /// </summary>
+    private static int RunSecrets(string[] files, string[] args, string? output)
+    {
+        IReadOnlyList<SecretFinding> findings;
+        try
+        {
+            if (files.Length >= 2)
+            {
+                var left = TextDecoder.Decode(File.ReadAllBytes(files[0]));
+                var right = TextDecoder.Decode(File.ReadAllBytes(files[1]));
+                var comparison = DiffComparer.Compare(left, right, embedder: null);
+                findings = SecretScanner.ScanAdded(comparison, right);
+            }
+            else
+            {
+                findings = SecretScanner.Scan(
+                    TextDecoder.Decode(File.ReadAllBytes(files[0])).Lines);
+            }
+        }
+        catch (IOException error)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+
+        // 弱い印まで数えて止めると、CI が通らなくなって外される。
+        // **どこから止めるかを選べるようにする。**
+        var least = ValueOf(args, "--secret-level") switch
+        {
+            "low" => SecretConfidence.Low,
+            "high" => SecretConfidence.High,
+            _ => SecretConfidence.Medium,
+        };
+        var kept = findings.Where(f => f.Confidence <= least).ToList();
+
+        var text = new StringBuilder();
+        text.AppendLine(files.Length >= 2
+            ? $"increase {files[0]} → {files[1]}（増えた行だけ）"
+            : $"file {files[0]}");
+        text.AppendLine("---");
+        text.Append(SecretScanner.Format(kept));
+
+        Emit(text.ToString(), output);
+        return kept.Count == 0 ? 0 : 1;
     }
 
     /// <summary>

@@ -43,6 +43,10 @@ internal static class Program
                                      バイト列として 16 進で比較する。テキストとして
                                      読めないファイル向け。終了コードは
                                      0 同じ / 1 違う / 2 異常
+          deepcompare --secrets <ファイル> [変更後]
+                                     秘密（API キー・トークン・秘密鍵）が混ざって
+                                     いないか調べる。2 つ渡すと**増えた行だけ**を
+                                     見る。終了コードは 0 無い / 1 見つかった / 2 異常
           deepcompare --invisible <ファイル>
                                      「同じに見えるのに一致しない」原因を調べる。
                                      ゼロ幅文字・全角空白・ノーブレークスペース・
@@ -98,6 +102,12 @@ internal static class Program
                            複数回指定可
           --ignore-order   配列の並び順の違いを報告しない
           --strict-numbers 1.0 と 1 を別のものとして扱う
+
+        秘密の検出のオプション（--secrets と併用）
+          --secret-level <段階>
+                           どこから報告するか。high（形が決まっているものだけ）/
+                           medium（既定。名前で拾ったものまで）/
+                           low（乱数のような文字列まで）
 
         書き出しのオプション
           --report <形式>  unified（patch で適用できる差分）か html（左右並記）。
