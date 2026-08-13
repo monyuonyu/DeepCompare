@@ -9,8 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: '試すタグ（省略すると下書きだけ作る）'
+        description: '下書きに付けるタグ名（例: v0.0.1-test）'
         required: false
+        default: 'draft-test'
 
 env:
   DOTNET_NOLOGO: true
@@ -114,6 +115,11 @@ jobs:
       - name: Release を作る
         uses: softprops/action-gh-release@v2
         with:
+          # **タグ名を明示する。** 手で走らせたときは github.ref が
+          # refs/heads/master になり、action がタグ名を決められず
+          # 「Missing tag_name parameter」で落ちる（下書きで試して分かった）。
+          tag_name: ${{ github.event_name == 'workflow_dispatch'
+                        && inputs.tag || github.ref_name }}
           # **手で試したときは下書きにする。** タグから来たときだけ公開。
           draft: ${{ github.event_name == 'workflow_dispatch' }}
           generate_release_notes: true
