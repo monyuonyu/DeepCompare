@@ -63,7 +63,8 @@ public sealed class DiffMap : Control
 
     public DiffMap()
     {
-        Width = 14;
+        // 細いと 1 行の差分が線にしか見えず、位置は分かっても量が分からない。
+        Width = 26;
         Cursor = new Cursor(StandardCursorType.Hand);
     }
 
@@ -144,7 +145,7 @@ public sealed class DiffMap : Control
                     {
                         y = Math.Max(0, height - h);
                     }
-                    context.FillRectangle(brush, new Rect(2, y, width - 4, h));
+                    context.FillRectangle(brush, new Rect(3, y, width - 6, h));
                 }
             }
             index++;

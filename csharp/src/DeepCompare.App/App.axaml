@@ -55,22 +55,21 @@
           <SolidColorBrush x:Key="TooltipFg">#FFFFFF</SolidColorBrush>
 
           <!--
-            差分の行。**Beyond Compare の考え方に合わせる。**
+            差分の行。**git / GitHub の慣習に合わせる。** 緑＝追加、赤＝削除。
+            見慣れた色をそのまま使えるのは、覚え直しが要らないという利点がある。
 
-            BC は「重要な差異は赤、重要でない差異は青」で、**挿入・削除・変更を
-            色で分けない**。左右のペインに並べるので、どちら側にあるかは位置で
-            分かり、色は「重要かどうか」に使う方が情報が増えるという判断。
-            対応の無い側は斜線なので、追加と削除も見分けられる。
-
-            git や GitHub の緑＝追加に慣れていると最初は戸惑うが、
-            **同じ画面に緑・赤・青を並べると「どれが重要か」が消える。**
-            BC に寄せる方を採った。
+            一度 BC に合わせて「重要な差異はすべて赤」にしたが、緑と赤の方が
+            馴染むという判断で戻した。BC から採ったのは**重要でない差異を
+            別の色で示す**という考え方の方で、そちらは残してある。
           -->
-          <SolidColorBrush x:Key="BgChanged">#FFDCD8</SolidColorBrush>
-          <SolidColorBrush x:Key="BgRemoved">#FFEDEB</SolidColorBrush>
-          <SolidColorBrush x:Key="BgAdded">#FFEDEB</SolidColorBrush>
-          <!-- 重要でない差異（空白だけ、無視する指定に当たった箇所） -->
-          <SolidColorBrush x:Key="BgUnimportant">#DDEBFC</SolidColorBrush>
+          <SolidColorBrush x:Key="BgChanged">#DDF0FF</SolidColorBrush>
+          <SolidColorBrush x:Key="BgRemoved">#FFEBE9</SolidColorBrush>
+          <SolidColorBrush x:Key="BgAdded">#E6FFEC</SolidColorBrush>
+          <!--
+            重要でない差異（空白だけ、無視する指定に当たった箇所）。
+            変更の青と紛れないよう、彩度を持たない灰にする。
+          -->
+          <SolidColorBrush x:Key="BgUnimportant">#EFF1F3</SolidColorBrush>
           <!-- 型の変化。目で気づけない差の筆頭なので、変更とは別の色にする -->
           <SolidColorBrush x:Key="BgTyped">#FFF6D6</SolidColorBrush>
           <!-- 片側に対応が無い空き。面ではなく縞で示すので、ごく薄く -->
@@ -91,10 +90,10 @@
           <SolidColorBrush x:Key="FgNumber">#953800</SolidColorBrush>
           <SolidColorBrush x:Key="FgPunctuation">#57606A</SolidColorBrush>
 
-          <!-- フォルダー一覧の状態。差異に関わるものは赤、同じものは目立たせない -->
-          <SolidColorBrush x:Key="StatusDifferent">#CF222E</SolidColorBrush>
-          <SolidColorBrush x:Key="StatusLeftOnly">#B4407A</SolidColorBrush>
-          <SolidColorBrush x:Key="StatusRightOnly">#B4407A</SolidColorBrush>
+          <!-- フォルダー一覧の状態。左右の色は差分の行と揃える（赤＝左、緑＝右） -->
+          <SolidColorBrush x:Key="StatusDifferent">#BC4C00</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusLeftOnly">#CF222E</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusRightOnly">#1A7F37</SolidColorBrush>
           <SolidColorBrush x:Key="StatusSame">#8C959F</SolidColorBrush>
         </ResourceDictionary>
 
@@ -124,11 +123,12 @@
           <SolidColorBrush x:Key="TooltipBg">#2E2E2E</SolidColorBrush>
           <SolidColorBrush x:Key="TooltipFg">#E6E8EC</SolidColorBrush>
 
-          <!-- 差分の行。BC のダークテーマの値に寄せてある（#3C0C0C 系） -->
-          <SolidColorBrush x:Key="BgChanged">#4A1517</SolidColorBrush>
-          <SolidColorBrush x:Key="BgRemoved">#33100F</SolidColorBrush>
-          <SolidColorBrush x:Key="BgAdded">#33100F</SolidColorBrush>
-          <SolidColorBrush x:Key="BgUnimportant">#20213F</SolidColorBrush>
+          <!-- 差分の行。git / GitHub の慣習（緑＝追加、赤＝削除）に合わせる -->
+          <SolidColorBrush x:Key="BgChanged">#2E3350</SolidColorBrush>
+          <SolidColorBrush x:Key="BgRemoved">#40262A</SolidColorBrush>
+          <SolidColorBrush x:Key="BgAdded">#223A2A</SolidColorBrush>
+          <!-- 重要でない差異。変更の青と紛れないよう、彩度を持たない灰にする -->
+          <SolidColorBrush x:Key="BgUnimportant">#2A2A2A</SolidColorBrush>
           <SolidColorBrush x:Key="BgTyped">#3A3320</SolidColorBrush>
           <SolidColorBrush x:Key="BgGap">#171717</SolidColorBrush>
 
@@ -147,10 +147,10 @@
           <SolidColorBrush x:Key="FgNumber">#D19A66</SolidColorBrush>
           <SolidColorBrush x:Key="FgPunctuation">#9AA0AC</SolidColorBrush>
 
-          <!-- フォルダー一覧の状態。差異に関わるものは赤、同じものは目立たせない -->
-          <SolidColorBrush x:Key="StatusDifferent">#F0666F</SolidColorBrush>
-          <SolidColorBrush x:Key="StatusLeftOnly">#D782B4</SolidColorBrush>
-          <SolidColorBrush x:Key="StatusRightOnly">#D782B4</SolidColorBrush>
+          <!-- フォルダー一覧の状態。左右の色は差分の行と揃える（赤＝左、緑＝右） -->
+          <SolidColorBrush x:Key="StatusDifferent">#FFA500</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusLeftOnly">#E06C75</SolidColorBrush>
+          <SolidColorBrush x:Key="StatusRightOnly">#8FBF6F</SolidColorBrush>
           <SolidColorBrush x:Key="StatusSame">#7E838F</SolidColorBrush>
         </ResourceDictionary>
 
