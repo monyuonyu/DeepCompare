@@ -6,7 +6,7 @@
         x:DataType="vm:ShellViewModel"
         Title="DeepCompare"
         Width="1280" Height="820"
-        MinWidth="860" MinHeight="480"
+        MinWidth="420" MinHeight="280"
         Background="{DynamicResource WindowBg}"
         DragDrop.AllowDrop="True"
         ExtendClientAreaToDecorationsHint="True"

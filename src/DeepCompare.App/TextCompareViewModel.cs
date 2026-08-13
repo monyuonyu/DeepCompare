@@ -771,6 +771,48 @@ public sealed class TextCompareViewModel : ViewModelBase
         private set => Set(ref _statusText, value);
     }
 
+    private string _leftFileInfo = string.Empty;
+
+    /// <summary>
+    /// ファイルの日時と大きさ。
+    ///
+    /// **中身を読む前に知りたいこと。** どちらが新しいか、大きさが
+    /// どれだけ違うかは、差分を追う前の見当を付けるのに要る。
+    /// </summary>
+    public string LeftFileInfo
+    {
+        get => _leftFileInfo;
+        private set => Set(ref _leftFileInfo, value);
+    }
+
+    private string _rightFileInfo = string.Empty;
+    public string RightFileInfo
+    {
+        get => _rightFileInfo;
+        private set => Set(ref _rightFileInfo, value);
+    }
+
+    /// <summary>
+    /// 日時と大きさを読む。**読めなければ空。**
+    /// リモートやクリップボードとの比較では、そもそもファイルが無い。
+    /// </summary>
+    private static string DescribeFile(string path)
+    {
+        try
+        {
+            if (path.Length == 0 || !File.Exists(path))
+            {
+                return string.Empty;
+            }
+            var info = new FileInfo(path);
+            return $"{info.LastWriteTime:yyyy-MM-dd HH:mm}    {info.Length:N0} バイト";
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            return string.Empty;
+        }
+    }
+
     private string _diffCountText = string.Empty;
 
     /// <summary>
@@ -1062,7 +1104,10 @@ public sealed class TextCompareViewModel : ViewModelBase
     /// 右端の類似度が画面の外へ押し出されていた（既定の窓の大きさで、
     /// この道具の売りである類似度が見えない状態だった）。
     /// </summary>
-    private const double GutterWidth = 26 + 18 + 52 * 3 + 22 * 2 + 52 + 18;
+    // 本文以外が取る幅。**足し忘れると本文が窓からはみ出す。**
+    // 地図 26 + 折りたたみ 18 + 行番号 52×3 + 写しの列 22×2 + 類似度 52
+    // + スクロールバー 18 + 中央の境目 1。
+    private const double GutterWidth = 26 + 18 + 52 * 3 + 22 * 2 + 52 + 18 + 1;
 
     private void UpdateTextWidth()
     {
@@ -1394,6 +1439,9 @@ public sealed class TextCompareViewModel : ViewModelBase
             inBlock = differs;
         }
         DiffCountText = blocks == 0 ? "差分なし" : $"差分 {blocks} か所";
+
+        LeftFileInfo = DescribeFile(LeftPath.Trim());
+        RightFileInfo = DescribeFile(RightPath.Trim());
 
         // **符号化と改行は左右それぞれの下に出す。** ひとまとめに並べていたが、
         // どちらの話なのかを読み取るのに文字を追う必要があった。

@@ -62,9 +62,18 @@
             馴染むという判断で戻した。BC から採ったのは**重要でない差異を
             別の色で示す**という考え方の方で、そちらは残してある。
           -->
-          <SolidColorBrush x:Key="BgChanged">#DDF0FF</SolidColorBrush>
-          <SolidColorBrush x:Key="BgRemoved">#FFEBE9</SolidColorBrush>
-          <SolidColorBrush x:Key="BgAdded">#E6FFEC</SolidColorBrush>
+          <!--
+            差分の色。**Beyond Compare の考え方に合わせる。**
+
+            両方にあるが違う行 = 薄い赤。片側にしか無い行 = 薄い青紫。
+            以前は「変更＝青／削除＝赤／追加＝緑」と 3 色に分けていたが、
+            信号機のように見えて、どれが重いのか読み取れなかった。
+            **「直すべき所（違う）」と「片側にしか無い所」の 2 つに分ける**
+            方が、目で追う手数が減る。
+          -->
+          <SolidColorBrush x:Key="BgChanged">#FFECEC</SolidColorBrush>
+          <SolidColorBrush x:Key="BgRemoved">#E9EEFF</SolidColorBrush>
+          <SolidColorBrush x:Key="BgAdded">#E9EEFF</SolidColorBrush>
           <!--
             重要でない差異（空白だけ、無視する指定に当たった箇所）。
             変更の青と紛れないよう、彩度を持たない灰にする。
@@ -97,7 +106,7 @@
             1 文字違いや、もともと色の付いた場所では気づけない。
             行全体の色（BgChanged）より濃くする。
           -->
-          <SolidColorBrush x:Key="BgInline">#FFD8A8</SolidColorBrush>
+          <SolidColorBrush x:Key="BgInline">#FFC9C9</SolidColorBrush>
           <SolidColorBrush x:Key="FgUnimportant">#8C959F</SolidColorBrush>
           <SolidColorBrush x:Key="FgWarning">#9A6700</SolidColorBrush>
           <SolidColorBrush x:Key="FgMoved">#1A7F37</SolidColorBrush>
@@ -187,9 +196,10 @@
           <SolidColorBrush x:Key="TooltipFg">#E6E8EC</SolidColorBrush>
 
           <!-- 差分の行。git / GitHub の慣習（緑＝追加、赤＝削除）に合わせる -->
-          <SolidColorBrush x:Key="BgChanged">#2E3350</SolidColorBrush>
-          <SolidColorBrush x:Key="BgRemoved">#40262A</SolidColorBrush>
-          <SolidColorBrush x:Key="BgAdded">#223A2A</SolidColorBrush>
+          <!-- 明るい方と同じ考え方。違う行＝赤寄り、片側だけ＝青紫寄り -->
+          <SolidColorBrush x:Key="BgChanged">#43282C</SolidColorBrush>
+          <SolidColorBrush x:Key="BgRemoved">#262B45</SolidColorBrush>
+          <SolidColorBrush x:Key="BgAdded">#262B45</SolidColorBrush>
           <!-- 重要でない差異。変更の青と紛れないよう、彩度を持たない灰にする -->
           <SolidColorBrush x:Key="BgUnimportant">#2A2A2A</SolidColorBrush>
           <SolidColorBrush x:Key="ApplyArrow">#E0A000</SolidColorBrush>
@@ -205,7 +215,7 @@
           <SolidColorBrush x:Key="FgNormal">#D6D8DE</SolidColorBrush>
           <SolidColorBrush x:Key="FgDim">#7E838F</SolidColorBrush>
           <SolidColorBrush x:Key="FgInline">#FFA500</SolidColorBrush>
-          <SolidColorBrush x:Key="BgInline">#5A3D00</SolidColorBrush>
+          <SolidColorBrush x:Key="BgInline">#6E2F35</SolidColorBrush>
           <SolidColorBrush x:Key="FgUnimportant">#6E7488</SolidColorBrush>
           <SolidColorBrush x:Key="FgWarning">#E0A060</SolidColorBrush>
           <SolidColorBrush x:Key="FgMoved">#8FBF6F</SolidColorBrush>

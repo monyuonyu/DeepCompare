@@ -275,8 +275,8 @@
 
       <!-- パスの行。左右で対になるので、同じ幅で並べる -->
       <Border Classes="topbar">
-        <Grid ColumnDefinitions="*,Auto,*">
-          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+        <Grid ColumnDefinitions="*,Auto,*" RowDefinitions="Auto,Auto">
+          <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="4">
             <TextBox Text="{Binding LeftPath}" HorizontalAlignment="Stretch" Width="NaN"
                      PlaceholderText="左のファイル" />
             <Button Classes="icon" Command="{Binding BrowseLeftCommand}" ToolTip.Tip="左のファイルを選ぶ">
@@ -284,16 +284,30 @@
             </Button>
           </StackPanel>
 
-          <TextBlock Grid.Column="1" Text="↔" Classes="dim" VerticalAlignment="Center"
-                     Margin="10,0" />
+          <TextBlock Grid.Row="0" Grid.Column="1" Text="↔" Classes="dim"
+                     VerticalAlignment="Center" Margin="10,0" />
 
-          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
+          <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Spacing="4">
             <TextBox Text="{Binding RightPath}" HorizontalAlignment="Stretch" Width="NaN"
                      PlaceholderText="右のファイル" />
             <Button Classes="icon" Command="{Binding BrowseRightCommand}" ToolTip.Tip="右のファイルを選ぶ">
               <Path Classes="icon" Data="{StaticResource IconBrowse}" />
             </Button>
           </StackPanel>
+
+          <!--
+            ファイルそのものの情報。**パスのすぐ下に置く。**
+            「どちらが新しいか」「大きさが違うか」は、中身を読む前に
+            知りたいことで、状態バーまで目を動かす話ではない。
+          -->
+          <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LeftFileInfo}"
+                     FontSize="11" Margin="4,3,0,0"
+                     Foreground="{DynamicResource FgDim}"
+                     TextTrimming="CharacterEllipsis" />
+          <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding RightFileInfo}"
+                     FontSize="11" Margin="4,3,0,0"
+                     Foreground="{DynamicResource FgDim}"
+                     TextTrimming="CharacterEllipsis" />
         </Grid>
       </Border>
 
@@ -307,7 +321,7 @@
     -->
     <Border DockPanel.Dock="Bottom" Background="{DynamicResource PanelBg}"
             BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0"
-            Padding="10,8" IsVisible="{Binding ShowDetails}">
+            Padding="8,4" IsVisible="{Binding ShowDetails}">
       <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
 
         <!--
@@ -351,7 +365,8 @@
                  IsEnabled="{Binding CanEditLeftDetail}"
                  IsVisible="{Binding DetailShowsText}"
                  Watermark="{Binding DetailLeftLabel}"
-                 AcceptsReturn="False" Margin="0,0,0,3" />
+                 MinHeight="0" Padding="6,2"
+                 AcceptsReturn="False" Margin="0,0,0,2" />
 
         <TextBox Grid.Row="1" Grid.Column="0"
                  Text="{Binding DetailRight, UpdateSourceTrigger=LostFocus}"
@@ -359,6 +374,7 @@
                  IsEnabled="{Binding CanEditRightDetail}"
                  IsVisible="{Binding DetailShowsText}"
                  Watermark="{Binding DetailRightLabel}"
+                 MinHeight="0" Padding="6,2"
                  AcceptsReturn="False" />
 
         <!-- バイトで見る（読むだけ。ここから直すのは危ないので許さない） -->
@@ -594,6 +610,22 @@
             <Setter Property="Height"
                     Value="{Binding $parent[ItemsControl].((vm:TextCompareViewModel)DataContext).RowHeight}" />
           </Style>
+          <!--
+            **選んでも行の色を塗り潰さない。**
+            既定では選択の背景が上に乗り、差分の赤や青が見えなくなる。
+            差分の色こそが読みたいものなので、選択は**枠**で示す。
+          -->
+          <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+            <Setter Property="BorderThickness" Value="0,1" />
+          </Style>
+          <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+          </Style>
+          <Style Selector="ListBoxItem:selected:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+          </Style>
         </ListBox.Styles>
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:RowView">
@@ -735,7 +767,12 @@
                   **どこまでを写すのかを、押す前に見せる。**
                   折りたたみと同じ形にして、線の意味を覚え直さなくて済むようにする。
                 -->
-                <Panel Width="22">
+                <!--
+                  **写しの列は本文と地の色を変える。** 同じ面の上に矢印だけが
+                  浮いていると、本文の一部なのか操作するものなのかが分からない。
+                  Beyond Compare も、この列を別の面として分けている。
+                -->
+                <Panel Width="22" Background="{DynamicResource PanelBg}">
                   <!--
                     **位置は左端からの絶対値で決める。**
                     中央揃えと余白の組み合わせだと、縦線の終点と折れの始点が
@@ -786,11 +823,18 @@
                   **アウトラインの柱の幅ぶんだけ空ける** — 揃っていないと、
                   左右で桁がずれて読みにくい。
                 -->
-                <Panel Width="18" />
+                <!--
+                  **左右の境目。** どこまでが左でどこからが右かを、
+                  色ではなく線で示す。行をまたいで縦に通るので、
+                  目で追うときの手すりになる。
+                -->
+                <Border Width="1" Background="{DynamicResource DividerStrong}" />
+
+                <Panel Width="18" Background="{DynamicResource PanelBg}" />
 
                 <TextBlock Classes="cell gutter" Text="{Binding RightNumber}" />
 
-                <Panel Width="22">
+                <Panel Width="22" Background="{DynamicResource PanelBg}">
                   <!--
                     **位置は左端からの絶対値で決める。**
                     中央揃えと余白の組み合わせだと、縦線の終点と折れの始点が
