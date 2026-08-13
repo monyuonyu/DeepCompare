@@ -94,12 +94,17 @@ public sealed class TextCompareViewModel : ViewModelBase
         ApplyImportanceCommand = new RelayCommand(RecompareAsync);
         ExportUnifiedCommand = new RelayCommand(() => ExportAsync(unified: true));
         ExportHtmlCommand = new RelayCommand(() => ExportAsync(unified: false));
-        NextDifferenceCommand = new RelayCommand(() => { MoveToDifference(forward: true); return Task.CompletedTask; });
-        PreviousDifferenceCommand = new RelayCommand(() => { MoveToDifference(forward: false); return Task.CompletedTask; });
+        NextDifferenceCommand = new RelayCommand(
+            () => { MoveToDifference(forward: true); return Task.CompletedTask; },
+            () => HasDifferences);
+        PreviousDifferenceCommand = new RelayCommand(
+            () => { MoveToDifference(forward: false); return Task.CompletedTask; },
+            () => HasDifferences);
         FindNextCommand = new RelayCommand(() => { FindFrom(forward: true); return Task.CompletedTask; });
         FindPreviousCommand = new RelayCommand(() => { FindFrom(forward: false); return Task.CompletedTask; });
         CopyLineCommand = new RelayCommand<RowView>(row => CopyTextAsync(row, both: false));
         CopyBothLinesCommand = new RelayCommand<RowView>(row => CopyTextAsync(row, both: true));
+        CompareClipboardCommand = new RelayCommand(CompareClipboardAsync);
         ExpandFoldCommand = new RelayCommand<RowView>(
             band => { ExpandFold(band); return Task.CompletedTask; }, band => band.IsFoldBand);
         ApplyDetailCommand = new RelayCommand(
@@ -122,6 +127,31 @@ public sealed class TextCompareViewModel : ViewModelBase
     public RelayCommand<RowView> SelectBlockCommand { get; }
     public RelayCommand ApplyDetailCommand { get; }
     public RelayCommand<RowView> ExpandFoldCommand { get; }
+    public RelayCommand CompareClipboardCommand { get; }
+
+    /// <summary>クリップボードの中身を読む。表示側から差し込む。</summary>
+    public Func<Task<string?>>? ReadClipboard { get; set; }
+
+    /// <summary>
+    /// 左のファイルと、クリップボードの中身を比べる。
+    ///
+    /// **貼り付けてもらったコードを手元と突き合わせる**のによく使う。
+    /// いちいち一時ファイルへ保存してから開く手間が消える。
+    /// </summary>
+    private async Task CompareClipboardAsync()
+    {
+        if (ReadClipboard is null)
+        {
+            return;
+        }
+        var text = await ReadClipboard();
+        if (string.IsNullOrEmpty(text))
+        {
+            StatusText = "クリップボードに文字がありません。";
+            return;
+        }
+        _shell.ShowTextAgainstClipboard(LeftPath.Trim(), text);
+    }
 
     /// <summary>書き込み先。表示側から差し込む（ViewModel から画面に触らない）。</summary>
     public Action<string>? Clipboard { get; set; }
@@ -188,8 +218,8 @@ public sealed class TextCompareViewModel : ViewModelBase
     public ICommand ApplyImportanceCommand { get; }
     public ICommand ExportUnifiedCommand { get; }
     public ICommand ExportHtmlCommand { get; }
-    public ICommand NextDifferenceCommand { get; }
-    public ICommand PreviousDifferenceCommand { get; }
+    public RelayCommand NextDifferenceCommand { get; }
+    public RelayCommand PreviousDifferenceCommand { get; }
     public ICommand FindNextCommand { get; }
     public ICommand FindPreviousCommand { get; }
 
@@ -1160,6 +1190,15 @@ public sealed class TextCompareViewModel : ViewModelBase
     /// 次（前）の差分の先頭へ選択を移す。表示している行の中だけを見るので、
     /// 「変更のある行だけ表示」で畳んでいるときも辻褄が合う。
     /// </summary>
+    /// <summary>
+    /// この向きにまだ差分があるか。
+    ///
+    /// **端で止まるのではなく回り込む**ので、差分が 1 つでもあれば真。
+    /// 差分が 1 つも無いときだけ偽。押しても何も起きないボタンを
+    /// 押せる状態で置かないため（BC は矢印の色を変えて示す）。
+    /// </summary>
+    public bool HasDifferences => VisibleRows.Any(r => r.IsBlockStart);
+
     private void MoveToDifference(bool forward)
     {
         if (VisibleRows.Count == 0)
@@ -1368,5 +1407,8 @@ public sealed class TextCompareViewModel : ViewModelBase
         }
         OnPropertyChanged(nameof(ShowPlaceholder));
         OnPropertyChanged(nameof(SearchStatus));
+        OnPropertyChanged(nameof(HasDifferences));
+        NextDifferenceCommand.Raise();
+        PreviousDifferenceCommand.Raise();
     }
 }

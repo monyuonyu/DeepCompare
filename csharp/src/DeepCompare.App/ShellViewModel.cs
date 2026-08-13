@@ -278,6 +278,21 @@ public sealed class ShellViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// クリップボードの中身と比べる（BC の File &gt; Open Clipboard）。
+    ///
+    /// **一時ファイルを作らない。** 読み込み方を差し替える仕掛けが既にあるので、
+    /// 中身をそのまま渡せる。後始末も要らず、画面に一時パスも出ない。
+    /// </summary>
+    public void ShowTextAgainstClipboard(string path, string clipboard)
+    {
+        var bytes = new System.Text.UTF8Encoding(false).GetBytes(clipboard);
+        ShowTextWith(
+            path, "（クリップボード）",
+            p => p == "（クリップボード）" ? bytes : File.ReadAllBytes(p),
+            leftReadOnly: false, rightReadOnly: true);
+    }
+
     /// <summary>バイト列として比べる。テキストとして読めないファイル向け。</summary>
     public void ShowBinary(string left, string right)
     {

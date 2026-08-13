@@ -156,6 +156,11 @@
             細かい設定は歯車の中へ。**毎回は触らないが、無いと困るもの**の置き場。
             常時出していると、よく使う操作を探す邪魔になる。
           -->
+          <Button Classes="icon" Command="{Binding CompareClipboardCommand}"
+                  ToolTip.Tip="左のファイルとクリップボードの中身を比べる">
+            <Path Classes="icon" Data="{StaticResource IconClipboard}" />
+          </Button>
+
           <Button Classes="icon" HorizontalAlignment="Right" ToolTip.Tip="比較の設定">
             <Button.Flyout>
               <Flyout Placement="BottomEdgeAlignedRight">
@@ -309,6 +314,7 @@
                 ViewStart="{Binding MapViewStart}"
                 ViewSize="{Binding MapViewSize}"
                 ClickedPosition="{Binding MapClicked, Mode=TwoWay}"
+                CurrentLine="{Binding SelectedRowIndex}"
                 IsVisible="{Binding !ShowPlaceholder}"
                 ToolTip.Tip="差分の位置。押すか、押したままなぞると、そこへ移ります" />
 

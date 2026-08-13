@@ -31,6 +31,13 @@ public partial class TextCompareView : UserControl
         {
             if (DataContext is TextCompareViewModel model)
             {
+                model.ReadClipboard = async () =>
+                {
+                    var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+                    return clipboard is null
+                        ? null
+                        : await clipboard.TryGetValueAsync(DataFormat.Text);
+                };
                 model.Clipboard = text =>
                 {
                     var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;

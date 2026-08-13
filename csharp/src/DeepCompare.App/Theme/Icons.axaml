@@ -94,6 +94,9 @@
   <!-- 直接編集: 鉛筆 -->
   <StreamGeometry x:Key="IconEdit">M4,20 v-4 l11,-11 l4,4 l-11,11 z M14,6 l4,4 M4,20 h16</StreamGeometry>
 
+  <!-- クリップボード -->
+  <StreamGeometry x:Key="IconClipboard">M9,4 h6 v3 h-6 z M8,5.5 h-2 v15 h12 v-15 h-2</StreamGeometry>
+
   <!-- 木の開閉 -->
   <StreamGeometry x:Key="IconChevronRight">M9.5,5 l7,7 l-7,7</StreamGeometry>
   <StreamGeometry x:Key="IconChevronDown">M5,9.5 l7,7 l7,-7</StreamGeometry>

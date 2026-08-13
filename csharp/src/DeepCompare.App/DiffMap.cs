@@ -27,6 +27,10 @@ public sealed class DiffMap : Control
     public static readonly StyledProperty<double> ViewSizeProperty =
         AvaloniaProperty.Register<DiffMap, double>(nameof(ViewSize), 1.0);
 
+    /// <summary>いま選んでいる行（添字）。三角で示す。</summary>
+    public static readonly StyledProperty<int> CurrentLineProperty =
+        AvaloniaProperty.Register<DiffMap, int>(nameof(CurrentLine), -1);
+
     /// <summary>押された位置（0〜1）。呼ぶ側がそこへスクロールする。</summary>
     public static readonly StyledProperty<double> ClickedPositionProperty =
         AvaloniaProperty.Register<DiffMap, double>(
@@ -34,13 +38,20 @@ public sealed class DiffMap : Control
 
     static DiffMap()
     {
-        AffectsRender<DiffMap>(RowsProperty, ViewStartProperty, ViewSizeProperty);
+        AffectsRender<DiffMap>(
+            RowsProperty, ViewStartProperty, ViewSizeProperty, CurrentLineProperty);
     }
 
     public System.Collections.IEnumerable? Rows
     {
         get => GetValue(RowsProperty);
         set => SetValue(RowsProperty, value);
+    }
+
+    public int CurrentLine
+    {
+        get => GetValue(CurrentLineProperty);
+        set => SetValue(CurrentLineProperty, value);
     }
 
     public double ViewStart
@@ -170,6 +181,32 @@ public sealed class DiffMap : Control
         context.DrawLine(new Pen(accent, 2.5), new Point(0, top + 1), new Point(width, top + 1));
         context.DrawLine(new Pen(accent, 2.5),
             new Point(0, top + viewH - 1), new Point(width, top + viewH - 1));
+
+        // いま選んでいる行。**表示範囲とは別に示す。**
+        // 範囲の四角だけだと、その中のどこに居るのかが分からない（BC も三角を出す）。
+        var line = CurrentLine;
+        if (line >= 0 && line < count)
+        {
+            var y = (line + 0.5) * perRow;
+            var marker = new PathGeometry
+            {
+                Figures =
+                [
+                    new PathFigure
+                    {
+                        StartPoint = new Point(0, y - 4),
+                        IsClosed = true,
+                        IsFilled = true,
+                        Segments =
+                        [
+                            new LineSegment { Point = new Point(5, y) },
+                            new LineSegment { Point = new Point(0, y + 4) },
+                        ],
+                    },
+                ],
+            };
+            context.DrawGeometry(Palette.Brush("FgNormal"), null, marker);
+        }
     }
 
     /// <summary>その行を地図に出すか、出すなら何色か。一致した行は出さない。</summary>
