@@ -274,6 +274,28 @@ public sealed class TextCompareViewModel : ViewModelBase
         _shell.ShowTextAgainstClipboard(LeftPath.Trim(), text);
     }
 
+    private string _modelWarning = string.Empty;
+
+    /// <summary>
+    /// モデルがこの本文を扱えないときの知らせ。
+    ///
+    /// **効いていないことを黙らない。** 日本語はいまのモデルの語彙にほとんど
+    /// 無く、意味的な対応付けは効いていない。
+    /// </summary>
+    public string ModelWarning
+    {
+        get => _modelWarning;
+        private set
+        {
+            if (Set(ref _modelWarning, value))
+            {
+                OnPropertyChanged(nameof(HasModelWarning));
+            }
+        }
+    }
+
+    public bool HasModelWarning => ModelWarning.Length > 0;
+
     /// <summary>
     /// その添字の行が見えるところまでスクロールする。表示側から差し込む。
     ///
@@ -759,6 +781,11 @@ public sealed class TextCompareViewModel : ViewModelBase
 
             // ここで操作可能にする。以降は待たせない。
             IsBusy = false;
+
+            // **モデルが扱えない本文なら、段階 2 の前に知らせる。**
+            // 効いていないのに「意味的に比べました」と出すのは、黙って
+            // 間違った結果を出すのに近い。
+            ModelWarning = ModelCoverage.Warn(first.left.Lines, first.right.Lines) ?? string.Empty;
 
             // 高速モードなら段階 2 を走らせない。**段階 1 の答えで確定する。**
             if (_shell.FastMode)

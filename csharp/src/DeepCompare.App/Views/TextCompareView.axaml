@@ -337,6 +337,13 @@
                    Foreground="{DynamicResource Accent}"
                    IsVisible="{Binding ManualNote,
                      Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <!--
+          **意味的な対応付けが効いていないことを黙らない。**
+          この道具の売りなので、効いていないと思われずに使われるのが一番困る。
+        -->
+        <TextBlock Text="{Binding ModelWarning}" FontSize="11"
+                   Foreground="{DynamicResource FgWarning}"
+                   IsVisible="{Binding HasModelWarning}" TextWrapping="Wrap" />
       </StackPanel>
     </Border>
 

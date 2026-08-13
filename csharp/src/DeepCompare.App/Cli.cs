@@ -1570,6 +1570,13 @@ internal static class Cli
         var right = TextDecoder.Decode(File.ReadAllBytes(rightPath));
         var embedder = structural ? null : Embedder.CreateFromDefaultAssets(modelPath);
 
+        // **モデルが扱えない本文なら知らせる。** 標準エラーへ出す
+        // （標準出力は結果なので、混ぜると読み直せなくなる）。
+        if (embedder is not null && ModelCoverage.Warn(left.Lines, right.Lines) is { } warning)
+        {
+            Console.Error.WriteLine(warning);
+        }
+
         var started = DateTime.UtcNow;
         var result = DiffComparer.Compare(
             left, right, embedder,
