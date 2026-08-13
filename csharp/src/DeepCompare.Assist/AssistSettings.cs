@@ -41,6 +41,19 @@ public sealed record AssistSettings
     public TimeSpan ProbeTimeout { get; init; } = TimeSpan.FromSeconds(5);
 
     /// <summary>
+    /// 返事の長さの上限。
+    ///
+    /// **必ず入れる。** 入れずに形（JSON Schema）だけ指定すると、弱いモデルは
+    /// 配列を延々と伸ばして終われなくなる。実測（Qwen2.5 1.5B、15.9 トークン/秒）
+    /// では、上限なしで 797 トークン書いても終わらず時限切れ。上限 400 を付けると
+    /// 同じ問いに 100 トークンほどで正しく答えた。
+    ///
+    /// **形の指定と対で要る。** 制約付き復号は「文法に沿うこと」しか保証せず、
+    /// 「短く終わること」は保証しない。
+    /// </summary>
+    public int MaxOutputTokens { get; init; } = 600;
+
+    /// <summary>
     /// 解決案（生成）まで出してよいか。
     ///
     /// **既定は false。** 説明や分類と違い、解決案は意味を取り違えると

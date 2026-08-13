@@ -229,6 +229,16 @@ public sealed class GitAssistant(ChatClient client)
             cancellationToken);
     }
 
+    /// <summary>
+    /// 返事が壊れていたときの文言。
+    ///
+    /// **モデルのせいだと分かるように書く。** 「失敗しました」だけだと、
+    /// 設定を疑って接続先やモデル名を何度も直すことになる。
+    /// </summary>
+    public const string BrokenAnswerMessage =
+        "モデルの返事が途中で切れました。小さいモデルは同じ文を繰り返して"
+        + "終われなくなることがあります。もう一度試すか、大きいモデルに替えてください。";
+
     /// <summary>1 つの塊に入れる上限。</summary>
     internal const int MaxChars = 8_000;
 
@@ -252,19 +262,30 @@ public sealed class GitAssistant(ChatClient client)
     /// </summary>
     internal static AssistAdvice ParseAdvice(string answer)
     {
+        var extracted = ExtractJson(answer);
+
         JsonNode? json;
         try
         {
-            json = JsonNode.Parse(ExtractJson(answer));
+            json = JsonNode.Parse(extracted);
         }
         catch (JsonException)
         {
+            // **壊れた JSON をそのまま見せない。** 途中で切れた出力を説明として
+            // 出すと、生の `{"説明": ...` が画面に並ぶ（実測で起きた）。
+            // 形になりかけている物は、読めなかったと言う方がまだ分かる。
+            if (extracted.StartsWith('{'))
+            {
+                return new AssistAdvice(BrokenAnswerMessage, []);
+            }
+
             // **平文で返ってきたら、説明として扱う。** 捨てるより惜しい。
             return new AssistAdvice(answer.Trim(), []);
         }
 
         var explanation = json?["説明"]?.GetValue<string>() ?? string.Empty;
         var suggestions = new List<AssistSuggestion>();
+        var seen = new HashSet<AssistAction>();
 
         if (json?["選択肢"] is JsonArray array)
         {
@@ -275,6 +296,14 @@ public sealed class GitAssistant(ChatClient client)
                 // **知らない操作は落とす。** None に倒した提案を並べても、
                 // 「何もしない」が理由付きで何個も出るだけで読みにくい。
                 if (action == AssistAction.None)
+                {
+                    continue;
+                }
+
+                // **同じ操作を二度出さない。** 小さいモデルは同じ提案を
+                // 言い回しだけ変えて並べる（Qwen2.5 1.5B で pull が 2 回出た）。
+                // 選ぶ側からは、違う選択肢が 2 つあるように見えてしまう。
+                if (!seen.Add(action))
                 {
                     continue;
                 }

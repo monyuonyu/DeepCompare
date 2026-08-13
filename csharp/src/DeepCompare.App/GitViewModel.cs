@@ -268,6 +268,13 @@ public sealed class GitViewModel : ViewModelBase
         UnstageCommand = new RelayCommand<GitFileRow>(
             row => StageAsync(row, stage: false), row => row.CanUnstage);
         CommitCommand = new RelayCommand(CommitAsync, () => CanCommit);
+
+        // **リポジトリは遅延で渡す。** 画面を作る時点ではまだ開いていない。
+        Assist = new GitAssistViewModel(() => _repository)
+        {
+            // 草案は入力欄へ入れるだけ。**そのまま記録はしない。**
+            CommitDraftHandler = draft => CommitMessage = draft,
+        };
         AmendCommand = new RelayCommand(() => CommitAsync(amend: true), () => Commits.Count > 0);
         FetchCommand = new RelayCommand(() => RemoteAsync("取得", r => r.Fetch()));
         PullCommand = new RelayCommand(() => RemoteAsync("取り込み", r => r.Pull()));
@@ -399,6 +406,12 @@ public sealed class GitViewModel : ViewModelBase
     public RelayCommand CreateBranchCommand { get; }
 
     public ObservableCollection<GitBranchRow> Branches { get; } = [];
+
+    /// <summary>
+    /// LLM 支援。**接続先が無ければ画面に出ない。**
+    /// リポジトリは遅延で渡す — 画面を開いた時点ではまだ開いていない。
+    /// </summary>
+    public GitAssistViewModel Assist { get; }
 
     private string _commitMessage = string.Empty;
 

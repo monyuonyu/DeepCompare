@@ -35,6 +35,11 @@
 
   <ItemGroup>
     <ProjectReference Include="../DeepCompare.Engine/DeepCompare.Engine.csproj" />
+    <!--
+      LLM 支援。**App だけが両方を知る。** Engine は Assist を参照しないので、
+      比較の経路に通信が紛れ込む余地が構造として無い。
+    -->
+    <ProjectReference Include="../DeepCompare.Assist/DeepCompare.Assist.csproj" />
   </ItemGroup>
 
 </Project>

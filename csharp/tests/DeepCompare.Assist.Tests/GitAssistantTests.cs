@@ -159,6 +159,37 @@ public class AdviceParsingTests
     }
 
     [Fact]
+    public void 同じ操作を二度出さない()
+    {
+        // 小さいモデルは同じ提案を言い回しだけ変えて並べる
+        // （Qwen2.5 1.5B の実測で pull が 2 回出た）。
+        var advice = GitAssistant.ParseAdvice(
+            "{\"説明\":\"x\",\"選択肢\":["
+            + "{\"操作\":\"Pull\",\"理由\":\"取り込む\",\"推奨\":true},"
+            + "{\"操作\":\"Pull\",\"理由\":\"最新にする\",\"推奨\":true},"
+            + "{\"操作\":\"Commit\",\"理由\":\"残す\",\"推奨\":false}]}");
+
+        Assert.Equal(2, advice.Suggestions.Count);
+        Assert.Equal(AssistAction.Pull, advice.Suggestions[0].Action);
+        // **先に出た方を残す。**
+        Assert.Equal("取り込む", advice.Suggestions[0].Reason);
+        Assert.Equal(AssistAction.Commit, advice.Suggestions[1].Action);
+    }
+
+    [Fact]
+    public void 途中で切れた返事は壊れたと言う()
+    {
+        // **生の JSON を説明として見せない。** 実測で画面に
+        // `{\"説明\": ...` がそのまま並んだ。
+        var advice = GitAssistant.ParseAdvice(
+            "{\"説明\":\"現在の状態は\",\"選択肢\":[{\"操作\":\"Commit\",\"理由\":\"ずっと同じ文がずっと同じ文が");
+
+        Assert.Equal(GitAssistant.BrokenAnswerMessage, advice.Explanation);
+        Assert.DoesNotContain("説明", advice.Explanation, StringComparison.Ordinal);
+        Assert.Empty(advice.Suggestions);
+    }
+
+    [Fact]
     public void 選択肢が欠けていても落ちない()
     {
         var advice = GitAssistant.ParseAdvice("""{"説明":"だけ"}""");

@@ -58,6 +58,25 @@ public sealed record SessionFile
 
     /// <summary>明るいテーマを使うか。既定は明るい方。</summary>
     public bool LightTheme { get; init; } = true;
+
+    /// <summary>
+    /// LLM 支援の接続先（OpenAI 互換）。**空なら機能を出さない。**
+    /// Ollama なら http://localhost:11434/v1。
+    /// </summary>
+    public string AssistEndpoint { get; init; } = string.Empty;
+
+    /// <summary>使うモデルの名前。</summary>
+    public string AssistModel { get; init; } = string.Empty;
+
+    /// <summary>
+    /// 衝突の解決案まで出してよいか。**既定は false。**
+    /// 弱いモデルはもっともらしく間違え、ビルドが通るぶんだけ発見が遅れる。
+    /// </summary>
+    public bool AssistAllowResolution { get; init; }
+
+    // **鍵はここに置かない。** 設定ファイルは平文で、バックアップにも
+    // 同期にも乗る。外部の API を使うなら環境変数から読む
+    // （DEEPCOMPARE_ASSIST_KEY）。
 }
 
 /// <summary>
@@ -117,6 +136,33 @@ public sealed class SessionStore
             return [];
         }
     }
+
+    /// <summary>
+    /// 設定ファイルを丸ごと読む。無ければ、あるいは壊れていれば既定。
+    ///
+    /// **落とさない。** 設定が壊れているせいで道具ごと起動しないのは避ける。
+    /// </summary>
+    public SessionFile LoadFile()
+    {
+        try
+        {
+            return File.Exists(_path)
+                ? JsonSerializer.Deserialize(
+                    File.ReadAllText(_path), SessionJsonContext.Default.SessionFile)
+                  ?? new SessionFile()
+                : new SessionFile();
+        }
+        catch (Exception)
+        {
+            return new SessionFile();
+        }
+    }
+
+    /// <summary>
+    /// 既定の置き場所を指すもの。
+    /// **毎回 new しても同じ場所を見る**ので、使い回しのために置いてある。
+    /// </summary>
+    public static SessionStore Default { get; } = new();
 
     /// <summary>テーマの選択。設定が読めなければ既定（明るい方）。</summary>
     public bool LoadLightTheme()

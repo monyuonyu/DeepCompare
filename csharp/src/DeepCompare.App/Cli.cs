@@ -20,6 +20,7 @@ internal static class Cli
         "--key", "--ignore-column", "--delimiter",
         "--array-key", "--ignore-path",
         "--limit", "--rev", "--path", "--secret-level", "--model", "--vocab",
+        "--assist-endpoint", "--assist-model",
         "--link", "--unlink",
     ];
 
@@ -114,6 +115,31 @@ internal static class Cli
                 return 2;
             }
             return RunSecrets(files, args, output);
+        }
+        if (args.Contains("--assist-status") || args.Contains("--assist-commit")
+            || args.Contains("--assist-probe"))
+        {
+            // **比較の経路とは別の入口。** 「比較のつもりが通信していた」を
+            // 起こさないため、ここへ来るのは明示的に指定したときだけ。
+            var where = Positional(args);
+            var path = where.Length > 0 ? where[0] : Environment.CurrentDirectory;
+            var settings = AssistCli.ResolveSettings(
+                args, SessionStore.Default.LoadFile(), name => ValueOf(args, name));
+
+            using var writer = output is null
+                ? Console.Out
+                : new StreamWriter(output, false, new UTF8Encoding(false));
+
+            if (args.Contains("--assist-probe"))
+            {
+                return AssistCli.ProbeAsync(settings, writer).GetAwaiter().GetResult();
+            }
+            if (args.Contains("--assist-commit"))
+            {
+                return AssistCli.DraftCommitAsync(
+                    path, settings, args.Contains("--staged"), writer).GetAwaiter().GetResult();
+            }
+            return AssistCli.ExplainStatusAsync(path, settings, writer).GetAwaiter().GetResult();
         }
         if (args.Contains("--print-embeddings"))
         {

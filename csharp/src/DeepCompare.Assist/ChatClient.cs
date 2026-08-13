@@ -98,9 +98,10 @@ public sealed class ChatClient : IDisposable
     public async Task<string> CompleteAsync(
         IReadOnlyList<ChatMessage> messages,
         JsonNode? schema = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int? maxTokens = null)
     {
-        var body = BuildRequest(messages, schema, stream: false);
+        var body = BuildRequest(messages, schema, stream: false, maxTokens);
         using var response = await SendAsync(body, cancellationToken);
         var text = await response.Content.ReadAsStringAsync(cancellationToken);
 
@@ -127,9 +128,10 @@ public sealed class ChatClient : IDisposable
         IReadOnlyList<ChatMessage> messages,
         JsonNode? schema = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation]
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int? maxTokens = null)
     {
-        var body = BuildRequest(messages, schema, stream: true);
+        var body = BuildRequest(messages, schema, stream: true, maxTokens);
         using var request = new HttpRequestMessage(
             HttpMethod.Post, _settings.UrlFor("chat/completions"))
         {
@@ -241,7 +243,8 @@ public sealed class ChatClient : IDisposable
     }
 
     private string BuildRequest(
-        IReadOnlyList<ChatMessage> messages, JsonNode? schema, bool stream)
+        IReadOnlyList<ChatMessage> messages, JsonNode? schema, bool stream,
+        int? maxTokens = null)
     {
         var array = new JsonArray();
         foreach (var message in messages)
@@ -258,9 +261,18 @@ public sealed class ChatClient : IDisposable
             ["model"] = _settings.Model,
             ["messages"] = array,
             ["stream"] = stream,
+            // **上限を必ず入れる。** 形だけ指定すると、弱いモデルは配列を
+            // 延々と伸ばして終われなくなる（実測あり）。制約付き復号は
+            // 「文法に沿うこと」しか保証せず、「短く終わること」は保証しない。
+            ["max_tokens"] = maxTokens ?? _settings.MaxOutputTokens,
             // **低くする。** ここでやらせるのは要約・分類・言い換えで、
             // 発想の広さは要らない。振れ幅は再現しにくい不具合になる。
             ["temperature"] = 0.2,
+            // **同じ文の繰り返しを抑える。** 小さいモデルは形（JSON Schema）で
+            // 縛ると、文法には沿ったまま同じ一文を延々と書き続けることがある
+            // （Qwen2.5 1.5B で実測。「これにより、リポジトリの状態を保存します。」
+            // が 30 回以上繰り返された）。文法の制約は繰り返しを止めてくれない。
+            ["frequency_penalty"] = 0.5,
         };
 
         if (schema is not null)

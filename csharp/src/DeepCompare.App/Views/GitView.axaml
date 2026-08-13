@@ -68,7 +68,50 @@
               <Button Content="コミット" Classes="accent" Command="{Binding CommitCommand}" />
               <Button Content="直前を書き直す" Command="{Binding AmendCommand}"
                       ToolTip.Tip="空のままなら、元の説明をそのまま使います" />
+              <!--
+                **接続先を設定した人にだけ出る。** 設定していない人にとって、
+                この機能は存在しないのと同じでよい。
+              -->
+              <Button Content="草案をもらう" Command="{Binding Assist.DraftCommitCommand}"
+                      IsVisible="{Binding Assist.IsAvailable}"
+                      ToolTip.Tip="stage された差分から説明の草案を書きます。そのまま記録はしません" />
+              <Button Content="いまの状態を説明" Command="{Binding Assist.ExplainCommand}"
+                      IsVisible="{Binding Assist.IsAvailable}" />
             </StackPanel>
+
+            <!--
+              支援の返事。**畳んだままにしない。** 出るときは必ず見える場所に置く。
+              状態バーへ入れると、横並びのせいで折り返らずに切れる。
+            -->
+            <Border IsVisible="{Binding Assist.HasExplanation}"
+                    Background="{DynamicResource SubtleBg}"
+                    CornerRadius="{DynamicResource RadiusSmall}" Padding="8,6">
+              <StackPanel Spacing="4">
+                <TextBlock Text="{Binding Assist.Explanation}" TextWrapping="Wrap"
+                           FontSize="12" />
+                <ItemsControl ItemsSource="{Binding Assist.Suggestions}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
+                        <TextBlock Grid.Column="0" Text="{Binding Display}" FontSize="12"
+                                   FontWeight="SemiBold" Margin="0,0,8,0" />
+                        <TextBlock Grid.Column="1" Text="{Binding Reason}" FontSize="12"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource FgDim}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <!--
+                  **押せるボタンにしない。** 提案までで止め、実行は人が
+                  普段の操作でやる。並べたものを押せるようにすると、
+                  「AI が勧めたから」で作業ツリーが動く。
+                -->
+                <TextBlock Text="※提案までです。実行は上のボタンから行ってください。"
+                           IsVisible="{Binding Assist.Suggestions.Count}"
+                           FontSize="11" Foreground="{DynamicResource FgDim}" />
+              </StackPanel>
+            </Border>
           </StackPanel>
         </Border>
 

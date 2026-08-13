@@ -760,6 +760,15 @@ public sealed class GitRepository
     /// GIT_TERMINAL_PROMPT=0 を渡してあるので、資格情報が無ければその場で
     /// 終わる。画面が固まったまま戻らないより、理由を出して終わる方がよい。
     /// </summary>
+    /// <summary>
+    /// 作業ツリー（または索引）の差分を、まとめて 1 本の文字列で返す。
+    ///
+    /// **人へ見せるためではなく、渡すために取る。** 画面の差分は比較エンジンが
+    /// 作るので、こちらは「そのまま外へ渡せる形」であればよい。
+    /// </summary>
+    public string Diff(bool staged = false)
+        => Run(staged ? ["diff", "--cached"] : ["diff"]).StandardOutput;
+
     public string Fetch() => Run(["fetch", "--prune"]).StandardError.Trim();
 
     public string Pull() => Run(["pull", "--ff-only"]).StandardError.Trim();
