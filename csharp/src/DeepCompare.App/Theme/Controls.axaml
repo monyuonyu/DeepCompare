@@ -294,13 +294,15 @@
       区別が付かない。薄い面と枠を持たせて、指したら塗りつぶす。
     -->
     <Setter Property="Background" Value="{DynamicResource ApplyArrowFill}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource ApplyArrow}" />
+    <!-- 枠は淡く。濃い枠だと箱ばかりが目に入り、中の矢印が読みにくい -->
+    <Setter Property="BorderBrush" Value="{DynamicResource ApplyArrowBorder}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Padding" Value="0" />
-    <Setter Property="Width" Value="18" />
-    <Setter Property="Height" Value="16" />
-    <Setter Property="MinWidth" Value="18" />
-    <Setter Property="MinHeight" Value="16" />
+    <!-- 矢印の周りに余白を取る。詰まっていると窮屈で、形も読み取りにくい -->
+    <Setter Property="Width" Value="20" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="MinWidth" Value="20" />
+    <Setter Property="MinHeight" Value="18" />
     <Setter Property="CornerRadius" Value="3" />
     <Setter Property="Cursor" Value="Hand" />
   </Style>
@@ -316,6 +318,7 @@
   </Style>
   <Style Selector="Button.apply:pointerover /template/ ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource ApplyArrowFillHover}" />
+    <!-- 指したときだけ枠も濃くする。押せる場所だとはっきり分かる -->
     <Setter Property="BorderBrush" Value="{DynamicResource ApplyArrowHover}" />
   </Style>
   <!-- 指したら面を塗るので、矢印は抜き色にする -->
