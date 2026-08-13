@@ -70,6 +70,16 @@ public partial class TextCompareView : UserControl
                     }
                 };
 
+                // いる行を殻へ伝える。**下の帯と地図がこれで追う。**
+                Editors.CaretLineChanged -= OnCaretLine;
+                Editors.CaretLineChanged += OnCaretLine;
+                Editors.ViewportChanged -= OnViewport;
+                Editors.ViewportChanged += OnViewport;
+
+                // 地図を押したら、その位置へ飛ぶ。
+                model.MapJump -= OnMapJump;
+                model.MapJump += OnMapJump;
+
                 // **打った内容を本文へ戻す。** 詰め物は除いてから渡す。
                 Editors.LeftChanged -= OnLeftEdited;
                 Editors.LeftChanged += OnLeftEdited;
@@ -213,6 +223,25 @@ public partial class TextCompareView : UserControl
             }
         });
     }
+
+    private void OnCaretLine(object? sender, int line)
+    {
+        if (DataContext is TextCompareViewModel model)
+        {
+            model.SelectedRowIndex = line;
+        }
+    }
+
+    private void OnViewport(object? sender, (double Start, double Size) range)
+    {
+        if (DataContext is TextCompareViewModel model)
+        {
+            model.MapViewStart = range.Start;
+            model.MapViewSize = range.Size;
+        }
+    }
+
+    private void OnMapJump(object? sender, double fraction) => Editors.ScrollToFraction(fraction);
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {

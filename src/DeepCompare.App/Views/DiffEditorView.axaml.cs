@@ -35,6 +35,34 @@ public partial class DiffEditorView : UserControl
     /// <summary>塊を写す。引数は（塊の番号, 右へ写すか）。</summary>
     public Action<int, bool>? ApplyBlock { get; set; }
 
+    /// <summary>いる行が変わった（揃えた本文での行番号、0 から）。</summary>
+    public event EventHandler<int>? CaretLineChanged
+    {
+        add { LeftPane.CaretLineChanged += value; RightPane.CaretLineChanged += value; }
+        remove { LeftPane.CaretLineChanged -= value; RightPane.CaretLineChanged -= value; }
+    }
+
+    /// <summary>見えている範囲が変わった。**左を代表にする**（縦は同期している）。</summary>
+    public event EventHandler<(double Start, double Size)>? ViewportChanged
+    {
+        add => LeftPane.ViewportChanged += value;
+        remove => LeftPane.ViewportChanged -= value;
+    }
+
+    /// <summary>地図から飛ばす。左右そろって動く。</summary>
+    public void ScrollToFraction(double fraction)
+    {
+        LeftPane.ScrollToFraction(fraction);
+        RightPane.ScrollToFraction(fraction);
+    }
+
+    /// <summary>その行へ移す。</summary>
+    public void GoToLine(int index)
+    {
+        LeftPane.GoToLine(index);
+        RightPane.GoToLine(index);
+    }
+
     /// <summary>打たれたことを外へ伝える。左右どちらかは呼ぶ側が見る。</summary>
     public event EventHandler? LeftChanged
     {

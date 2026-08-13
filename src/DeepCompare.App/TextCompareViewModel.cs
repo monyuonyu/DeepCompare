@@ -31,6 +31,12 @@ public sealed class TextCompareViewModel : ViewModelBase
 
     /// <summary>揃えた本文が入れ替わったときに上がる。</summary>
     public event EventHandler? AlignedChanged;
+
+    /// <summary>
+    /// 地図が押されたときに上がる（0〜1）。
+    /// **画面側がスクロールする。** ViewModel から部品には触らない。
+    /// </summary>
+    public event EventHandler<double>? MapJump;
     private List<RowView> _allRows = [];
     private int _compareGeneration;
 
@@ -1199,6 +1205,10 @@ public sealed class TextCompareViewModel : ViewModelBase
             }
             var index = (int)Math.Round(value * (VisibleRows.Count - 1));
             SelectedRowIndex = Math.Clamp(index, 0, VisibleRows.Count - 1);
+
+            // **エディタ側もそこへ動かす。** 選んだ行を変えるだけでは、
+            // 画面がその場所まで動かない。
+            MapJump?.Invoke(this, value);
         }
     }
 

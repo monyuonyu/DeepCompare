@@ -36,6 +36,13 @@ public partial class DiffEditorPane : UserControl
         ArrowColumn.Attach(Editor.TextArea.TextView);
         Arrows.Content = ArrowColumn;
 
+        // いる行を外へ伝える。**下の帯と地図がこれで追う。**
+        Editor.TextArea.Caret.PositionChanged += (_, _) =>
+            CaretLineChanged?.Invoke(this, Editor.TextArea.Caret.Line - 1);
+
+        // 見えている範囲。地図の枠がこれで動く。
+        Editor.TextArea.TextView.ScrollOffsetChanged += (_, _) => RaiseViewport();
+
         // **打った内容を外へ伝える。** 詰め物を除いた形で渡す。
         Editor.TextChanged += (_, _) =>
         {
@@ -48,6 +55,55 @@ public partial class DiffEditorPane : UserControl
 
     /// <summary>人が打ったときに上がる。読み込みで入れ直したときは上がらない。</summary>
     public event EventHandler? Changed;
+
+    /// <summary>
+    /// いる行が変わったときに上がる（揃えた本文での行番号、0 から）。
+    /// **下の帯と地図はこれで追う。**
+    /// </summary>
+    public event EventHandler<int>? CaretLineChanged;
+
+    /// <summary>見えている範囲が変わったときに上がる（先頭の割合, 見えている割合）。</summary>
+    public event EventHandler<(double Start, double Size)>? ViewportChanged;
+
+    /// <summary>
+    /// 見えている範囲を知らせる。**割合で渡す。**
+    /// </summary>
+    private void RaiseViewport()
+    {
+        var view = Editor.TextArea.TextView;
+        var total = view.DocumentHeight;
+        if (total <= 0)
+        {
+            return;
+        }
+        var start = view.VerticalOffset / total;
+        var size = Math.Min(1, Bounds.Height / total);
+        ViewportChanged?.Invoke(this, (start, size));
+    }
+
+    /// <summary>地図から飛ばされたとき、その割合の位置へ動かす。</summary>
+    public void ScrollToFraction(double fraction)
+    {
+        var view = Editor.TextArea.TextView;
+        var total = view.DocumentHeight;
+        if (total <= 0)
+        {
+            return;
+        }
+        Editor.ScrollToVerticalOffset(Math.Clamp(fraction, 0, 1) * total);
+    }
+
+    /// <summary>その行へ移す（揃えた本文での行番号、0 から）。</summary>
+    public void GoToLine(int index)
+    {
+        if (index < 0 || Editor.Document is null || index >= Editor.Document.LineCount)
+        {
+            return;
+        }
+        Editor.TextArea.Caret.Line = index + 1;
+        Editor.TextArea.Caret.Column = 1;
+        Editor.ScrollToLine(index + 1);
+    }
 
     /// <summary>いまの中身を、詰め物を除いた行の並びで返す。</summary>
     public IReadOnlyList<string> CurrentLines() => _document.WithoutFillers(Editor.Text);
