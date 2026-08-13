@@ -131,6 +131,9 @@ public sealed class FolderRowView(FolderEntry entry) : ViewModelBase
 public sealed class FolderCompareViewModel : ViewModelBase
 {
     private readonly ShellViewModel _shell;
+
+    /// <summary>自分が乗っているタブ。見出しを比較の中身に合わせて書き換える。</summary>
+    public CompareTab? Tab { get; set; }
     private List<FolderRowView> _allRows = [];
     private FolderComparison? _comparison;
     private bool _isBusy;
@@ -152,6 +155,18 @@ public sealed class FolderCompareViewModel : ViewModelBase
         RefreshCommand = new RelayCommand(RunAsync);
         OpenSelectedCommand = new RelayCommand(() => { OpenSelected(); return Task.CompletedTask; });
         ExportCsvCommand = new RelayCommand(ExportCsvAsync);
+        OpenStructuredCommand = new RelayCommand<FolderRowView>(
+            OpenStructuredAsync, row => row.CanOpenText);
+        RevealLeftCommand = new RelayCommand<FolderRowView>(row => RevealAsync(row, left: true));
+        RevealRightCommand = new RelayCommand<FolderRowView>(row => RevealAsync(row, left: false));
+        CopyLeftPathCommand = new RelayCommand<FolderRowView>(row => CopyPathAsync(row, left: true));
+        CopyRightPathCommand = new RelayCommand<FolderRowView>(row => CopyPathAsync(row, left: false));
+        OpenRowCommand = new RelayCommand<FolderRowView>(row =>
+        {
+            Selected = row;
+            OpenSelected();
+            return Task.CompletedTask;
+        }, row => row.CanOpenText);
         ToggleCommand = new RelayCommand<FolderRowView>(
             row => { Toggle(row); return Task.CompletedTask; });
         ExpandAllCommand = new RelayCommand(() => { ExpandAll(true); return Task.CompletedTask; });
@@ -182,6 +197,12 @@ public sealed class FolderCompareViewModel : ViewModelBase
     }
 
     public ObservableCollection<FolderRowView> Rows { get; } = [];
+    public ICommand OpenRowCommand { get; }
+    public ICommand OpenStructuredCommand { get; }
+    public ICommand RevealLeftCommand { get; }
+    public ICommand RevealRightCommand { get; }
+    public ICommand CopyLeftPathCommand { get; }
+    public ICommand CopyRightPathCommand { get; }
     public ICommand ToggleCommand { get; }
     public ICommand ExpandAllCommand { get; }
     public ICommand CollapseAllCommand { get; }
@@ -464,6 +485,64 @@ public sealed class FolderCompareViewModel : ViewModelBase
     }
 
     public bool IsEmpty => Rows.Count == 0;
+
+    /// <summary>その行の左右の実体のパス。片側に無ければ空。</summary>
+    public (string Left, string Right) PathsOf(FolderRowView row)
+    {
+        var relative = row.Entry.RelativePath.Replace('/', Path.DirectorySeparatorChar);
+        return (Path.Combine(LeftRoot, relative), Path.Combine(RightRoot, relative));
+    }
+
+    /// <summary>構造として比べる。JSON のときに効く。</summary>
+    private Task OpenStructuredAsync(FolderRowView row)
+    {
+        var (left, right) = PathsOf(row);
+        if (File.Exists(left) && File.Exists(right))
+        {
+            _shell.ShowStructured(left, right);
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <summary>その場所をファイル管理ソフトで開く。</summary>
+    private Task RevealAsync(FolderRowView row, bool left)
+    {
+        var (l, r) = PathsOf(row);
+        var target = left ? l : r;
+        var directory = row.Entry.IsDirectory ? target : Path.GetDirectoryName(target);
+        if (directory is null || !Directory.Exists(directory))
+        {
+            return Task.CompletedTask;
+        }
+        try
+        {
+            // 環境ごとに開き方が違う。使えるものを順に試す。
+            var opener = OperatingSystem.IsWindows() ? "explorer"
+                : OperatingSystem.IsMacOS() ? "open" : "xdg-open";
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = opener,
+                Arguments = $"\"{directory}\"",
+                UseShellExecute = false,
+            });
+        }
+        catch (Exception)
+        {
+            // 開けなくても比較は続けられる。黙って諦める。
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <summary>パスを写す。別の道具へ渡すときに使う。</summary>
+    private Task CopyPathAsync(FolderRowView row, bool left)
+    {
+        var (l, r) = PathsOf(row);
+        Clipboard?.Invoke(left ? l : r);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>書き込み先。表示側から差し込む（ViewModel から画面に触らない）。</summary>
+    public Action<string>? Clipboard { get; set; }
 
     public void OpenSelected()
     {

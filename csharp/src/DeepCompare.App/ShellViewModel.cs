@@ -4,13 +4,25 @@ using DeepCompare.Engine;
 
 namespace DeepCompare.App;
 
+public enum CompareKindId
+{
+    Text,
+    Folder,
+    Structured,
+    Merge,
+    Git,
+}
+
 /// <summary>
 /// 起動画面に並べる「比較の種類」1 つ。
 ///
 /// Beyond Compare の Home view と同じ形にする。大きな絵と短い名前を並べ、
 /// そこへファイルを落とせばその種類で始まる。
+///
+/// **画面そのものは持たない。** 選ぶたびに新しいタブを作るので、
+/// ここが持つのは「どの種類か」だけ。
 /// </summary>
-public sealed class CompareKind(string label, string hint, string iconKey, object content)
+public sealed class CompareKind(string label, string hint, string iconKey, CompareKindId id)
 {
     public string Label { get; } = label;
 
@@ -19,19 +31,46 @@ public sealed class CompareKind(string label, string hint, string iconKey, objec
 
     public Geometry? Icon => Icons.Get(iconKey);
 
-    /// <summary>この種類が使う画面。**作り直さず持ち回る**ので、状態が残る。</summary>
+    public CompareKindId Id { get; } = id;
+}
+
+/// <summary>
+/// 開いている比較 1 枚分。タブの見出しと中身を持つ。
+/// </summary>
+public sealed class CompareTab(string title, object content, bool canClose = true) : ViewModelBase
+{
+    private string _title = title;
+
+    /// <summary>タブの見出し。比較するものが決まったら、そのファイル名に変わる。</summary>
+    public string Title
+    {
+        get => _title;
+        set => Set(ref _title, value);
+    }
+
+    private string _tooltip = string.Empty;
+
+    /// <summary>見出しだけでは分からないので、指したら全体を出す。</summary>
+    public string Tooltip
+    {
+        get => _tooltip;
+        set => Set(ref _tooltip, value);
+    }
+
     public object Content { get; } = content;
+
+    /// <summary>起動画面は閉じられない。全部閉じると何もできなくなる。</summary>
+    public bool CanClose { get; } = canClose;
 }
 
 /// <summary>
 /// 画面全体の入れ物。
 ///
-/// **Beyond Compare と同じ形にする。** 起動画面で比較の種類を選び、
-/// 各画面のツールバーにある家の印で起動画面へ戻る。画面の左端は
-/// 比較そのもの（差分の地図）に使いたいので、種類の切り替えを左に置かない。
+/// **タブで複数の比較を同時に開く。** Beyond Compare と同じ。フォルダー比較の
+/// 一覧から次々にファイルを開くとき、1 枚しか持てないと前の比較が消える。
+/// 見比べながら直す作業では、開いたまま行き来できることが効く。
 ///
-/// ただし**画面は作り直さず持ち回る**。戻ってからもう一度開いても、
-/// 入力もスクロール位置も残る。BC も同じで、戻っても比較はやり直しにならない。
+/// タブは閉じるまで生き続けるので、切り替えても入力もスクロール位置も残る。
 /// </summary>
 public sealed class ShellViewModel : ViewModelBase
 {
@@ -55,23 +94,29 @@ public sealed class ShellViewModel : ViewModelBase
         ToggleThemeCommand = new RelayCommand(() => { LightTheme = !LightTheme; return Task.CompletedTask; });
         GoHomeCommand = new RelayCommand(() => { GoHome(); return Task.CompletedTask; });
 
-        Text = new TextCompareViewModel(this);
-        Folder = new FolderCompareViewModel(this);
-        Structured = new StructuredCompareViewModel(this);
-        Merge = new MergeViewModel(this);
-        Git = new GitViewModel(this, Environment.CurrentDirectory);
         Home = new HomeViewModel(this);
-        _current = Home;
+        HomeTab = new CompareTab("ホーム", Home, canClose: false);
+        Tabs = [HomeTab];
+        _selected = HomeTab;
 
         Kinds =
         [
-            new CompareKind("テキスト比較", "2 つのファイルを行で突き合わせる", "IconText", Text),
-            new CompareKind("フォルダー比較", "2 つのフォルダーを再帰的に比べる", "IconFolder", Folder),
+            new CompareKind("テキスト比較", "2 つのファイルを行で突き合わせる", "IconText",
+                CompareKindId.Text),
+            new CompareKind("フォルダー比較", "2 つのフォルダーを再帰的に比べる", "IconFolder",
+                CompareKindId.Folder),
             new CompareKind("構造として比較", "JSON を構造として比べる。キーの順序は差分にしない",
-                "IconStructure", Structured),
-            new CompareKind("3 方向マージ", "共通の元から分かれた 2 つの変更を合わせる", "IconMerge", Merge),
-            new CompareKind("Git", "作業ツリーと履歴", "IconGit", Git),
+                "IconStructure", CompareKindId.Structured),
+            new CompareKind("3 方向マージ", "共通の元から分かれた 2 つの変更を合わせる", "IconMerge",
+                CompareKindId.Merge),
+            new CompareKind("Git", "作業ツリーと履歴", "IconGit", CompareKindId.Git),
         ];
+
+        CloseTabCommand = new RelayCommand<CompareTab>(
+            tab => { Close(tab); return Task.CompletedTask; }, tab => tab.CanClose);
+        CloseOthersCommand = new RelayCommand<CompareTab>(
+            tab => { CloseOthers(tab); return Task.CompletedTask; });
+        NewTabCommand = new RelayCommand(() => { Select(HomeTab); return Task.CompletedTask; });
     }
 
     public Func<string, bool, Task<string?>> PickPath { get; }
@@ -81,37 +126,79 @@ public sealed class ShellViewModel : ViewModelBase
 
     public ObservableCollection<CompareKind> Kinds { get; }
 
-    public TextCompareViewModel Text { get; }
-    public FolderCompareViewModel Folder { get; }
-    public StructuredCompareViewModel Structured { get; }
-    public MergeViewModel Merge { get; }
-    public GitViewModel Git { get; }
     public HomeViewModel Home { get; }
+    public CompareTab HomeTab { get; }
+    public ObservableCollection<CompareTab> Tabs { get; }
 
-    private object _current;
-    public object Current
+    private CompareTab _selected;
+    public CompareTab Selected
     {
-        get => _current;
-        private set
+        get => _selected;
+        set
         {
-            if (Set(ref _current, value))
+            // TabControl は入れ替えの途中で選択を外すことがある。null は無視する。
+            if (value is not null)
             {
-                OnPropertyChanged(nameof(IsHome));
+                Set(ref _selected, value);
             }
         }
     }
 
-    /// <summary>起動画面に居るか。家の印を出すかどうかに使う。</summary>
-    public bool IsHome => ReferenceEquals(_current, Home);
-
-    /// <summary>起動画面へ戻る。**状態は捨てない。**</summary>
-    public void GoHome() => Current = Home;
-
-    /// <summary>選んだ種類の画面を出す。起動画面の大きな絵から呼ばれる。</summary>
-    public void Open(CompareKind kind) => Current = kind.Content;
-
     public System.Windows.Input.ICommand ToggleThemeCommand { get; }
     public System.Windows.Input.ICommand GoHomeCommand { get; }
+    public RelayCommand<CompareTab> CloseTabCommand { get; }
+    public RelayCommand<CompareTab> CloseOthersCommand { get; }
+    public System.Windows.Input.ICommand NewTabCommand { get; }
+
+    private void Select(CompareTab tab) => Selected = tab;
+
+    /// <summary>起動画面のタブへ移る。**開いている比較は閉じない。**</summary>
+    public void GoHome() => Select(HomeTab);
+
+    private CompareTab Add(string title, object content, string tooltip = "")
+    {
+        var tab = new CompareTab(title, content) { Tooltip = tooltip };
+        Tabs.Add(tab);
+        Selected = tab;
+        return tab;
+    }
+
+    private void Close(CompareTab tab)
+    {
+        if (!tab.CanClose)
+        {
+            return;
+        }
+        var index = Tabs.IndexOf(tab);
+        Tabs.Remove(tab);
+
+        // 閉じた後は隣へ移る。何も選ばれていない状態を残さない。
+        if (ReferenceEquals(_selected, tab) || !Tabs.Contains(_selected))
+        {
+            Selected = Tabs[Math.Clamp(index - 1, 0, Tabs.Count - 1)];
+        }
+    }
+
+    private void CloseOthers(CompareTab keep)
+    {
+        foreach (var tab in Tabs.Where(t => t.CanClose && !ReferenceEquals(t, keep)).ToList())
+        {
+            Tabs.Remove(tab);
+        }
+        Selected = Tabs.Contains(keep) ? keep : HomeTab;
+    }
+
+    /// <summary>左右のファイル名から見出しを作る。同じ名前なら 1 つで足りる。</summary>
+    private static string TitleFor(string left, string right)
+    {
+        var l = System.IO.Path.GetFileName(left.TrimEnd('/', '\\'));
+        var r = System.IO.Path.GetFileName(right.TrimEnd('/', '\\'));
+        if (l.Length == 0 && r.Length == 0)
+        {
+            return "比較";
+        }
+        return string.Equals(l, r, StringComparison.Ordinal) ? l : $"{l} ↔ {r}";
+    }
 
     /// <summary>
     /// 明るいテーマを使うか。切り替えたら、色を持っている行を作り直す必要がある。
@@ -145,81 +232,102 @@ public sealed class ShellViewModel : ViewModelBase
     /// <summary>初回だけ読む。呼び出し側は必ず作業スレッドから呼ぶこと。</summary>
     public Embedder GetEmbedder() => _embedder ??= Embedder.CreateFromDefaultAssets();
 
-    private void Go(object content) => Current = content;
+    // --- 画面を開く。**どれも新しいタブを作る** ---
 
-    // --- 画面を開く。指定があれば入れてから走らせる ---
-
-    public void ShowText(string left, string right)
+    public TextCompareViewModel ShowText(string left, string right)
     {
-        Text.LeftPath = left;
-        Text.RightPath = right;
-        Go(Text);
-        Text.CompareCommand.Execute(null);
+        var model = new TextCompareViewModel(this) { LeftPath = left, RightPath = right };
+        var tab = Add(TitleFor(left, right), model, $"{left}\n{right}");
+        model.Tab = tab;
+        model.CompareCommand.Execute(null);
+        return model;
     }
 
     public void ShowFolders(string left, string right)
     {
-        Folder.LeftRoot = left;
-        Folder.RightRoot = right;
-        Go(Folder);
-        Folder.RefreshCommand.Execute(null);
+        var model = new FolderCompareViewModel(this) { LeftRoot = left, RightRoot = right };
+        var tab = Add(TitleFor(left, right), model, $"{left}\n{right}");
+        model.Tab = tab;
+        model.RefreshCommand.Execute(null);
     }
 
     public void ShowStructured(string left, string right)
     {
-        Structured.LeftPath = left;
-        Structured.RightPath = right;
-        Go(Structured);
+        var model = new StructuredCompareViewModel(this) { LeftPath = left, RightPath = right };
+        var tab = Add(TitleFor(left, right), model, $"{left}\n{right}");
+        model.Tab = tab;
         if (left.Length > 0 && right.Length > 0)
         {
-            Structured.CompareCommand.Execute(null);
+            model.CompareCommand.Execute(null);
         }
     }
 
     public void ShowMerge(string basePath, string left, string right)
     {
-        Merge.BasePath = basePath;
-        Merge.LeftPath = left;
-        Merge.RightPath = right;
-        Go(Merge);
+        var model = new MergeViewModel(this)
+        {
+            BasePath = basePath,
+            LeftPath = left,
+            RightPath = right,
+        };
+        var tab = Add(TitleFor(left, right), model, $"{basePath}\n{left}\n{right}");
+        model.Tab = tab;
         if (basePath.Length > 0 && left.Length > 0 && right.Length > 0)
         {
-            Merge.MergeCommand.Execute(null);
+            model.MergeCommand.Execute(null);
         }
     }
 
     public void ShowGit(string path)
     {
-        Git.Path = path;
-        Go(Git);
-        _ = Git.RefreshAsync();
+        var model = new GitViewModel(this, path);
+        var tab = Add("Git", model, path);
+        model.Tab = tab;
+        _ = model.RefreshAsync();
     }
 
-    public void ShowSaved() => Go(Home);
+    /// <summary>起動画面の大きな絵から。左右が空でも画面は開く。</summary>
+    public void Open(CompareKind kind, string left, string right, string basePath = "")
+    {
+        switch (kind.Id)
+        {
+            case CompareKindId.Text:
+                ShowText(left, right);
+                break;
+            case CompareKindId.Folder:
+                ShowFolders(left, right);
+                break;
+            case CompareKindId.Structured:
+                ShowStructured(left, right);
+                break;
+            case CompareKindId.Merge:
+                ShowMerge(basePath, left, right);
+                break;
+            case CompareKindId.Git:
+                ShowGit(left.Length > 0 ? left : Environment.CurrentDirectory);
+                break;
+        }
+    }
 
     /// <summary>
-    /// 中身の取り出し方を差し替えたテキスト比較を出す。git のある時点の中身を
-    /// 比べるときに使う。**同じテキスト比較画面を使い回す**ので、サイドバーの
-    /// 「テキスト」に居ることが見た目からも分かる。
+    /// 中身の取り出し方を差し替えたテキスト比較を、新しいタブで出す。
+    /// git のある時点の中身を比べるときに使う。
     /// </summary>
     public void ShowTextWith(
         string leftLabel, string rightLabel, Func<string, byte[]> loader,
         bool leftReadOnly, bool rightReadOnly)
     {
-        Text.ContentLoader = loader;
-        Text.LeftReadOnly = leftReadOnly;
-        Text.RightReadOnly = rightReadOnly;
-        Text.LeftPath = leftLabel;
-        Text.RightPath = rightLabel;
-        Go(Text);
-        Text.CompareCommand.Execute(null);
+        var model = new TextCompareViewModel(this)
+        {
+            ContentLoader = loader,
+            LeftReadOnly = leftReadOnly,
+            RightReadOnly = rightReadOnly,
+            LeftPath = leftLabel,
+            RightPath = rightLabel,
+        };
+        var tab = Add(TitleFor(leftLabel, rightLabel), model, $"{leftLabel}\n{rightLabel}");
+        model.Tab = tab;
+        model.CompareCommand.Execute(null);
     }
 
-    /// <summary>普通のファイル比較へ戻す。読み込み方の差し替えを解く。</summary>
-    public void ResetTextLoader()
-    {
-        Text.ContentLoader = null;
-        Text.LeftReadOnly = false;
-        Text.RightReadOnly = false;
-    }
 }

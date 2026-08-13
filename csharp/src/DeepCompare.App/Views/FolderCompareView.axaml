@@ -135,6 +135,30 @@
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:FolderRowView">
             <Grid ColumnDefinitions="*,80,120,28,*,80,120">
+              <Grid.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="新しいタブで比較"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).OpenRowCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="構造として比較（JSON）"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).OpenStructuredCommand}"
+                            CommandParameter="{Binding}" />
+                  <Separator />
+                  <MenuItem Header="左の場所を開く"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).RevealLeftCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="右の場所を開く"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).RevealRightCommand}"
+                            CommandParameter="{Binding}" />
+                  <Separator />
+                  <MenuItem Header="左のパスを写す"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).CopyLeftPathCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="右のパスを写す"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).CopyRightPathCommand}"
+                            CommandParameter="{Binding}" />
+                </ContextMenu>
+              </Grid.ContextMenu>
 
               <!-- 左側 -->
               <Border Grid.Column="0" Grid.ColumnSpan="3" Background="{Binding LeftBackground}" />

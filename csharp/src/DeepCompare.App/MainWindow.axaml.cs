@@ -93,7 +93,7 @@ public partial class MainWindow : Window
         }
 
         // 落とし先はいま出ている画面。起動画面ならファイルでもフォルダーでも受ける。
-        switch (_shell.Current)
+        switch (_shell.Selected?.Content)
         {
             case HomeViewModel home:
                 home.AcceptDropped(paths);

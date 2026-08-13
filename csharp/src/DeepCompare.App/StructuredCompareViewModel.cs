@@ -64,6 +64,9 @@ public sealed class StructuredCompareViewModel : ViewModelBase
 {
     private readonly ShellViewModel _shell;
 
+    /// <summary>自分が乗っているタブ。見出しを比較の中身に合わせて書き換える。</summary>
+    public CompareTab? Tab { get; set; }
+
     /// <summary>起動画面へ戻るなど、画面をまたぐ操作。</summary>
     public ShellViewModel Shell => _shell;
 

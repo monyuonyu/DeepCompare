@@ -14,6 +14,9 @@ namespace DeepCompare.App;
 public sealed class TextCompareViewModel : ViewModelBase
 {
     private readonly ShellViewModel _shell;
+
+    /// <summary>自分が乗っているタブ。見出しを比較の中身に合わせて書き換える。</summary>
+    public CompareTab? Tab { get; set; }
     private Comparison? _comparison;
     private List<RowView> _allRows = [];
     private int _compareGeneration;

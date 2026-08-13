@@ -69,29 +69,8 @@ public sealed class HomeViewModel : ViewModelBase
     /// </summary>
     private void StartKind(CompareKind kind)
     {
-        var left = LeftPath.Trim();
-        var right = RightPath.Trim();
         Message = string.Empty;
-
-        switch (kind.Content)
-        {
-            case TextCompareViewModel when left.Length > 0 && right.Length > 0:
-                _shell.ShowText(left, right);
-                break;
-            case FolderCompareViewModel when left.Length > 0 && right.Length > 0:
-                _shell.ShowFolders(left, right);
-                break;
-            case StructuredCompareViewModel when left.Length > 0 && right.Length > 0:
-                _shell.ShowStructured(left, right);
-                break;
-            case GitViewModel:
-                // Git は左の欄だけで足りる。空なら今いる場所。
-                _shell.ShowGit(left.Length > 0 ? left : Environment.CurrentDirectory);
-                break;
-            default:
-                _shell.Open(kind);
-                break;
-        }
+        _shell.Open(kind, LeftPath.Trim(), RightPath.Trim());
     }
     public ICommand OpenSessionCommand { get; }
     public ICommand RemoveSessionCommand { get; }
