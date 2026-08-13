@@ -274,6 +274,45 @@ public sealed class TextCompareViewModel : ViewModelBase
         _shell.ShowTextAgainstClipboard(LeftPath.Trim(), text);
     }
 
+    /// <summary>
+    /// その添字の行が見えるところまでスクロールする。表示側から差し込む。
+    ///
+    /// **段階 2 で行数が変わる**（2000 行の 5% 変更で 2098 → 2027 行）ので、
+    /// 差し替えたときに読んでいた場所が飛ぶ。それを戻すために要る。
+    /// </summary>
+    public Action<int>? ScrollToRow { get; set; }
+
+    /// <summary>
+    /// いま画面の上に見えている行が、元のファイルの何行目か。
+    ///
+    /// **行の添字ではなく元の行番号を鍵にする。** 添字は差し替えで動くが、
+    /// 元の行番号は動かない。
+    /// </summary>
+    private (int? Left, int? Right) CurrentAnchor()
+    {
+        if (VisibleRows.Count == 0)
+        {
+            return (null, null);
+        }
+        var at = Math.Clamp((int)(VisibleRows.Count * MapViewStart), 0, VisibleRows.Count - 1);
+        var row = VisibleRows[at].Row;
+        return (row.Left, row.Right);
+    }
+
+    /// <summary>覚えておいた場所へ戻す。見つからなければ何もしない。</summary>
+    private void RestoreAnchor((int? Left, int? Right) anchor)
+    {
+        if (ScrollToRow is null)
+        {
+            return;
+        }
+        var at = RowAnchor.Find([.. VisibleRows.Select(v => v.Row)], anchor);
+        if (at >= 0)
+        {
+            ScrollToRow(at);
+        }
+    }
+
     /// <summary>書き込み先。表示側から差し込む（ViewModel から画面に触らない）。</summary>
     public Action<string>? Clipboard { get; set; }
 
@@ -744,7 +783,11 @@ public sealed class TextCompareViewModel : ViewModelBase
                 return;
             }
 
+            // **読んでいた場所を保つ。** 段階 2 は行数を変えるので、
+            // 何もしないとスクロールが飛ぶ（届く前に読み始めていると気になる）。
+            var anchor = CurrentAnchor();
             Apply(first.left, first.right, refinedResult.comparison, refinedResult.elapsed, refining: false);
+            RestoreAnchor(anchor);
         }
         catch (Exception error)
         {

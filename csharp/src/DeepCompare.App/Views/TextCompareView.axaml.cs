@@ -38,6 +38,16 @@ public partial class TextCompareView : UserControl
                         ? null
                         : await clipboard.TryGetValueAsync(DataFormat.Text);
                 };
+                // 段階 2 で行が入れ替わったとき、読んでいた場所へ戻す。
+                model.ScrollToRow = index =>
+                {
+                    var list = this.GetVisualDescendants().OfType<ListBox>()
+                        .FirstOrDefault(l => l.ItemsSource == model.VisibleRows);
+                    if (list is not null && index >= 0 && index < model.VisibleRows.Count)
+                    {
+                        list.ScrollIntoView(index);
+                    }
+                };
                 model.Clipboard = text =>
                 {
                     var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
