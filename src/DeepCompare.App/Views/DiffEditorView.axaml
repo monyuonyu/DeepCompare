@@ -13,7 +13,7 @@
 
     中央の境目は掴んで動かせる。左右で見たい量は場面によって変わる。
   -->
-  <Grid>
+  <Grid x:Name="Layout">
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="*" MinWidth="120" />
       <ColumnDefinition Width="Auto" />
@@ -27,7 +27,7 @@
     -->
     <views:DiffEditorPane x:Name="LeftPane" Grid.Column="0" />
 
-    <GridSplitter Grid.Column="1" Width="4" MinWidth="4"
+    <GridSplitter x:Name="Divider" Grid.Column="1" Width="4" MinWidth="4"
                   Background="{DynamicResource DividerStrong}"
                   ResizeDirection="Columns" />
 

@@ -76,10 +76,14 @@ public partial class TextCompareView : UserControl
                 Editors.ViewportChanged -= OnViewport;
                 Editors.ViewportChanged += OnViewport;
 
-                // 折り返しの切り替え。
+                // 折り返しと上下配置の切り替え。
                 model.WordWrapChanged -= OnWordWrap;
                 model.WordWrapChanged += OnWordWrap;
                 Editors.WordWrap = model.WordWrap;
+
+                model.OverUnderChanged -= OnOverUnder;
+                model.OverUnderChanged += OnOverUnder;
+                Editors.OverUnder = model.OverUnder;
 
                 // 行が変わったら本文をそこへ動かす（地図・次の差分へ・Ctrl+G）。
                 model.GoToLineRequested -= OnGoToLine;
@@ -241,6 +245,8 @@ public partial class TextCompareView : UserControl
     private void OnGoToLine(object? sender, int line) => Editors.GoToLine(line);
 
     private void OnWordWrap(object? sender, bool wrap) => Editors.WordWrap = wrap;
+
+    private void OnOverUnder(object? sender, bool over) => Editors.OverUnder = over;
 
     private void OnViewport(object? sender, (double Start, double Size) range)
     {

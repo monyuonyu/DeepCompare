@@ -56,6 +56,9 @@ public sealed class TextCompareViewModel : ViewModelBase
     /// <summary>折り返しが切り替わったときに上がる。**画面側が部品へ伝える。**</summary>
     public event EventHandler<bool>? WordWrapChanged;
 
+    /// <summary>上下に並べるかが切り替わったときに上がる。</summary>
+    public event EventHandler<bool>? OverUnderChanged;
+
     /// <summary>
     /// いま扱っている言語。**構文の色分けに使う。**
     /// 拡張子から決まるので、比較のたびに入れ直す。
@@ -1928,6 +1931,7 @@ public sealed class TextCompareViewModel : ViewModelBase
                 OnPropertyChanged(nameof(RowHeight));
                 // **幅の基準も変わる。** 上下なら 1 行が全幅を使える。
                 UpdateTextWidth();
+                OverUnderChanged?.Invoke(this, value);
             }
         }
     }

@@ -25,6 +25,10 @@ public partial class DiffEditorView : UserControl
         // そのまま相手へ写す。
         AttachedToVisualTree += (_, _) => HookScroll();
 
+        // 初めの配置を組む。**XAML の列定義と食い違わないよう、
+        // ここで一度作り直す。**
+        ApplyLayout();
+
         // 近さは右のペインだけに出す。
         LeftPane.ShowScores = false;
         RightPane.ShowScores = true;
@@ -58,6 +62,71 @@ public partial class DiffEditorView : UserControl
     {
         LeftPane.ScrollToFraction(fraction);
         RightPane.ScrollToFraction(fraction);
+    }
+
+    private bool _overUnder;
+
+    /// <summary>
+    /// 上下に並べるか（BC の Over-Under Layout）。
+    ///
+    /// **横に長い本文を読むときはこちら。** 左右に割ると 1 行あたりの
+    /// 幅が半分になり、長い行はどちらも切れる。
+    /// </summary>
+    public bool OverUnder
+    {
+        get => _overUnder;
+        set
+        {
+            if (_overUnder == value)
+            {
+                return;
+            }
+            _overUnder = value;
+            ApplyLayout();
+        }
+    }
+
+    private void ApplyLayout()
+    {
+        Layout.ColumnDefinitions.Clear();
+        Layout.RowDefinitions.Clear();
+
+        if (_overUnder)
+        {
+            Layout.RowDefinitions.Add(new RowDefinition(1, GridUnitType.Star) { MinHeight = 60 });
+            Layout.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            Layout.RowDefinitions.Add(new RowDefinition(1, GridUnitType.Star) { MinHeight = 60 });
+
+            Set(LeftPane, row: 0, column: 0);
+            Set(Divider, row: 1, column: 0);
+            Set(RightPane, row: 2, column: 0);
+
+            Divider.Height = 4;
+            Divider.Width = double.NaN;
+            Divider.ResizeDirection = GridResizeDirection.Rows;
+        }
+        else
+        {
+            Layout.ColumnDefinitions.Add(
+                new ColumnDefinition(1, GridUnitType.Star) { MinWidth = 120 });
+            Layout.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+            Layout.ColumnDefinitions.Add(
+                new ColumnDefinition(1, GridUnitType.Star) { MinWidth = 120 });
+
+            Set(LeftPane, row: 0, column: 0);
+            Set(Divider, row: 0, column: 1);
+            Set(RightPane, row: 0, column: 2);
+
+            Divider.Width = 4;
+            Divider.Height = double.NaN;
+            Divider.ResizeDirection = GridResizeDirection.Columns;
+        }
+
+        static void Set(Control control, int row, int column)
+        {
+            Grid.SetRow(control, row);
+            Grid.SetColumn(control, column);
+        }
     }
 
     /// <summary>
