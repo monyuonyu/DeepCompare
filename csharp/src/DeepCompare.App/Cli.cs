@@ -24,9 +24,148 @@ internal static class Cli
         "--link", "--unlink",
     ];
 
+    /// <summary>
+    /// 知っているオプション。**ここに無いものは断る。**
+    ///
+    /// 綴りを間違えると、その引数は無視され**画面が開く**。Windows で
+    /// `--print-structured`（正しくは `--print-json`）を渡して気づいた。
+    /// 画面を出せない場所では描画基盤の初期化に失敗し続け、CPU を食ったまま
+    /// 止まらない。CI から呼ぶと、そこで固まる。
+    /// </summary>
+    private static readonly HashSet<string> Known =
+    [
+        "--all",
+        "--apply",
+        "--assist-commit",
+        "--assist-probe",
+        "--assist-resolve",
+        "--assist-status",
+        "--by-timestamp",
+        "--case-sensitive-names",
+        "--changes-only",
+        "--csv",
+        "--delete-orphans",
+        "--deps",
+        "--detect-renames",
+        "--font-check",
+        "--git",
+        "--git-diff",
+        "--git-log",
+        "--git-resolve",
+        "--git-status",
+        "--hash",
+        "--help",
+        "--ignore-alpha",
+        "--ignore-case",
+        "--ignore-dst",
+        "--ignore-order",
+        "--in-place",
+        "--invisible",
+        "--merge",
+        "--merge-view",
+        "--merge3",
+        "--model",
+        "--multi",
+        "--no-header",
+        "--no-recurse",
+        "--normalize-unicode",
+        "--over-under",
+        "--print",
+        "--print-binary",
+        "--print-embeddings",
+        "--print-folder",
+        "--print-image",
+        "--print-json",
+        "--print-notebook",
+        "--print-office",
+        "--print-table",
+        "--print-version-info",
+        "--secrets",
+        "--snapshot",
+        "--snapshot-diff",
+        "--snapshot-view",
+        "--staged",
+        "--strict-numbers",
+        "--strip-notebook",
+        "--structural",
+        "--structured",
+        "--sync",
+        "--take-left",
+        "--take-ours",
+        "--take-theirs",
+        "--tokenize",
+        "--version-view",
+        "--with-execution-count",
+        "--with-outputs",
+        "-h", "-o",
+        "--threshold",
+        "--ws",
+        "--ignore-pattern",
+        "--include",
+        "--exclude",
+        "--tolerance",
+        "--min-size",
+        "--max-size",
+        "--block",
+        "--report",
+        "--context",
+        "--key",
+        "--ignore-column",
+        "--delimiter",
+        "--array-key",
+        "--ignore-path",
+        "--limit",
+        "--rev",
+        "--path",
+        "--secret-level",
+        "--vocab",
+        "--assist-endpoint",
+        "--assist-allow-resolution",
+        "--link",
+        "--unlink",
+    ];
+
+    /// <summary>
+    /// 知らないオプションがあれば、その名前。無ければ null。
+    ///
+    /// **値は見ない。** `--key id` の `id` は位置引数として扱われるので、
+    /// ここで弾く対象は `-` で始まるものだけ。
+    /// </summary>
+    internal static string? UnknownOption(string[] args)
+    {
+        var skipNext = false;
+        foreach (var arg in args)
+        {
+            if (skipNext)
+            {
+                skipNext = false;
+                continue;
+            }
+            if (TakesValue.Contains(arg))
+            {
+                skipNext = true;
+                continue;
+            }
+            // **負の数やパスを弾かない。** `-1` や `-` で始まるファイル名がありうる。
+            if (arg.StartsWith("--", StringComparison.Ordinal) && !Known.Contains(arg))
+            {
+                return arg;
+            }
+        }
+        return null;
+    }
+
     /// <summary>画面を開かずに済む要求なら処理して終了コードを返す。GUI を開くなら null。</summary>
     public static int? TryRun(string[] args, string usage)
     {
+        if (UnknownOption(args) is { } unknown)
+        {
+            // **黙って画面を開かない。** 綴り違いのまま GUI が立ち上がると、
+            // 画面を出せない場所では固まったように見える。
+            Console.Error.WriteLine($"知らないオプションです: {unknown}");
+            Console.Error.Write(usage);
+            return 2;
+        }
         if (args.Contains("-h") || args.Contains("--help"))
         {
             Console.Write(usage);
