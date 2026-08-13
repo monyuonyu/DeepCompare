@@ -16,6 +16,10 @@ public partial class FolderCompareView : UserControl
         // 標準的な操作なので、ボタンを増やさずここで拾う。
         AddHandler(DoubleTappedEvent, OnDoubleTapped, handledEventsToo: true);
 
+        // **キーボードだけで歩けるようにする。** ↑↓ は ListBox が既に見ている。
+        // ← → で開閉と上り下り、Enter で新しいタブへ。
+        AddHandler(KeyDownEvent, OnKeyDown, handledEventsToo: false);
+
         // 書き込み先は表示側にしかない。ViewModel から画面に触らせず、
         // ここで差し込む。
         DataContextChanged += (_, _) =>
@@ -162,6 +166,44 @@ public partial class FolderCompareView : UserControl
 
         await dialog.ShowDialog(owner);
         return answer;
+    }
+
+    /// <summary>
+    /// ← → Enter を拾う。
+    ///
+    /// **入力欄に入っているときは触らない。** 絞り込みの欄で
+    /// カーソルを左右に動かせなくなる。
+    /// </summary>
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not FolderCompareViewModel model)
+        {
+            return;
+        }
+        if (e.Source is TextBox or ComboBox)
+        {
+            return;
+        }
+        if (e.KeyModifiers is not KeyModifiers.None)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case Key.Right:
+                model.MoveRight();
+                e.Handled = true;
+                break;
+            case Key.Left:
+                model.MoveLeft();
+                e.Handled = true;
+                break;
+            case Key.Enter:
+                model.OpenSelected();
+                e.Handled = true;
+                break;
+        }
     }
 
     private void OnDoubleTapped(object? sender, TappedEventArgs e)

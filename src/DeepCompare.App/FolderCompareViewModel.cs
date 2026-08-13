@@ -1040,6 +1040,68 @@ public sealed class FolderCompareViewModel : ViewModelBase
         Rebuild();
     }
 
+    /// <summary>
+    /// → を押したとき。
+    ///
+    /// **ファイル管理ソフトと同じ動き。** 閉じたフォルダーなら開く。
+    /// 開いているなら最初の子へ移る。ファイルなら何もしない。
+    /// </summary>
+    public void MoveRight()
+    {
+        if (Selected is not { } row)
+        {
+            return;
+        }
+        if (row.HasChildren && !row.IsExpanded)
+        {
+            Toggle(row);
+            return;
+        }
+        if (row.HasChildren)
+        {
+            var index = Rows.IndexOf(row);
+            if (index >= 0 && index + 1 < Rows.Count)
+            {
+                Selected = Rows[index + 1];
+            }
+        }
+    }
+
+    /// <summary>
+    /// ← を押したとき。
+    ///
+    /// 開いているフォルダーなら閉じる。そうでなければ**親へ戻る**
+    /// （深く潜ったところから上がるのに、これが無いと一段ずつ上に
+    /// 押し続けることになる）。
+    /// </summary>
+    public void MoveLeft()
+    {
+        if (Selected is not { } row)
+        {
+            return;
+        }
+        if (row.HasChildren && row.IsExpanded)
+        {
+            Toggle(row);
+            return;
+        }
+
+        var index = Rows.IndexOf(row);
+        if (index < 0)
+        {
+            return;
+        }
+        var depth = row.Entry.Depth;
+        for (var i = index - 1; i >= 0; i--)
+        {
+            if (Rows[i].Entry.Depth < depth)
+            {
+                Selected = Rows[i];
+                return;
+            }
+        }
+    }
+
     /// <summary>全部開く／全部閉じる。深い木で目的の場所を探すとき用。</summary>
     public void ExpandAll(bool expand)
     {

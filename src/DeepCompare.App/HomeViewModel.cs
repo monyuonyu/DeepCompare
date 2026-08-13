@@ -304,6 +304,14 @@ public sealed class HomeViewModel : ViewModelBase
     /// **片方だけでも開く。** 開いた先でもう片方を指定できるので、
     /// ここで止める理由が無い。フォルダーかファイルかは中身で決める。
     /// </summary>
+    /// <summary>開いた後、次に戻ってきたときのために欄を空にする。</summary>
+    public void ClearPaths()
+    {
+        LeftPath = string.Empty;
+        RightPath = string.Empty;
+        Message = string.Empty;
+    }
+
     public void Open()
     {
         var left = LeftPath.Trim();

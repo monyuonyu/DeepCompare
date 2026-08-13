@@ -203,6 +203,11 @@ public sealed class ShellViewModel : ViewModelBase
         };
         Tabs.Add(tab);
         Selected = tab;
+
+        // **ホームの欄を空にする。** 開いた後も残っていると、次に
+        // ホームへ戻ったとき、前の指定が今のもののように見える。
+        Home.ClearPaths();
+
         return tab;
     }
 
