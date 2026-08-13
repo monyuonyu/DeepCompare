@@ -114,6 +114,28 @@ internal static class Cli
             }
             return RunSecrets(files, args, output);
         }
+        if (args.Contains("--snapshot"))
+        {
+            var where = Positional(args);
+            if (where.Length < 1)
+            {
+                Console.Error.WriteLine("--snapshot には写し取るフォルダーが必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return RunSnapshot(where[0], args, output);
+        }
+        if (args.Contains("--snapshot-diff"))
+        {
+            var files = Positional(args);
+            if (files.Length < 1)
+            {
+                Console.Error.WriteLine("--snapshot-diff には写しが 1 つか 2 つ必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return RunSnapshotDiff(files, args, output);
+        }
         if (args.Contains("--print-image"))
         {
             var files = Positional(args);
@@ -617,6 +639,120 @@ internal static class Cli
             return comparison.Rows.Any(r => !r.IsUnchanged) ? 1 : 0;
         }
         catch (Exception error) when (error is GitException or IOException)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+    }
+
+    /// <summary>
+    /// フォルダーの状態を写し取る。
+    ///
+    /// **書き出し先を指定しなければ標準出力へ出す。** 他の道具へ流し込めるように
+    /// するのと、うっかりファイルが増えないようにするため。
+    /// </summary>
+    private static int RunSnapshot(string root, string[] args, string? output)
+    {
+        if (!Directory.Exists(root))
+        {
+            Console.Error.WriteLine($"{root} はフォルダーではありません。");
+            return 2;
+        }
+
+        try
+        {
+            var filter = new NameFilter(ValuesOf(args, "--include"), ValuesOf(args, "--exclude"));
+
+            var snapshot = Snapshots.Take(root, withHashes: args.Contains("--hash"), filter: filter);
+            Emit(Snapshots.Save(snapshot), output);
+
+            // 件数は標準エラーへ。標準出力は写しそのものなので、混ぜると
+            // **そのまま読み直せなくなる。**
+            Console.Error.WriteLine(
+                $"{snapshot.FileCount} ファイル / {snapshot.DirectoryCount} フォルダー"
+                + (snapshot.HasHashes ? "（指紋あり）" : "（指紋なし）"));
+            return 0;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+    }
+
+    /// <summary>
+    /// 写し同士、または写しと今のフォルダーを比べる。
+    ///
+    /// 引数が 1 つなら、写しに書いてある元の場所を今の姿と比べる
+    /// （**一番よくある使い方**。「あの時から何が変わったか」）。
+    ///
+    /// 終了コードは 0 変化なし / 1 変化あり / 2 異常。
+    /// </summary>
+    private static int RunSnapshotDiff(string[] files, string[] args, string? output)
+    {
+        try
+        {
+            var before = Snapshots.Load(File.ReadAllText(files[0]));
+
+            Snapshot after;
+            if (files.Length >= 2)
+            {
+                after = Snapshots.Load(File.ReadAllText(files[1]));
+            }
+            else
+            {
+                if (!Directory.Exists(before.Root))
+                {
+                    Console.Error.WriteLine(
+                        $"写しに書かれた {before.Root} が今はありません。"
+                        + "比べる相手の写しを 2 つ目に渡してください。");
+                    return 2;
+                }
+                // **写しと同じ条件で取り直す。** 片方だけ指紋があると、
+                // 中身の変化を見分けられたり見分けられなかったりして食い違う。
+                after = Snapshots.Take(before.Root, withHashes: before.HasHashes);
+            }
+
+            var result = Snapshots.Compare(before, after);
+            var stats = result.Stats;
+
+            var text = new StringBuilder();
+            text.AppendLine($"before {before.Root}  {before.TakenAt:yyyy-MM-dd HH:mm:ss}");
+            text.AppendLine(files.Length >= 2
+                ? $"after  {after.Root}  {after.TakenAt:yyyy-MM-dd HH:mm:ss}"
+                : $"after  {after.Root}（今）");
+            if (!before.HasHashes)
+            {
+                // **指紋が無いことは必ず言う。** 「変化なし」が「大きさと時刻に
+                // 変化なし」の意味になっているのを黙っていると、嘘に近い。
+                text.AppendLine("注意: 指紋なしの写しです。大きさと時刻でしか比べていません。");
+            }
+            text.AppendLine($"stats different={stats.Different} removed={stats.LeftOnly} "
+                + $"added={stats.RightOnly} identical={stats.Identical}");
+            text.AppendLine("legend ~ 変わった / - 消えた / + 増えた");
+            text.AppendLine("---");
+
+            foreach (var entry in result.Entries)
+            {
+                var kind = entry.Status switch
+                {
+                    EntryStatus.Different => '~',
+                    EntryStatus.LeftOnly => '-',
+                    EntryStatus.RightOnly => '+',
+                    _ => '=',
+                };
+                if (kind == '=' && !args.Contains("--all"))
+                {
+                    continue;
+                }
+                text.AppendLine($"{kind} {entry.RelativePath}");
+            }
+
+            Emit(text.ToString(), output);
+            return stats.Different > 0 || stats.LeftOnly > 0 || stats.RightOnly > 0 ? 1 : 0;
+        }
+        catch (Exception error) when (error is IOException or InvalidDataException
+                                        or UnauthorizedAccessException)
         {
             Console.Error.WriteLine(error.Message);
             return 2;

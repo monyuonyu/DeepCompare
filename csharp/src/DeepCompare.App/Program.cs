@@ -48,6 +48,17 @@ internal static class Program
                                      決められない箇所が残ったら中身を出して止まる。
                                      --take-ours / --take-theirs でその側に寄せる。
                                      0 解決 / 1 競合が残る / 2 異常
+          deepcompare --snapshot <フォルダー>
+                                     いまの状態を写し取る（BC の Snapshot）。
+                                     標準出力へ出すので `-o` かリダイレクトで
+                                     残す。中身は保存しない — 名前・大きさ・
+                                     時刻だけ。--hash を付けると指紋も取る
+                                     （**同じ秒の内の書き換えは指紋でしか
+                                     見分けられない**）
+          deepcompare --snapshot-diff 写し [写し]
+                                     写しと今の姿を比べる。2 つ目を渡せば
+                                     写し同士。--all で変化のないものも出す。
+                                     0 変化なし / 1 変化あり / 2 異常
           deepcompare --print-image 左 右
                                      画像を画素で比べる。大きさが違っても
                                      重なる範囲を比べ、はみ出した分は
