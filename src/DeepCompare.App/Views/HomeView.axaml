@@ -182,7 +182,7 @@
                   <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding HostLabel}"
                              VerticalAlignment="Center" />
                   <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Host}"
-                           Watermark="example.com" />
+                           PlaceholderText="example.com" />
 
                   <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding UserLabel}"
                              VerticalAlignment="Center" />
@@ -191,12 +191,12 @@
                   <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding PasswordLabel}"
                              VerticalAlignment="Center" />
                   <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Password}"
-                           PasswordChar="•" Watermark="空にすると鍵や環境変数から探します" />
+                           PasswordChar="•" PlaceholderText="空にすると鍵や環境変数から探します" />
 
                   <TextBlock Grid.Row="4" Grid.Column="0" Text="場所"
                              VerticalAlignment="Center" />
                   <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Path}"
-                           Watermark="/var/www" />
+                           PlaceholderText="/var/www" />
                 </Grid>
 
                 <TextBlock Classes="hint" Text="{Binding Scheme.Hint}" TextWrapping="Wrap" />

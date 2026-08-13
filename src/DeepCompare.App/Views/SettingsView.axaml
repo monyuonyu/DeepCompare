@@ -74,12 +74,12 @@
         <StackPanel Orientation="Horizontal" Spacing="12">
           <TextBlock Text="接続先" VerticalAlignment="Center" Width="90" />
           <TextBox Text="{Binding AssistEndpoint}" MinWidth="300"
-                   Watermark="http://localhost:11434/v1" />
+                   PlaceholderText="http://localhost:11434/v1" />
         </StackPanel>
 
         <StackPanel Orientation="Horizontal" Spacing="12">
           <TextBlock Text="モデル名" VerticalAlignment="Center" Width="90" />
-          <TextBox Text="{Binding AssistModel}" MinWidth="220" Watermark="qwen2.5:7b" />
+          <TextBox Text="{Binding AssistModel}" MinWidth="220" PlaceholderText="qwen2.5:7b" />
           <Button Content="試す" Command="{Binding ProbeAssistCommand}" />
           <TextBlock Text="{Binding AssistStatus}" Classes="hint" VerticalAlignment="Center" />
         </StackPanel>

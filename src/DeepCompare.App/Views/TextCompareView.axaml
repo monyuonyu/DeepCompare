@@ -405,7 +405,7 @@
                  FontFamily="{DynamicResource MonoFont}" FontSize="13"
                  IsEnabled="{Binding CanEditLeftDetail}"
                  IsVisible="{Binding DetailShowsText}"
-                 Watermark="{Binding DetailLeftLabel}"
+                 PlaceholderText="{Binding DetailLeftLabel}"
                  MinHeight="0" Padding="5,1"
                  AcceptsReturn="False" Margin="0,0,0,1" />
 
@@ -414,7 +414,7 @@
                  FontFamily="{DynamicResource MonoFont}" FontSize="13"
                  IsEnabled="{Binding CanEditRightDetail}"
                  IsVisible="{Binding DetailShowsText}"
-                 Watermark="{Binding DetailRightLabel}"
+                 PlaceholderText="{Binding DetailRightLabel}"
                  MinHeight="0" Padding="5,1"
                  AcceptsReturn="False" />
 
