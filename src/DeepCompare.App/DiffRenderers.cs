@@ -32,6 +32,14 @@ public sealed record AlignedLine(
 
     /// <summary>塊の先頭の行か。**ここにだけ矢印を出す。**</summary>
     public bool IsBlockStart { get; init; }
+
+    /// <summary>
+    /// 対応の近さ（0〜1）。対になっていなければ null。
+    ///
+    /// **この道具の持ち味なので、数字で見せる。** 「なぜこの 2 行が
+    /// 並んでいるのか」の根拠がこれ。完全一致は「＝」で示す。
+    /// </summary>
+    public float? Score { get; init; }
 }
 
 /// <summary>

@@ -25,6 +25,10 @@ public partial class DiffEditorView : UserControl
         // そのまま相手へ写す。
         AttachedToVisualTree += (_, _) => HookScroll();
 
+        // 近さは右のペインだけに出す。
+        LeftPane.ShowScores = false;
+        RightPane.ShowScores = true;
+
         // 写しの矢印。左のものは右へ、右のものは左へ写す。
         LeftPane.ArrowColumn.ToRight = true;
         LeftPane.ArrowColumn.Apply = block => ApplyBlock?.Invoke(block, true);

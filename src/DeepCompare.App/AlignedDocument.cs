@@ -56,13 +56,13 @@ public sealed record AlignedDocument(string Text, IReadOnlyList<AlignedLine> Lin
                 leftText, leftInfo, row.Left, leftLines, row.LeftSpans,
                 changed, onlyHere: row.Left is not null && row.Right is null,
                 edited: row.Left is { } l && leftEdited?.Contains(l) == true,
-                last: i == rows.Count - 1, block: block, start: start);
+                last: i == rows.Count - 1, block: block, start: start, score: row.Score);
 
             AppendSide(
                 rightText, rightInfo, row.Right, rightLines, row.RightSpans,
                 changed, onlyHere: row.Right is not null && row.Left is null,
                 edited: row.Right is { } r && rightEdited?.Contains(r) == true,
-                last: i == rows.Count - 1, block: block, start: start);
+                last: i == rows.Count - 1, block: block, start: start, score: row.Score);
         }
 
         return (new AlignedDocument(leftText.ToString(), leftInfo),
@@ -80,7 +80,8 @@ public sealed record AlignedDocument(string Text, IReadOnlyList<AlignedLine> Lin
         bool edited,
         bool last,
         int block,
-        bool start)
+        bool start,
+        float? score)
     {
         if (source is { } at && at < lines.Count)
         {
@@ -89,6 +90,7 @@ public sealed record AlignedDocument(string Text, IReadOnlyList<AlignedLine> Lin
             {
                 BlockIndex = block,
                 IsBlockStart = start,
+                Score = score,
             });
         }
         else

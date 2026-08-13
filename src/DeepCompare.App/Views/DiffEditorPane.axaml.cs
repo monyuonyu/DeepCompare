@@ -59,6 +59,9 @@ public partial class DiffEditorPane : UserControl
         ArrowColumn.Attach(Editor.TextArea.TextView);
         Arrows.Content = ArrowColumn;
 
+        ScoreColumn.Attach(Editor.TextArea.TextView);
+        Scores.Content = ScoreColumn;
+
         // 折りたたみ。**差分から離れた一致行の連なりだけを畳む。**
         _folding = FoldingManager.Install(Editor.TextArea);
 
@@ -213,10 +216,25 @@ public partial class DiffEditorPane : UserControl
     /// <summary>写しの矢印。**このペインの左端に置く。**</summary>
     public ApplyArrowColumn ArrowColumn { get; } = new();
 
+    /// <summary>対応の近さ。**このペインの右端に置く。**</summary>
+    public ScoreColumn ScoreColumn { get; } = new();
+
+    /// <summary>
+    /// 近さを出すか。**右のペインだけ。**
+    /// 左にも出すと、画面の真ん中に数字が並んで本文の邪魔になる
+    /// （数字は左右で同じ値なので、片方で足りる）。
+    /// </summary>
+    public bool ShowScores
+    {
+        get => Scores.IsVisible;
+        set => Scores.IsVisible = value;
+    }
+
     public void Fill(AlignedDocument document, bool readOnly, Language? language = null)
     {
         _document = document;
         ArrowColumn.Update(document.Lines);
+        ScoreColumn.Update(document.Lines);
         _background.Update(document.Lines);
         _colorizer.Update(document.Lines, language);
         _numbers.Update(document.Lines);
