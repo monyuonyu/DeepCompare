@@ -226,6 +226,11 @@ public sealed class RemoteLocationTests
         // 合言葉が無ければそのまま。
         Assert.Equal("davs://例.com/dav/", RemoteLocation.Redact("davs://例.com/dav/"));
         Assert.Equal("/手元/の/場所", RemoteLocation.Redact("/手元/の/場所"));
+
+        // **利用者名だけなら伏せない。** 鍵で入る SFTP はこの形なので、
+        // `:***@` を足すと「合言葉を使っている」という嘘の印象になる。
+        Assert.Equal("sftp://利用者@主機/場所",
+            RemoteLocation.Redact("sftp://利用者@主機/場所"));
     }
 
     [Fact]

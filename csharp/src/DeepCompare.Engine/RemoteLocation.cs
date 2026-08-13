@@ -265,8 +265,15 @@ public static class RemoteLocation
 
         var userInfo = rest[..at];
         var colon = userInfo.IndexOf(':');
-        var user = colon >= 0 ? userInfo[..colon] : userInfo;
 
-        return location[..(scheme + 3)] + user + ":***@" + rest[(at + 1)..];
+        // **合言葉が書かれていなければ伏せない。** 鍵で入る SFTP は
+        // `sftp://利用者@主機` の形なので、`:***@` を足すと
+        // 「合言葉を使っている」という嘘の印象になる。
+        if (colon < 0)
+        {
+            return location;
+        }
+
+        return location[..(scheme + 3)] + userInfo[..colon] + ":***@" + rest[(at + 1)..];
     }
 }

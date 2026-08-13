@@ -29,11 +29,14 @@ internal static class Program
                                        s3://鍵:秘密@入口/バケツ/接頭辞
                                        ftp://利用者:合言葉@主機:番号/場所
                                        ftps://主機/場所         （明示的 TLS）
+                                       sftp://利用者@主機/場所  （**鍵で入る**）
                                      鍵は AWS_ACCESS_KEY_ID などからも拾う。
                                      **平文の FTP は合言葉がそのまま流れる。**
                                      相手が対応しているなら ftps:// を使う
                                      （自己署名の相手には
                                      DEEPCOMPARE_FTP_INSECURE=1 が要る）。
+                                     SFTP は ~/.ssh の鍵を順に試す。別の鍵なら
+                                     DEEPCOMPARE_SSH_KEY で指す。
                                      リモートは一時領域へ取ってくるので、
                                      --include / --exclude / --max-size で
                                      取る量を絞る（取らなかったものは必ず言う）
