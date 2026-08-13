@@ -81,7 +81,9 @@ public sealed class Bert
         for (var t = 0; t < seq; t++)
         {
             var row = hidden.AsSpan(t * HiddenSize, HiddenSize);
-            _wordEmbeddings.Row(tokenIds[t]).CopyTo(row);
+            // **語の埋め込みは int8 のまま置いてある**（多言語モデルで 384MB → 96MB）。
+            // ここで scale を掛けながら書き出す。
+            _wordEmbeddings.CopyRowTo(tokenIds[t], row);
             TensorPrimitives.Add(row, _positionEmbeddings.Row(t), row);
             TensorPrimitives.Add(row, tokenType, row);
         }

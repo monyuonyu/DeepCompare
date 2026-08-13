@@ -1,13 +1,73 @@
 namespace DeepCompare.Engine;
 
-/// <summary>読み込んだ重み 1 本。行優先で並んだ f32。</summary>
-public sealed record Tensor(float[] Data, int[] Shape)
+/// <summary>
+/// 読み込んだ重み 1 本。行優先。
+///
+/// 普通は f32 に戻して持つ。**ただし語の埋め込みだけは int8 のまま置く。**
+/// あれは 250,037 行 × 384 列で、f32 に戻すと 384MB になる。しかも使い方は
+/// 「行を 1 本引く」だけで、行列積をしない。引くときに scale を掛ければ
+/// 済むので、展開する理由が無い（96MB で足りる）。
+/// </summary>
+public sealed class Tensor
 {
+    private readonly float[]? _data;
+
+    // int8 のまま持つときの中身。行ごとに scale が 1 つ。
+    private readonly sbyte[]? _quantized;
+    private readonly float[]? _scales;
+
+    public int[] Shape { get; }
+
+    public Tensor(float[] data, int[] shape)
+    {
+        _data = data;
+        Shape = shape;
+    }
+
+    public Tensor(sbyte[] quantized, float[] scales, int[] shape)
+    {
+        _quantized = quantized;
+        _scales = scales;
+        Shape = shape;
+    }
+
     public int Rows => Shape[0];
     public int Cols => Shape.Length > 1 ? Shape[1] : 1;
 
-    /// <summary>行 r の先頭からの連続領域。行列積はこの単位で内積を取る。</summary>
+    /// <summary>int8 のまま持っているか。</summary>
+    public bool IsQuantized => _quantized is not null;
+
+    /// <summary>f32 で持っている中身。int8 のときは使えない。</summary>
+    public float[] Data => _data
+        ?? throw new InvalidOperationException(
+            "int8 のまま持っている重みです。Row / Data ではなく CopyRowTo を使ってください。");
+
+    /// <summary>
+    /// 行 r の先頭からの連続領域。行列積はこの単位で内積を取る。
+    ///
+    /// **int8 のときは断る。** 黙って別の物を返すと、桁が 100 倍違う値で
+    /// 計算が進み、結果だけが静かにおかしくなる。
+    /// </summary>
     public ReadOnlySpan<float> Row(int r) => Data.AsSpan(r * Cols, Cols);
+
+    /// <summary>
+    /// 行 r を書き出す。**どちらの持ち方でも動く唯一の取り出し方。**
+    /// </summary>
+    public void CopyRowTo(int r, Span<float> destination)
+    {
+        if (_quantized is null || _scales is null)
+        {
+            Row(r).CopyTo(destination);
+            return;
+        }
+
+        var scale = _scales[r];
+        var offset = r * Cols;
+        for (var c = 0; c < Cols; c++)
+        {
+            destination[c] = _quantized[offset + c] * scale;
+        }
+    }
 }
 
 /// <summary>
@@ -41,6 +101,15 @@ public static class DcmWeights
     /// 量子化誤差だけが乗るので触らない。
     /// </summary>
     public const int QuantizeMinElements = 4096;
+
+    /// <summary>
+    /// int8 のまま置いておく重みの名前。
+    ///
+    /// **語の埋め込みだけ。** 250,037 行 × 384 列で、f32 に戻すと 384MB になる。
+    /// 使い方は「行を 1 本引く」だけなので、展開する理由が無い。
+    /// 他の重みは行列積に掛けるので、f32 に戻した方が速い。
+    /// </summary>
+    public const string WordEmbeddingsName = "embeddings.word_embeddings.weight";
 
     public static Dictionary<string, Tensor> Load(ReadOnlySpan<byte> data)
     {
@@ -81,6 +150,20 @@ public static class DcmWeights
                     var cols = shape[1];
                     var scales = reader.F32Array(rows);
                     var quantized = reader.Take(numel);
+
+                    if (name == WordEmbeddingsName)
+                    {
+                        // **展開せずにそのまま持つ。** 多言語モデルではここだけで
+                        // 384MB を食い、しかも読み込み時間の大半がこのループになる。
+                        var kept = new sbyte[numel];
+                        for (var k = 0; k < numel; k++)
+                        {
+                            kept[k] = (sbyte)quantized[k];
+                        }
+                        result[name] = new Tensor(kept, scales, shape);
+                        continue;
+                    }
+
                     values = new float[numel];
                     for (var r = 0; r < rows; r++)
                     {
