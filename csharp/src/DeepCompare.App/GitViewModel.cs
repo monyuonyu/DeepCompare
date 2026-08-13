@@ -299,6 +299,12 @@ public sealed class GitViewModel : ViewModelBase
             row => WriteAsync(
                 $"{row.ShortHash} の変更をいまの枝に載せました",
                 r => r.CherryPick(row.Commit.Hash)));
+        StagePartlyCommand = new RelayCommand<GitFileRow>(
+            row => { StagePartly(row); return Task.CompletedTask; },
+            // 索引に載っていて、作業ツリーが汚れているものだけ。未追跡は
+            // 「索引の中身」が無いので、塊で分ける意味が無い。
+            row => row.Status.IsDirty && row.Status.Index != GitStatusCode.Untracked
+                   && !row.Status.IsConflicted);
         ResolveCommand = new RelayCommand<GitFileRow>(
             row => { Resolve(row); return Task.CompletedTask; },
             row => row.Status.IsConflicted);
@@ -377,6 +383,7 @@ public sealed class GitViewModel : ViewModelBase
     public RelayCommand<GitCommitRow> OpenCommitCommand { get; }
     public RelayCommand<GitCommitFileRow> OpenCommitFileCommand { get; }
     public RelayCommand<GitFileRow> ResolveCommand { get; }
+    public RelayCommand<GitFileRow> StagePartlyCommand { get; }
     public RelayCommand<GitCommitRow> CheckoutCommand { get; }
     public RelayCommand<GitCommitRow> BranchHereCommand { get; }
     public RelayCommand<GitCommitRow> RevertCommand { get; }
@@ -709,6 +716,23 @@ public sealed class GitViewModel : ViewModelBase
                 ? repository.Show("HEAD", path[5..])
                 : File.ReadAllBytes(path),
             leftReadOnly: true, rightReadOnly: false);
+    }
+
+    /// <summary>
+    /// 索引と作業ツリーを並べ、塊ごとに索引へ載せる（hunk 単位の stage）。
+    ///
+    /// **git add -p の代わり。** あちらは端末で 1 塊ずつ y/n を答える形で、
+    /// 前後の文脈が見えない。並べて見ながら選べる方が間違えにくい。
+    /// </summary>
+    private void StagePartly(GitFileRow row)
+    {
+        if (_repository is not { } repository)
+        {
+            return;
+        }
+        // 索引へ載せたら一覧を読み直す。**載ったことが画面に出ないと、
+        // 押したのかどうか分からない。**
+        _shell.ShowIndexAgainstWorkTree(repository, row.Status.Path, () => _ = RefreshAsync());
     }
 
     /// <summary>

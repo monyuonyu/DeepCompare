@@ -123,6 +123,12 @@
                               CommandParameter="{Binding}">
                         <Path Classes="icon" Data="{StaticResource IconOpen}" />
                       </Button>
+                      <Button Classes="icon"
+                              ToolTip.Tip="塊ごとに索引へ載せる（git add -p に当たる）"
+                              Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).StagePartlyCommand}"
+                              CommandParameter="{Binding}">
+                        <Path Classes="icon" Data="{StaticResource IconStagePartly}" />
+                      </Button>
                       <Button Classes="icon" ToolTip.Tip="索引へ載せる（stage）"
                               Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).StageCommand}"
                               CommandParameter="{Binding}">

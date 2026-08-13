@@ -39,6 +39,19 @@ public sealed class TextCompareViewModel : ViewModelBase
     /// </summary>
     public bool LeftReadOnly { get; set; }
 
+    /// <summary>
+    /// 保存の受け取り手。null ならファイルへ書く。
+    ///
+    /// **git の索引へ書き戻すために要る。** 索引はファイルではないので、
+    /// パスへ書く経路では届かない。hunk 単位の stage がこれで成り立つ。
+    /// </summary>
+    public Func<IReadOnlyList<string>, DecodedText, Task>? LeftSaveHandler { get; set; }
+    public Func<IReadOnlyList<string>, DecodedText, Task>? RightSaveHandler { get; set; }
+
+    /// <summary>保存のボタンに出す言葉。用途で変わる。</summary>
+    public string LeftSaveLabel { get; set; } = "左を保存";
+    public string RightSaveLabel { get; set; } = "右を保存";
+
     public bool RightReadOnly { get; set; }
 
     // 編集の対象。読み込んだ時点の符号化と改行を保つため、DecodedText も持っておく。
@@ -1148,8 +1161,16 @@ public sealed class TextCompareViewModel : ViewModelBase
 
         try
         {
-            var bytes = TextEncoder.Encode(document.Lines, source);
-            await File.WriteAllBytesAsync(path, bytes);
+            var handler = left ? LeftSaveHandler : RightSaveHandler;
+            if (handler is not null)
+            {
+                await handler(document.Lines, source);
+            }
+            else
+            {
+                var bytes = TextEncoder.Encode(document.Lines, source);
+                await File.WriteAllBytesAsync(path, bytes);
+            }
             document.MarkSaved();
             RaiseEditState();
             StatusText = $"{path} を保存した（{document.Lines.Count} 行）";

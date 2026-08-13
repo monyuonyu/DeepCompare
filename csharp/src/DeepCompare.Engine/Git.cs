@@ -554,6 +554,66 @@ public sealed class GitRepository
         => Run(["log", "-1", "--format=%B", revision]).StandardOutput.TrimEnd('\n', '\r');
 
     /// <summary>
+    /// 索引に載っている中身（stage 0）。
+    ///
+    /// **HEAD とも作業ツリーとも違う。** 一部だけ stage した状態では、この 3 つが
+    /// 全部別物になる。hunk 単位の stage は「索引 → 作業ツリー」の差を扱うので、
+    /// ここが起点になる。
+    /// </summary>
+    public byte[] IndexContent(string path)
+    {
+        var result = RunRaw(["show", $":{ToRelative(path)}"]);
+        // 索引に無い（未追跡・削除済み）なら空。**異常ではない。**
+        return result.ExitCode == 0 ? result.StandardOutputBytes : [];
+    }
+
+    /// <summary>索引に載っているか。未追跡と削除済みを見分けるのに使う。</summary>
+    public bool IsInIndex(string path)
+        => Run(["ls-files", "--error-unmatch", "--", ToRelative(path)], allowFailure: true)
+            .ExitCode == 0;
+
+    /// <summary>
+    /// 索引に載っているファイルの権限（<c>100644</c> か <c>100755</c> など）。
+    ///
+    /// **索引を書き換えるときに要る。** 決め打ちにすると、実行権限の付いた
+    /// ファイルを stage したときに権限が落ちる。
+    /// </summary>
+    public string IndexMode(string path)
+    {
+        var output = Run(["ls-files", "--stage", "-z", "--", ToRelative(path)]).StandardOutput;
+        var space = output.IndexOf(' ');
+        // 新しいファイル（索引に無い）は普通の権限で作る。
+        return space > 0 ? output[..space] : "100644";
+    }
+
+    /// <summary>
+    /// 中身から blob を作り、その名前を返す。
+    ///
+    /// <c>-w</c> を付けるので**物として書き込まれる**。これをしないと、
+    /// 索引から参照した瞬間に「そんな物は無い」と言われる。
+    /// </summary>
+    public string HashObject(byte[] content)
+        => RunWithInput(["hash-object", "-w", "--stdin"], content).StandardOutput.Trim();
+
+    /// <summary>
+    /// 索引の 1 項目を、指定した blob に差し替える。
+    ///
+    /// **作業ツリーには触らない。** ここが hunk 単位の stage の要で、
+    /// 「作業ツリーはそのまま、索引だけ一部を進める」を実現する。
+    /// </summary>
+    public void UpdateIndex(string path, string blob, string mode)
+        => Run(["update-index", "--add", "--cacheinfo", $"{mode},{blob},{ToRelative(path)}"]);
+
+    /// <summary>
+    /// 中身をそのまま索引へ載せる。作業ツリーは変えない。
+    ///
+    /// hunk 単位の stage はこれを使う。**一部だけ採った中身**を索引に置くので、
+    /// 索引・作業ツリー・HEAD の 3 つが全部違う状態になる（それが正しい）。
+    /// </summary>
+    public void StageContent(string path, byte[] content)
+        => UpdateIndex(path, HashObject(content), IndexMode(path));
+
+    /// <summary>
     /// 競合しているファイルの、索引に積まれた 3 つの中身。
     ///
     /// <paramref name="stage"/> は 1=共通の祖先、2=こちら（ours）、3=むこう（theirs）。
@@ -725,6 +785,17 @@ public sealed class GitRepository
 
     private GitResult RunRaw(string[] arguments) => Execute(_git, Root, arguments, binary: true);
 
+    private GitResult RunWithInput(string[] arguments, byte[] input)
+    {
+        var result = Execute(_git, Root, arguments, input: input);
+        if (result.ExitCode != 0)
+        {
+            throw new GitException(
+                $"git {string.Join(' ', arguments)} が失敗しました: {result.StandardError.Trim()}");
+        }
+        return result;
+    }
+
     private sealed record GitResult(
         int ExitCode,
         string StandardOutput,
@@ -732,7 +803,8 @@ public sealed class GitRepository
         byte[] StandardOutputBytes);
 
     private static GitResult Execute(
-        string git, string workingDirectory, string[] arguments, bool binary = false)
+        string git, string workingDirectory, string[] arguments,
+        bool binary = false, byte[]? input = null)
     {
         var info = new ProcessStartInfo
         {
@@ -740,6 +812,7 @@ public sealed class GitRepository
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            RedirectStandardInput = input is not null,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
@@ -758,6 +831,15 @@ public sealed class GitRepository
 
         using var process = new Process { StartInfo = info };
         process.Start();
+
+        // 標準入力へ渡すものがあれば**先に書いて閉じる**。閉じないと相手は
+        // 終わりを知れず、こちらは相手の終了を待つ形で止まる。
+        if (input is not null)
+        {
+            process.StandardInput.BaseStream.Write(input);
+            process.StandardInput.BaseStream.Flush();
+            process.StandardInput.Close();
+        }
 
         // **両方の流れを同時に読む。** 片方を読み切ってからもう片方へ回ると、
         // 先に埋まったパイプで相手が書き込みを待ち、こちらは読み終わらない。

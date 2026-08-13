@@ -149,6 +149,12 @@
   <StreamGeometry x:Key="IconStage">M12,19 v-13 M7,11 l5,-5 l5,5 M4,3.5 h16</StreamGeometry>
   <StreamGeometry x:Key="IconUnstage">M12,5 v13 M7,13 l5,5 l5,-5 M4,20.5 h16</StreamGeometry>
 
+  <!--
+    塊ごとに索引へ載せる: 上向きの矢印の隣に、選んだ塊と選ばなかった塊。
+    **全部載せる（IconStage）と見分けが付く形にする。**
+  -->
+  <StreamGeometry x:Key="IconStagePartly">M7,19 v-13 M3.5,9.5 l3.5,-3.5 l3.5,3.5 M13,7 h7.5 M13,12 h7.5 M13,17 h7.5</StreamGeometry>
+
   <!-- 開く（別の場所で詳しく見る） -->
   <StreamGeometry x:Key="IconOpen">M10,4.5 h-5.5 v15 h15 v-5.5 M14.5,3.5 h6 v6 M20.5,3.5 l-9,9</StreamGeometry>
 

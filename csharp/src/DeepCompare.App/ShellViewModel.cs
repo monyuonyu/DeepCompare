@@ -491,4 +491,42 @@ public sealed class ShellViewModel : ViewModelBase
         model.CompareCommand.Execute(null);
     }
 
+    /// <summary>
+    /// 索引と作業ツリーを並べ、**塊ごとに索引へ載せる**（BC には無い、
+    /// SourceTree の hunk 単位 stage に当たるもの）。
+    ///
+    /// 左が索引、右が作業ツリー。右から左へ写せば「その塊だけ stage」、
+    /// 左から右へ写せば「その塊だけ元に戻す」。
+    ///
+    /// **作業ツリー側は普通に保存できる。** 索引側は保存でファイルへ書かず、
+    /// 索引を書き換える。
+    /// </summary>
+    public void ShowIndexAgainstWorkTree(
+        GitRepository repository, string relativePath, Action? afterSave = null)
+    {
+        var absolute = System.IO.Path.Combine(repository.Root, relativePath);
+        var indexLabel = $"索引:{relativePath}";
+
+        var model = new TextCompareViewModel(this)
+        {
+            ContentLoader = path => path == indexLabel
+                ? repository.IndexContent(relativePath)
+                : File.ReadAllBytes(path),
+            LeftPath = indexLabel,
+            RightPath = absolute,
+            LeftSaveLabel = "索引へ載せる",
+            // 索引はファイルではないので、パスへ書く経路では届かない。
+            LeftSaveHandler = (lines, source) =>
+            {
+                repository.StageContent(relativePath, TextEncoder.Encode(lines, source));
+                afterSave?.Invoke();
+                return Task.CompletedTask;
+            },
+        };
+
+        var tab = Add($"stage {System.IO.Path.GetFileName(relativePath)}", model,
+            $"{indexLabel}\n{absolute}");
+        model.Tab = tab;
+        model.CompareCommand.Execute(null);
+    }
 }

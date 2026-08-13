@@ -288,6 +288,114 @@ public sealed class GitRepositoryTests : IDisposable
     }
 
     [Fact]
+    public void 一部だけ索引へ載せると三つが別物になる()
+    {
+        // **これが hunk 単位の stage の要。** 索引・作業ツリー・HEAD が
+        // それぞれ別の中身になる状態を作れないと、「一部だけ stage」は表現できない。
+        WriteFile("a.txt", "1\n2\n3\n");
+        Git("add", "-A");
+        Git("commit", "-m", "最初");
+
+        // 作業ツリーで 2 か所直す。
+        WriteFile("a.txt", "1 を直した\n2\n3 も直した\n");
+
+        var repository = Open();
+
+        // そのうち 1 か所だけを索引へ載せる。
+        var partial = new UTF8Encoding(false).GetBytes("1 を直した\n2\n3\n");
+        repository.StageContent("a.txt", partial);
+
+        var head = new UTF8Encoding(false).GetString(repository.Show("HEAD", "a.txt"));
+        var index = new UTF8Encoding(false).GetString(repository.IndexContent("a.txt"));
+        var work = File.ReadAllText(Path.Combine(_root, "a.txt"));
+
+        Assert.Equal("1\n2\n3\n", head);
+        Assert.Equal("1 を直した\n2\n3\n", index);
+        Assert.Equal("1 を直した\n2\n3 も直した\n", work);
+
+        // git 自身も「索引に載った分」と「まだの分」の両方を認めるはず。
+        var status = repository.Status().Single(f => f.Path == "a.txt");
+        Assert.Equal(GitStatusCode.Modified, status.Index);
+        Assert.Equal(GitStatusCode.Modified, status.WorkTree);
+    }
+
+    [Fact]
+    public void 索引へ載せても作業ツリーは変わらない()
+    {
+        WriteFile("a.txt", "作業ツリーの中身\n");
+        Git("add", "-A");
+        Git("commit", "-m", "最初");
+        WriteFile("a.txt", "書き換えた\n");
+
+        Open().StageContent("a.txt", new UTF8Encoding(false).GetBytes("索引だけの中身\n"));
+
+        // **作業ツリーには触らない。** ここが崩れると、直しかけの内容が消える。
+        Assert.Equal("書き換えた\n", File.ReadAllText(Path.Combine(_root, "a.txt")));
+    }
+
+    [Fact]
+    public void 実行権限を保つ()
+    {
+        // 権限を決め打ちにすると、実行できたファイルが stage しただけで
+        // 実行できなくなる。
+        WriteFile("run.sh", "#!/bin/sh\necho a\n");
+        Git("add", "-A");
+        Git("update-index", "--chmod=+x", "run.sh");
+        Git("commit", "-m", "最初");
+
+        var repository = Open();
+        Assert.Equal("100755", repository.IndexMode("run.sh"));
+
+        repository.StageContent("run.sh", new UTF8Encoding(false).GetBytes("#!/bin/sh\necho b\n"));
+        Assert.Equal("100755", repository.IndexMode("run.sh"));
+    }
+
+    [Fact]
+    public void 索引に無いファイルは空を返す()
+    {
+        WriteFile("追跡していない.txt", "x\n");
+
+        var repository = Open();
+        Assert.Empty(repository.IndexContent("追跡していない.txt"));
+        Assert.False(repository.IsInIndex("追跡していない.txt"));
+        // 新しいファイルは普通の権限で作る。
+        Assert.Equal("100644", repository.IndexMode("追跡していない.txt"));
+    }
+
+    [Fact]
+    public void 同じ中身なら同じ名前になる()
+    {
+        WriteFile("a.txt", "x\n");
+        Git("add", "-A");
+        Git("commit", "-m", "最初");
+
+        var repository = Open();
+        var content = new UTF8Encoding(false).GetBytes("同じ中身\n");
+
+        // blob の名前は中身だけで決まる。**呼ぶたびに変わったら索引が壊れる。**
+        Assert.Equal(repository.HashObject(content), repository.HashObject(content));
+        Assert.NotEqual(
+            repository.HashObject(content),
+            repository.HashObject(new UTF8Encoding(false).GetBytes("違う中身\n")));
+    }
+
+    [Fact]
+    public void 大きい中身を渡しても固まらない()
+    {
+        // 標準入力へ書いた後に閉じないと、相手は終わりを知れず、
+        // こちらは相手の終了を待つ形で止まる。**1MB 程度で確実に起きる。**
+        WriteFile("a.txt", "x\n");
+        Git("add", "-A");
+        Git("commit", "-m", "最初");
+
+        var big = new byte[1024 * 1024];
+        Array.Fill(big, (byte)'a');
+
+        var hash = Open().HashObject(big);
+        Assert.Equal(40, hash.Length);
+    }
+
+    [Fact]
     public void 競合している三つの中身を取る()
     {
         WriteFile("a.txt", "祖先\n");
