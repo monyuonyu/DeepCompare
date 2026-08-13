@@ -80,6 +80,9 @@ public partial class DiffEditorPane : UserControl
         ScoreColumn.Attach(Editor.TextArea.TextView);
         Scores.Content = ScoreColumn;
 
+        _ruler.Attach(Editor.TextArea.TextView);
+        Ruler.Content = _ruler;
+
         // 折りたたみ。**差分から離れた一致行の連なりだけを畳む。**
         _folding = FoldingManager.Install(Editor.TextArea);
 
@@ -236,6 +239,18 @@ public partial class DiffEditorPane : UserControl
 
     /// <summary>対応の近さ。**このペインの右端に置く。**</summary>
     public ScoreColumn ScoreColumn { get; } = new();
+
+    private readonly RulerRow _ruler = new();
+
+    /// <summary>
+    /// 桁の目盛りを出すか。
+    /// **固定長のデータで要る** — どの桁がずれたのかを数えられないと直せない。
+    /// </summary>
+    public bool ShowRuler
+    {
+        get => Ruler.IsVisible;
+        set => Ruler.IsVisible = value;
+    }
 
     /// <summary>
     /// 近さを出すか。**右のペインだけ。**

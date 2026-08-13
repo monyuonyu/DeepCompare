@@ -53,6 +53,14 @@
         </StackPanel>
         <TextBlock Classes="hint" Margin="102,0,0,0" TextWrapping="Wrap"
                    Text="大きなファイルで待たされるときに。変数名を変えた行は対応しなくなります。" />
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Text="桁の目盛り" VerticalAlignment="Center" Width="90" />
+          <CheckBox IsChecked="{Binding Shell.ShowRuler}"
+                    Content="本文の上に桁数を出す" />
+        </StackPanel>
+        <TextBlock Classes="hint" Margin="102,0,0,0" TextWrapping="Wrap"
+                   Text="固定長のデータで、どの桁がずれたのかを数えたいときに。" />
       </StackPanel>
 
       <Border Height="1" Background="{DynamicResource Divider}" />

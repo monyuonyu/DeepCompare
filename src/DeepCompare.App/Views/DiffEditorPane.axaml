@@ -17,9 +17,12 @@
     境目が「矢印の列」を広げてしまい、本文と矢印が離れて残る。
     まとまりを 1 つにして、境目には「本文のまとまり」だけを見せる。
   -->
-  <Grid ColumnDefinitions="Auto,*,Auto">
-  <ContentControl x:Name="Arrows" Grid.Column="0" />
-  <ae:TextEditor x:Name="Editor" Grid.Column="1"
+  <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,*">
+  <!-- 桁の目盛り。**本文の上に貼る。** 出すかどうかは切り替えられる -->
+  <ContentControl x:Name="Ruler" Grid.Row="0" Grid.Column="1" IsVisible="False" />
+
+  <ContentControl x:Name="Arrows" Grid.Row="1" Grid.Column="0" />
+  <ae:TextEditor x:Name="Editor" Grid.Row="1" Grid.Column="1"
                  ShowLineNumbers="False"
                  WordWrap="False"
                  HorizontalScrollBarVisibility="Auto"
@@ -32,6 +35,6 @@
     対応の近さ。**右端に置く。** 本文を読む邪魔をせず、
     気になったときだけ目を向けられる位置。
   -->
-  <ContentControl x:Name="Scores" Grid.Column="2" />
+  <ContentControl x:Name="Scores" Grid.Row="1" Grid.Column="2" />
   </Grid>
 </UserControl>

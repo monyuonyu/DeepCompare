@@ -143,6 +143,17 @@ public partial class DiffEditorView : UserControl
         }
     }
 
+    /// <summary>桁の目盛りを出すか。左右そろって。</summary>
+    public bool ShowRuler
+    {
+        get => LeftPane.ShowRuler;
+        set
+        {
+            LeftPane.ShowRuler = value;
+            RightPane.ShowRuler = value;
+        }
+    }
+
     /// <summary>一致行を畳む／開く。左右そろって。</summary>
     public void SetFolded(bool folded)
     {

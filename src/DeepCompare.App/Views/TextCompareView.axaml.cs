@@ -85,6 +85,11 @@ public partial class TextCompareView : UserControl
                 model.OverUnderChanged += OnOverUnder;
                 Editors.OverUnder = model.OverUnder;
 
+                // 桁の目盛り。設定から切り替える。
+                Editors.ShowRuler = model.Shell.ShowRuler;
+                model.Shell.PropertyChanged -= OnShellChanged;
+                model.Shell.PropertyChanged += OnShellChanged;
+
                 // 行が変わったら本文をそこへ動かす（地図・次の差分へ・Ctrl+G）。
                 model.GoToLineRequested -= OnGoToLine;
                 model.GoToLineRequested += OnGoToLine;
@@ -247,6 +252,15 @@ public partial class TextCompareView : UserControl
     private void OnWordWrap(object? sender, bool wrap) => Editors.WordWrap = wrap;
 
     private void OnOverUnder(object? sender, bool over) => Editors.OverUnder = over;
+
+    private void OnShellChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ShellViewModel.ShowRuler)
+            && DataContext is TextCompareViewModel model)
+        {
+            Editors.ShowRuler = model.Shell.ShowRuler;
+        }
+    }
 
     private void OnViewport(object? sender, (double Start, double Size) range)
     {

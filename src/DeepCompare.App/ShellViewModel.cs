@@ -175,6 +175,20 @@ public sealed class ShellViewModel : ViewModelBase
         set => Set(ref _useEditorPane, value);
     }
 
+    private bool _showRuler;
+
+    /// <summary>
+    /// 桁の目盛りを出すか。
+    ///
+    /// **設定に置く。** 固定長のデータを扱う人には要るが、
+    /// 大半の人には一度も要らない。ツールバーの席を 1 つ使う価値は無い。
+    /// </summary>
+    public bool ShowRuler
+    {
+        get => _showRuler;
+        set => Set(ref _showRuler, value);
+    }
+
     /// <summary>起動画面に出す、パスからは決まらないもの。</summary>
     public IReadOnlyList<CompareKind> SpecialKinds { get; }
 
