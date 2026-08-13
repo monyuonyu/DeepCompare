@@ -60,6 +60,20 @@ public partial class DiffEditorView : UserControl
         RightPane.ScrollToFraction(fraction);
     }
 
+    /// <summary>
+    /// 長い行を折り返すか。**左右そろえる。**
+    /// 片方だけ折り返すと、同じ行が上下にずれて並ぶ。
+    /// </summary>
+    public bool WordWrap
+    {
+        get => LeftPane.WordWrap;
+        set
+        {
+            LeftPane.WordWrap = value;
+            RightPane.WordWrap = value;
+        }
+    }
+
     /// <summary>一致行を畳む／開く。左右そろって。</summary>
     public void SetFolded(bool folded)
     {

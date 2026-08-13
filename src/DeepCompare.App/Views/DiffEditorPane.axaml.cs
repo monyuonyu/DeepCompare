@@ -32,6 +32,24 @@ public partial class DiffEditorPane : UserControl
     /// </summary>
     private bool _foldByDefault;
 
+    /// <summary>
+    /// 長い行を折り返すか。
+    ///
+    /// **折り返すと行の高さが変わる。** 左右で折り返し方が違うと縦が
+    /// ずれるので、左右そろえて切り替える（呼ぶ側の仕事）。
+    /// </summary>
+    public bool WordWrap
+    {
+        get => Editor.WordWrap;
+        set
+        {
+            Editor.WordWrap = value;
+            // 折り返しの有無で行の位置が全部変わる。脇の列も描き直す。
+            ArrowColumn.InvalidateVisual();
+            ScoreColumn.InvalidateVisual();
+        }
+    }
+
     /// <summary>畳む／開くをまとめて切り替える。</summary>
     public void SetFolded(bool folded)
     {

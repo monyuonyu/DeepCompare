@@ -139,6 +139,14 @@
                         ToolTip.Tip="空白・タブを記号で見せる">
             <Path Classes="icon" Data="{StaticResource IconWhitespace}" />
           </ToggleButton>
+          <!--
+            長い行の折り返し。**既定は折り返さない** — 1 行が何行にも
+            見えると、左右を数えて見比べるときに数が合わなくなる。
+          -->
+          <ToggleButton Classes="filter" IsChecked="{Binding WordWrap}"
+                        ToolTip.Tip="長い行を折り返す">
+            <Path Classes="icon" Data="{StaticResource IconWordWrap}" />
+          </ToggleButton>
           <ToggleButton Classes="filter" IsChecked="{Binding FullEdit}"
                         ToolTip.Tip="本文の中で直接直す（選んだ行が入力欄になります）">
             <Path Classes="icon" Data="{StaticResource IconEdit}" />

@@ -211,6 +211,9 @@
   <StreamGeometry x:Key="IconWinRestore">M6,8 h13 v13 h-13 Z M8.5,8 V5 h13 v13 h-2.5</StreamGeometry>
   <StreamGeometry x:Key="IconWinClose">M3,3 L21,21 M21,3 L3,21</StreamGeometry>
 
+  <!-- 長い行の折り返し。行末で下へ回り込む矢印 -->
+  <StreamGeometry x:Key="IconWordWrap">M3,6 h18 M3,12 h13 a3,3 0 0 1 0,6 h-6 M9,15 l-3,3 l3,3 M3,21 h6</StreamGeometry>
+
   <StreamGeometry x:Key="IconCheck">M4,12.5 l5,5 l11,-11</StreamGeometry>
   <StreamGeometry x:Key="IconPlus">M12,4.5 v15 M4.5,12 h15</StreamGeometry>
 

@@ -32,6 +32,30 @@ public sealed class TextCompareViewModel : ViewModelBase
     /// <summary>揃えた本文が入れ替わったときに上がる。</summary>
     public event EventHandler? AlignedChanged;
 
+    private bool _wordWrap;
+
+    /// <summary>
+    /// 長い行を折り返すか。
+    ///
+    /// **既定は折り返さない。** 折り返すと 1 行が何行にも見え、
+    /// 左右を数えて見比べるときに数が合わなくなる。長い行を読みたい
+    /// ときだけ入れる。
+    /// </summary>
+    public bool WordWrap
+    {
+        get => _wordWrap;
+        set
+        {
+            if (Set(ref _wordWrap, value))
+            {
+                WordWrapChanged?.Invoke(this, value);
+            }
+        }
+    }
+
+    /// <summary>折り返しが切り替わったときに上がる。**画面側が部品へ伝える。**</summary>
+    public event EventHandler<bool>? WordWrapChanged;
+
     /// <summary>
     /// いま扱っている言語。**構文の色分けに使う。**
     /// 拡張子から決まるので、比較のたびに入れ直す。
