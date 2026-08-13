@@ -11,7 +11,6 @@
 **移動**として扱われている。
 
 どのくらい似ていれば同じ行と見るかは、画面から調整できる。
-自動の判断を外したいときは、右クリックで手動で繋げる。
 
 こういうものを比べられる:
 
@@ -25,12 +24,11 @@
 | Office（.docx / .xlsx / .pptx） | 本文だけを取り出す |
 | 画像 | 画素で比べる。大きさが違っても重なる範囲は比べる |
 | 実行ファイル | 版・会社名・説明を並べる |
-| Git | 作業ツリーと履歴。塊ごとに索引へ載せられる |
+| Git | 作業ツリーと履歴。変更の塊ごとにコミットへ含められる |
 | 書庫（zip / tar / tar.gz） | 中身をフォルダーとして扱う |
 | リモート | `sftp://` `s3://` `dav://` `ftp://` をパスの位置に書ける |
 
-**入れるものは 1 つだけ。** 実行ファイルとモデルを置けば動く。Python も
-ランタイムも要らない。Windows と Linux で動く。
+Windows と Linux で動く。**インストールは要らない**（落として展開するだけ）。
 
 ---
 
@@ -108,34 +106,21 @@
 
 ![Git](docs/images/git.png)
 
-作業ツリーと履歴。**変更の塊ごとにコミットへ含められる。** 差分の見え方は
-テキスト比較と同じなので、変数名を変えた行も並んで見える。
-
+差分の見え方はテキスト比較と同じなので、変数名を変えた行も並んで見える。
 コミット・枝の作成と切り替え・取得・送信・打ち消し、衝突の解決までできる。
 
-## 日本語を比べるなら、モデルを差し替える
+## 日本語ならモデルを差し替える
 
 **既定のモデルは英語向けで、日本語ではうまく対応付けられない。**
 濁点が落ちるので「バグ」と「ハク」を同じ行と見る。日本語が半分を超える
 ファイルを開くと、その旨を画面に出す。
 
-日本語を扱うなら、多言語モデルを置く:
+日本語を扱うなら、多言語モデルを置く。**リリースには含めていない**
+（114MB 増え、起動が 2 秒ほど遅くなるので、要る人だけが置く形にした）。
 
-    B=https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2/resolve/main
-    curl -sSLO $B/model.safetensors
-    curl -sSL -o unigram.json $B/unigram.json
-
-    # 語彙を「トークン<TAB>スコア」の形へ
-    python3 -c "import json;d=json.load(open('unigram.json'));print('\n'.join(f'{t}\t{s}' for t,s in d['vocab']))" \
-        > multilingual.vocab
-
-    dotnet run --project src/DeepCompare.ModelPrep/DeepCompare.ModelPrep.csproj -c Release \
-        -- model.safetensors multilingual.dcm
-
-`multilingual.dcm` と `multilingual.vocab` を**実行ファイルと同じ場所に、対で**置く。
+作り方は[後半](#多言語モデルを作る)にある。作った `multilingual.dcm` と
+`multilingual.vocab` を**実行ファイルと同じ場所に、対で**置けばよい。
 GUI なら設定から選べる。CLI なら `--model multilingual.dcm`。
-
-**置くと 114MB 増え、起動が 2 秒ほど遅くなる。** 日本語を扱わないなら要らない。
 
 どのくらい効くかを測った表は [docs/design.md](docs/design.md) にある。
 
@@ -145,11 +130,18 @@ GUI なら設定から選べる。CLI なら `--model multilingual.dcm`。
 
 遠隔での検証や CI で、別環境の出力と機械的に突き合わせるために用意した。
 
-    deepcompare --print 左 右 -o 出力    比較結果を 1 行 1 レコードのテキストで出す
-    deepcompare --font-check             日本語を表示できる書体があるかを調べる
+    deepcompare --print 左 右          行を対応付けて 1 行 1 レコードで出す
+    deepcompare --print-folder 左 右   フォルダーを比べて一覧にする
+    deepcompare --print-json 左 右     構造として比べる（JSON / XML / TOML / YAML）
+    deepcompare --print-table 左 右    表として比べる（--key で行を照合）
+    deepcompare --secrets ファイル     秘密が混ざっていないか調べる
+    deepcompare --invisible ファイル   「同じに見えるのに一致しない」原因を調べる
 
-`-o` があるのは Windows の都合で、GUI サブシステムの exe には標準出力が繋がらないため
-コンソールから実行しても何も見えない。
+**終了コードが差分の有無を表す**（0 差異なし / 1 差異あり / 2 異常）ので、
+そのまま CI の判定に使える。`--help` に全部載っている。
+
+`-o 出力` を付けるとファイルへ書く。Windows の GUI 版 exe には標準出力が
+繋がらないので、遠隔から結果を回収するときはこれを使う。
 
 ## LLM に助けてもらう（任意）
 
@@ -169,22 +161,22 @@ git の状態を平易な言葉で説明し、次にできることを挙げる�
 
 GUI では Git 画面に「いまの状態を説明」「草案をもらう」が出る。
 
-**LLM に git を実行させない。** 提案として返せるのは決まった操作の一覧
-（commit / pull / push / stash / …）からの選択だけで、実際に走るのはアプリ側の
-決め打ちのコードパス。リポジトリの中身に「すべて削除せよ」と書いてあっても
-命令にならないのは、信用しているからではなく**通す経路が無いから**。
-force push・reset --hard・リベースは一覧にすら入れていない。
+**7B 以上のモデルを勧める。** それより小さいと、状態の説明が「現在の
+リポジトリの状態は以下の通りです」で終わって中身が無い。CPU では 1 分ほどかかる。
 
-衝突の**解決案**だけは既定で出さない。説明と違い、意味を取り違えると害になる
-生成で、**7B でも平気で間違える**（引数を 1 つ落としたまま、構文としては正しい
-コードを出してくる）。`--assist-allow-resolution` で明示的に許すまで通信もしない。
+安全のために決めていること:
 
-鍵は設定ファイルに置かない（平文で残り、バックアップにも同期にも乗る）。
-外部 API を使うなら `DEEPCOMPARE_ASSIST_KEY` に入れる。
+- **LLM に git を実行させない。** 返せるのは決まった操作（commit / pull /
+  push / stash / …）からの選択だけ。リポジトリの中身に「すべて削除せよ」と
+  書いてあっても命令にならないのは、**通す経路が無いから**。
+  force push・reset --hard・リベースは選択肢にすら入れていない
+- **衝突の解決案は既定で出さない。** 説明と違って意味を取り違えると害になり、
+  7B でも平気で間違える（引数を 1 つ落としたまま、構文としては正しいコードを
+  出してくる）。`--assist-allow-resolution` で許すまで通信もしない
+- **鍵は設定ファイルに置かない**（平文で残り、バックアップにも同期にも乗る）。
+  外部 API を使うなら `DEEPCOMPARE_ASSIST_KEY` に入れる
 
-**7B 以上を勧める。** それより小さいと、状態の説明が「現在のリポジトリの状態は
-以下の通りです」で終わって中身が無い。CPU では 7B で 1 分ほどかかる。
-実際に測った結果は [docs/design.md](docs/design.md)。
+測った結果は [docs/design.md](docs/design.md) にある。
 
 ---
 
@@ -205,6 +197,9 @@ force push・reset --hard・リベースは一覧にすら入れていない。
 **依存の向きを構造で示している。** Engine は Assist を知らないので、
 比較の経路に通信が紛れ込む余地が無い。App だけが両方を知る。
 
+比べ方を変えたいなら `Engine`、見え方を変えたいなら `App`。
+**Engine は画面を持たないので、CLI と試験だけで確かめられる。**
+
 ---
 
 ## ビルド
@@ -213,7 +208,7 @@ force push・reset --hard・リベースは一覧にすら入れていない。
 
     dotnet run --project src/DeepCompare.App/DeepCompare.App.csproj
 
-試験:
+試験（749 件と 40 件。GUI に依存しないので画面の無い環境でも走る）:
 
     dotnet test tests/DeepCompare.Engine.Tests/DeepCompare.Engine.Tests.csproj
     dotnet test tests/DeepCompare.Assist.Tests/DeepCompare.Assist.Tests.csproj
@@ -242,7 +237,22 @@ Windows と Linux の両方を作り、**試験を通してから**添える
 Linux では `clang` と `zlib1g-dev`、Windows では MSVC（Visual Studio Build Tools の
 C++ ワークロード）がリンクに要る。
 
-### モデルを作り直す
+### 多言語モデルを作る
+
+日本語で使うためのもの（[前半](#日本語ならモデルを差し替える)を参照）。
+
+    B=https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2/resolve/main
+    curl -sSLO $B/model.safetensors
+    curl -sSL -o unigram.json $B/unigram.json
+
+    # 語彙を「トークン<TAB>スコア」の形へ
+    python3 -c "import json;d=json.load(open('unigram.json'));print('\n'.join(f'{t}\t{s}' for t,s in d['vocab']))" \
+        > multilingual.vocab
+
+    dotnet run --project src/DeepCompare.ModelPrep/DeepCompare.ModelPrep.csproj -c Release \
+        -- model.safetensors multilingual.dcm
+
+### 既定のモデルを作り直す
 
 `assets/minilm.dcm` は追跡しているので通常は不要。作り直す場合:
 
