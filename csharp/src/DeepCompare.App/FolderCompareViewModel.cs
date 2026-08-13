@@ -710,6 +710,7 @@ public sealed class FolderCompareViewModel : ViewModelBase
         {
             if (Set(ref _filter, value))
             {
+                ExpandForFilter();
                 Rebuild();
                 // 押している状態を出すため、どれが選ばれているかを全部知らせる。
                 OnPropertyChanged(nameof(ShowAll));
@@ -817,6 +818,11 @@ public sealed class FolderCompareViewModel : ViewModelBase
                         + (r.IdenticalContent ? string.Empty : $" ({r.Similarity:F2})")));
             _comparison = result;
             _allRows = result.Entries.Select(e => new FolderRowView(e)).ToList();
+            // **子の有無と展開はここでも通す。** 以前は「テーマが変わったとき」の
+            // 経路にしか無く、比べ終わった直後の一覧では開閉の三角が出ず、
+            // 絞り込んでいてもフォルダーが畳まれたままだった。
+            MarkChildren();
+            ExpandForFilter();
 
             var s = result.Stats;
             StatusText = $"差異 {s.Different} / 左のみ {s.LeftOnly} / 右のみ {s.RightOnly} / "
@@ -845,15 +851,78 @@ public sealed class FolderCompareViewModel : ViewModelBase
             return;
         }
         _allRows = _comparison.Entries.Select(e => new FolderRowView(e)).ToList();
+        MarkChildren();
+        ExpandForFilter();
+        Rebuild();
+    }
 
-        // 下に何か入っているか。次の行の方が深ければ、そこが中身。
+    /// <summary>
+    /// 下に何か入っているか。次の行の方が深ければ、そこが中身。
+    ///
+    /// **並びが深さ優先であることに頼る。** 親子の対応表を持たなくても、
+    /// 隣を見るだけで足りる。
+    /// </summary>
+    private void MarkChildren()
+    {
         for (var i = 0; i < _allRows.Count; i++)
         {
             _allRows[i].HasChildren = _allRows[i].Entry.IsDirectory
                 && i + 1 < _allRows.Count
                 && _allRows[i + 1].Entry.Depth > _allRows[i].Entry.Depth;
         }
-        Rebuild();
+    }
+
+    /// <summary>
+    /// 絞り込みに合う行を含むフォルダーを開く。
+    ///
+    /// **絞り込んでいるのに畳まれていると、探しているものが見えない。**
+    /// 「差異あり」にしたのに `src/` が閉じたままだと、中の差異に辿り着くまで
+    /// フォルダーを 1 つずつ開くことになる（それでは絞り込んだ意味が無い）。
+    ///
+    /// **「全部出す」では開かない。** そこでは畳んだ状態が出発点として正しく、
+    /// 数千ファイルの木が一度に開くと目的の場所へ辿り着けない。
+    /// </summary>
+    private void ExpandForFilter()
+    {
+        if (_filter == FolderFilter.All || _allRows.Count == 0)
+        {
+            return;
+        }
+
+        // 深さごとに「その段に見せるものがあったか」を持つ。
+        // **後ろから見る。** 並びは深さ優先なので、フォルダーに着いたときには
+        // その子を見終わっている。
+        var deepest = _allRows.Max(r => r.Entry.Depth);
+        var hasMatch = new bool[deepest + 2];
+
+        for (var i = _allRows.Count - 1; i >= 0; i--)
+        {
+            var row = _allRows[i];
+            var depth = row.Entry.Depth;
+
+            if (!row.Entry.IsDirectory)
+            {
+                if (Matches(row))
+                {
+                    hasMatch[depth] = true;
+                }
+                continue;
+            }
+
+            // 中に見せるものがあれば開き、親にもそれを伝える。
+            row.IsExpanded = hasMatch[depth + 1];
+            if (row.IsExpanded)
+            {
+                hasMatch[depth] = true;
+            }
+
+            // **より深い段の記録は捨てる。** 隣のフォルダーの中身が
+            // 混ざると、空のフォルダーまで開いてしまう。
+            for (var d = depth + 1; d < hasMatch.Length; d++)
+            {
+                hasMatch[d] = false;
+            }
+        }
     }
 
     private void Rebuild()

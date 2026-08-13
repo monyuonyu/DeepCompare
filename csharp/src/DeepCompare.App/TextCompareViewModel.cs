@@ -727,7 +727,17 @@ public sealed class TextCompareViewModel : ViewModelBase
 
     /// <summary>本文以外の列（行番号 3 つ・コピーボタン・移動の印）が使う幅。</summary>
     // 折りたたみの柱 ＋ 行番号 3 つ ＋ 矢印 2 つ ＋ 移動の印
-    private const double GutterWidth = 18 + 52 * 3 + 22 * 2 + 52;
+    /// <summary>
+    /// 本文以外が使う幅。
+    ///
+    /// 内訳: 差分の地図 26 ＋ 折りたたみの柱 18 ＋ 行番号と類似度 52×3
+    /// ＋ 反映の矢印 22×2 ＋ 移動の印 52 ＋ 縦スクロールバー 18。
+    ///
+    /// **地図とスクロールバーを数え忘れていた。** その分だけ本文が広く取られ、
+    /// 右端の類似度が画面の外へ押し出されていた（既定の窓の大きさで、
+    /// この道具の売りである類似度が見えない状態だった）。
+    /// </summary>
+    private const double GutterWidth = 26 + 18 + 52 * 3 + 22 * 2 + 52 + 18;
 
     private void UpdateTextWidth()
     {
