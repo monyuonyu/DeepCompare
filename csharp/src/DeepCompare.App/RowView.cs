@@ -13,7 +13,7 @@ namespace DeepCompare.App;
 /// ここで HTML を作っていたため、`&lt;` や `&amp;` を含む行が壊れていた。書式を持つ要素として
 /// 渡せば、本文は一切加工されないのでその種の取り違えが起こりようがない。
 /// </summary>
-public sealed class RowView
+public sealed class RowView : ViewModelBase
 {
     // 色は App.axaml のテーマ辞書から引く（Palette）。ここで値を持たないので、
     // 明暗の切り替えに勝手に付いてくる。
@@ -43,6 +43,46 @@ public sealed class RowView
 
     /// <summary>塊の先頭行か。コピーボタンはここにだけ出す。</summary>
     public bool IsBlockStart { get; set; }
+
+    private bool _isEditing;
+
+    /// <summary>
+    /// この行を本文の中で直接編集しているか（BC の Character Mode）。
+    ///
+    /// **選んだ 1 行だけを入力欄にする。** 全行を入力欄にすると、仮想化して
+    /// いても数千個の入力欄を作ることになり、開いた時点で重くなる。
+    /// </summary>
+    public bool IsEditing
+    {
+        get => _isEditing;
+        set
+        {
+            if (Set(ref _isEditing, value) && value)
+            {
+                // 入る時点の中身を写す。取り消せるように元は残す。
+                EditLeft = LeftText;
+                EditRight = RightText;
+            }
+        }
+    }
+
+    private string _editLeft = string.Empty;
+    public string EditLeft
+    {
+        get => _editLeft;
+        set => Set(ref _editLeft, value);
+    }
+
+    private string _editRight = string.Empty;
+    public string EditRight
+    {
+        get => _editRight;
+        set => Set(ref _editRight, value);
+    }
+
+    /// <summary>その側に行があるときだけ直せる。無い行は作れない。</summary>
+    public bool CanEditLeft => Row.Left is not null;
+    public bool CanEditRight => Row.Right is not null;
 
     /// <summary>検索に使う素の本文。表示は Inlines 側が持つ。</summary>
     public string LeftText { get; }

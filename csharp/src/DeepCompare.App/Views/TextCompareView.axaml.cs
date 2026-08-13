@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
+using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
 namespace DeepCompare.App.Views;
@@ -41,9 +42,40 @@ public partial class TextCompareView : UserControl
             }
         };
 
+        // 行の中の入力欄で Enter を押したら確定、Esc で取り消す。
+        // **入力欄ごとに仕掛けない。** 仮想化で作り直されるので、
+        // ここで一括して拾う方が漏れない。
+        AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
+
         // 差分の地図に「いま見えている範囲」を出すために、スクロール位置を拾う。
         // ListBox の中の ScrollViewer は、テンプレートが当たるまで存在しない。
         AttachedToVisualTree += (_, _) => HookScroll();
+    }
+
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Source is not TextBox { Classes: var classes } box || !classes.Contains("inline"))
+        {
+            return;
+        }
+        if (DataContext is not TextCompareViewModel model
+            || box.DataContext is not RowView row)
+        {
+            return;
+        }
+
+        if (e.Key == Key.Enter)
+        {
+            _ = model.CommitRowEditAsync(row);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            // 打った内容を捨てて元へ戻す。**確定と取り消しは別の鍵にする。**
+            row.EditLeft = row.LeftText;
+            row.EditRight = row.RightText;
+            e.Handled = true;
+        }
     }
 
     private void HookScroll()

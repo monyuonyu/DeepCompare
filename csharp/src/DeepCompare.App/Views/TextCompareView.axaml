@@ -13,6 +13,21 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="TextWrapping" Value="NoWrap" />
     </Style>
+    <!--
+      行の中に置く入力欄。**行の高さを崩さない**ことが要点。
+      高さが変わると、仮想化の「n 行目は n × 高さ」という前提が壊れる。
+    -->
+    <Style Selector="TextBox.inline">
+      <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Height" Value="20" />
+      <Setter Property="MinHeight" Value="20" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="{DynamicResource InputBg}" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
     <Style Selector="TextBlock.gutter">
       <Setter Property="Foreground" Value="{DynamicResource FgDim}" />
       <Setter Property="FontSize" Value="11" />
@@ -65,6 +80,10 @@
           <ToggleButton Classes="filter" IsChecked="{Binding ShowWhitespace}"
                         ToolTip.Tip="空白・タブを記号で見せる">
             <Path Classes="icon" Data="{StaticResource IconWhitespace}" />
+          </ToggleButton>
+          <ToggleButton Classes="filter" IsChecked="{Binding FullEdit}"
+                        ToolTip.Tip="本文の中で直接直す（選んだ行が入力欄になります）">
+            <Path Classes="icon" Data="{StaticResource IconEdit}" />
           </ToggleButton>
           <ToggleButton Classes="filter" IsChecked="{Binding ShowDetails}"
                         ToolTip.Tip="選んだ行を下に出す（そこで直せます）">
@@ -360,9 +379,19 @@
                   </Button>
                 </Panel>
 
+                <!--
+                  本文。**選んだ 1 行だけが入力欄になる**（BC の Full Edit）。
+                  全行を入力欄にすると、仮想化していても数千個を作ることになる。
+                -->
                 <Border Background="{Binding LeftBackground}"
                         Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}">
-                  <TextBlock Classes="cell" Inlines="{Binding LeftInlines}" />
+                  <Panel>
+                    <TextBlock Classes="cell" Inlines="{Binding LeftInlines}"
+                               IsVisible="{Binding !IsEditing}" />
+                    <TextBox Classes="inline" Text="{Binding EditLeft}"
+                             IsVisible="{Binding IsEditing}"
+                             IsEnabled="{Binding CanEditLeft}" />
+                  </Panel>
                 </Border>
 
                 <TextBlock Classes="cell gutter" Text="{Binding RightNumber}" />
@@ -378,7 +407,13 @@
 
                 <Border Background="{Binding RightBackground}"
                         Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}">
-                  <TextBlock Classes="cell" Inlines="{Binding RightInlines}" />
+                  <Panel>
+                    <TextBlock Classes="cell" Inlines="{Binding RightInlines}"
+                               IsVisible="{Binding !IsEditing}" />
+                    <TextBox Classes="inline" Text="{Binding EditRight}"
+                             IsVisible="{Binding IsEditing}"
+                             IsEnabled="{Binding CanEditRight}" />
+                  </Panel>
                 </Border>
 
                 <TextBlock Classes="cell gutter" Text="{Binding ScoreText}" />

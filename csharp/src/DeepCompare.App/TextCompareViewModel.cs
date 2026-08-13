@@ -200,6 +200,7 @@ public sealed class TextCompareViewModel : ViewModelBase
             {
                 // 選んだ行を下の帯へ移す。ここで直せる。
                 ShowDetailFor(value >= 0 && value < VisibleRows.Count ? VisibleRows[value] : null);
+                UpdateEditingRow();
             }
         }
     }
@@ -792,6 +793,87 @@ public sealed class TextCompareViewModel : ViewModelBase
     {
         get => _detailRight;
         set => Set(ref _detailRight, value);
+    }
+
+    private bool _fullEdit;
+
+    /// <summary>
+    /// 本文のペインで直接編集するか（BC の Full Edit）。
+    ///
+    /// 切っているとき（BC の Line Mode）は、行を選んで下の帯で直す。
+    /// 入れると、選んだ行がその場で入力欄になる。
+    ///
+    /// **選んだ 1 行だけを入力欄にする。** 全行を入力欄にすると、仮想化して
+    /// いても数千個を作ることになり、開いた時点で重くなる。
+    /// </summary>
+    public bool FullEdit
+    {
+        get => _fullEdit;
+        set
+        {
+            if (Set(ref _fullEdit, value))
+            {
+                UpdateEditingRow();
+            }
+        }
+    }
+
+    private RowView? _editingRow;
+
+    /// <summary>いま入力欄になっている行を選択に合わせる。</summary>
+    private void UpdateEditingRow()
+    {
+        var target = _fullEdit && _selectedRowIndex >= 0 && _selectedRowIndex < VisibleRows.Count
+            ? VisibleRows[_selectedRowIndex]
+            : null;
+
+        if (ReferenceEquals(_editingRow, target))
+        {
+            return;
+        }
+
+        // 別の行へ移るときは、直した内容を先に本文へ戻す。
+        // **黙って捨てない。** 打った内容が消えるのは一番腹が立つ。
+        if (_editingRow is { IsEditing: true })
+        {
+            _ = CommitRowEditAsync(_editingRow);
+            _editingRow.IsEditing = false;
+        }
+
+        _editingRow = target;
+        if (target is not null)
+        {
+            target.IsEditing = true;
+        }
+    }
+
+    /// <summary>本文の中で直した内容を戻す。塊のコピーと同じく履歴に積む。</summary>
+    public async Task CommitRowEditAsync(RowView row)
+    {
+        if (_leftDocument is null || _rightDocument is null)
+        {
+            return;
+        }
+
+        var touchedLeft = row.Row.Left is not null && !LeftReadOnly && row.EditLeft != row.LeftText;
+        var touchedRight = row.Row.Right is not null && !RightReadOnly && row.EditRight != row.RightText;
+        if (!touchedLeft && !touchedRight)
+        {
+            return;
+        }
+
+        if (touchedLeft)
+        {
+            _leftDocument.Replace(row.Row.Left!.Value, 1, [row.EditLeft]);
+            _undoSides.Push(false);
+        }
+        if (touchedRight)
+        {
+            _rightDocument.Replace(row.Row.Right!.Value, 1, [row.EditRight]);
+            _undoSides.Push(true);
+        }
+        _redoSides.Clear();
+        await RecompareAsync();
     }
 
     private bool _showDetails = true;
