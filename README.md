@@ -354,12 +354,16 @@ force push・reset --hard・リベースは一覧にすら入れていない。
 
 ## 履歴
 
-元は Python + PyQt6 + sentence-transformers（`master` ブランチ）。
-配布サイズを理由に書き直し、途中 Rust + egui + candle の実装を経ている
-（コミット `1ce2d16` に残っている。同じ重みを使い、比較結果は C# 版と完全に一致していた）。
+元は Python + PyQt6 + sentence-transformers（タグ `python-legacy`）。
+PyQt6 と sentence-transformers で配布が数百 MB になるのを理由に書き直し、
+途中 Rust + egui + candle の実装を経ている（コミット `1ce2d16`。同じ重みを使い、
+比較結果は C# 版と完全に一致していた）。
+
+比較の考え方——**意味的な類似度で行を対応付ける**——は最初の実装で固まっており、
+書き直しで変わったのは配布の形と、その周りに足した機能。
 
 ## ライセンス
 
-MIT。モデルは
+MIT（`LICENSE`）。モデルは
 [sentence-transformers/paraphrase-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/paraphrase-MiniLM-L6-v2)
 （Apache-2.0）。
