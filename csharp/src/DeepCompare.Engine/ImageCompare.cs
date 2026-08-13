@@ -279,7 +279,9 @@ public static class ImageCompare
 
         if (comparison.Bounds is { } bounds)
         {
-            text.AppendLine($"違いのある範囲 ({bounds.Left}, {bounds.Top}) – ({bounds.Right}, {bounds.Bottom})");
+            // 区切りは ASCII のハイフンにする。**en dash は Windows のコンソールで
+            // 「?」に化ける**（実機で確認）。記号を凝る場所ではない。
+            text.AppendLine($"違いのある範囲 ({bounds.Left}, {bounds.Top}) - ({bounds.Right}, {bounds.Bottom})");
         }
         if (comparison.LooksSame && !comparison.IsIdentical)
         {

@@ -69,9 +69,85 @@ public static class VersionInfo
         }
     }
 
-    public static ExecutableVersion Read(string path) => Read(File.ReadAllBytes(path));
+    public static ExecutableVersion Read(string path, int? preferredLanguage = null)
+    {
+        var version = Read(File.ReadAllBytes(path), preferredLanguage);
 
-    public static ExecutableVersion Read(byte[] file)
+        // **説明文が隣の .mui にあることがある。** Windows のシステムファイルは
+        // exe 自身に英語だけを置き、各言語を `<場所>\<言語>\<名前>.mui` に分ける。
+        // notepad.exe を読んだら "Notepad" と出たが、Windows 自身は「メモ帳」と
+        // 言う — 見ているファイルが違った。
+        if (FindMui(path) is { } mui)
+        {
+            try
+            {
+                var localized = Read(File.ReadAllBytes(mui), preferredLanguage);
+                if (localized.Strings.Count > 0)
+                {
+                    // **数値の版は元のファイルのものを使う。** .mui は資源だけを
+                    // 持つ入れ物で、版が入っていないか、別の値のことがある。
+                    var merged = new Dictionary<string, string>(version.Strings, StringComparer.Ordinal);
+                    foreach (var (key, value) in localized.Strings)
+                    {
+                        merged[key] = value;
+                    }
+                    version = version with { Strings = merged };
+                }
+            }
+            catch (Exception error) when (error is IOException or InvalidDataException
+                                            or UnauthorizedAccessException)
+            {
+                // .mui が読めなくても、元のファイルの分は出せている。そこで止めない。
+            }
+        }
+        return version;
+    }
+
+    /// <summary>
+    /// 隣の言語フォルダにある <c>.mui</c> を探す。
+    ///
+    /// 今の言語 → 英語 → 見つかった最初、の順。**大小文字の綴りは揃っていない**
+    /// （実機で `en-US` と `ja-jp` が混在していた）ので、名前で総当たりする。
+    /// </summary>
+    internal static string? FindMui(string path)
+    {
+        var directory = Path.GetDirectoryName(path);
+        if (directory is not { Length: > 0 } || !Directory.Exists(directory))
+        {
+            return null;
+        }
+
+        var name = Path.GetFileName(path) + ".mui";
+        var wanted = System.Globalization.CultureInfo.CurrentUICulture.Name;
+
+        string? fallback = null;
+        foreach (var folder in Directory.EnumerateDirectories(directory))
+        {
+            var candidate = Path.Combine(folder, name);
+            if (!File.Exists(candidate))
+            {
+                continue;
+            }
+            var tag = Path.GetFileName(folder);
+            if (string.Equals(tag, wanted, StringComparison.OrdinalIgnoreCase))
+            {
+                return candidate;
+            }
+            // 英語は最後の頼み。それより先に見つかったものがあれば、そちらを覚える。
+            fallback ??= candidate;
+            if (string.Equals(tag, "en-US", StringComparison.OrdinalIgnoreCase))
+            {
+                fallback = candidate;
+            }
+        }
+        return fallback;
+    }
+
+    /// <param name="preferredLanguage">
+    /// 優先する言語 ID（LANGID）。null なら今の表示言語。
+    /// **説明文は言語ごとに別に入っている**ので、これで出る文字列が変わる。
+    /// </param>
+    public static ExecutableVersion Read(byte[] file, int? preferredLanguage = null)
     {
         if (!LooksLikeExecutable(file))
         {
@@ -109,7 +185,8 @@ public static class VersionInfo
         if (resourceRva != 0
             && Locate(file, sections, sectionCount, resourceRva) is { } resourceOffset)
         {
-            var block = FindVersionResource(file, resourceOffset, resourceRva, sections, sectionCount);
+            var block = FindVersionResource(file, resourceOffset, resourceRva, sections, sectionCount,
+                preferredLanguage ?? System.Globalization.CultureInfo.CurrentUICulture.LCID & 0xFFFF);
             if (block is { } range)
             {
                 (fileVersion, productVersion) = ParseVersionInfo(file, range.Offset, range.Length, strings);
@@ -165,12 +242,16 @@ public static class VersionInfo
     /// <summary>
     /// リソースの木を辿って VS_VERSIONINFO の場所を探す。
     ///
-    /// 木は「種類 → 名前 → 言語」の 3 段。**言語は最初に見つかったものを使う。**
-    /// 多言語のファイルでは版だけ複数入っていることがあるが、数値は同じで、
-    /// 違うのは説明文だけ。選ばせる意味が薄い。
+    /// 木は「種類 → 名前 → 言語」の 3 段。**今の表示言語に合うものを選ぶ。**
+    ///
+    /// 当初は「最初に見つかったもの」で足りると考えていた（数値の版は同じで、
+    /// 違うのは説明文だけだから）。だが Windows の notepad.exe を読んだら
+    /// FileDescription が "Notepad" で、Windows 自身は「メモ帳」と言う。
+    /// **説明文こそ人が読む部分**なので、そこが違うのは困る。
     /// </summary>
     private static (int Offset, int Length)? FindVersionResource(
-        byte[] file, int root, uint rootRva, int sections, int sectionCount)
+        byte[] file, int root, uint rootRva, int sections, int sectionCount,
+        int preferredLanguage)
     {
         var typeEntry = FindEntry(file, root, root, TypeVersion);
         if (typeEntry is not { IsDirectory: true } type)
@@ -184,7 +265,9 @@ public static class VersionInfo
             return null;
         }
 
-        var languageEntry = FirstEntry(file, root + name.Offset);
+        // 今の言語に合うものを探し、無ければ最初のものに落とす。
+        var languageEntry = FindEntry(file, root + name.Offset, root, preferredLanguage)
+            ?? FirstEntry(file, root + name.Offset);
         if (languageEntry is not { IsDirectory: false } language)
         {
             return null;

@@ -125,7 +125,7 @@ public sealed class VersionInfoTests
     /// <summary>バージョンリソースだけを持つ最小の PE。</summary>
     private static byte[] BuildExecutable(
         byte[] versionResource, ushort machine = 0x8664, uint timestamp = 0,
-        uint certificateSize = 0)
+        uint certificateSize = 0, int[]? languages = null, byte[][]? perLanguage = null)
     {
         const int PeAt = 0x80;
         const int SectionRva = 0x1000;
@@ -161,7 +161,9 @@ public sealed class VersionInfoTests
         Assert.Equal(240, b.Length - optionalAt);
 
         // リソースの中身（木 + データ）を先に組んで、大きさを確かめる。
-        var resource = BuildResourceSection(versionResource, SectionRva);
+        var resource = languages is null
+            ? BuildResourceSection(versionResource, SectionRva)
+            : BuildMultiLanguageSection(languages, perLanguage!, SectionRva);
 
         var sectionAt = b.Length;
         b.Bytes(".rsrc\0\0\0"u8);
@@ -209,6 +211,59 @@ public sealed class VersionInfoTests
         var dataAt = b.Length;
         b.PatchU32(dataEntryAt, sectionRva + (uint)dataAt);
         b.Bytes(versionResource);
+        return b.ToArray();
+    }
+
+    /// <summary>言語ごとに別のリソースを持つ木。**実物の exe はこの形。**</summary>
+    private static byte[] BuildMultiLanguageSection(
+        int[] languages, byte[][] blocks, uint sectionRva)
+    {
+        var b = new Builder();
+
+        void Directory(int count)
+        {
+            b.U32(0); b.U32(0);
+            b.U16(0); b.U16(0);
+            b.U16(0); b.U16(count);
+        }
+
+        // 種類 → 名前 の 2 段は 1 項目ずつ。
+        Directory(1);
+        b.U32(16);                                   // RT_VERSION
+        b.U32(24u | 0x80000000u);
+        Directory(1);
+        b.U32(1);
+        b.U32(48u | 0x80000000u);
+
+        // 言語の段。項目数ぶん並ぶ。
+        var languageAt = b.Length;
+        Directory(languages.Length);
+        var entriesAt = b.Length;
+        for (var i = 0; i < languages.Length; i++)
+        {
+            b.U32((uint)languages[i]);
+            b.U32(0);                                // データ項目の位置（後で埋める）
+        }
+
+        // データ項目とデータ本体。
+        var dataEntries = new int[languages.Length];
+        for (var i = 0; i < languages.Length; i++)
+        {
+            b.Align();
+            dataEntries[i] = b.Length;
+            b.PatchU32(entriesAt + i * 8 + 4, (uint)dataEntries[i]);
+            b.U32(0);
+            b.U32((uint)blocks[i].Length);
+            b.U32(0); b.U32(0);
+        }
+        for (var i = 0; i < languages.Length; i++)
+        {
+            b.Align();
+            b.PatchU32(dataEntries[i], sectionRva + (uint)b.Length);
+            b.Bytes(blocks[i]);
+        }
+
+        Assert.Equal(48, languageAt);
         return b.ToArray();
     }
 
@@ -313,6 +368,85 @@ public sealed class VersionInfoTests
         var version = VersionInfo.Read(Sample(strings: [("CompanyName", "emoji 🐟 社")]));
 
         Assert.Equal("emoji 🐟 社", version.Get("CompanyName"));
+    }
+
+    [Fact]
+    public void 表示言語に合うリソースを選ぶ()
+    {
+        // **実物で気づいた。** Windows の notepad.exe は FileDescription を
+        // 英語と日本語の両方持っており、Windows 自身は「メモ帳」と言うのに
+        // 最初のものを採ると "Notepad" になる。**説明文こそ人が読む部分。**
+        const int English = 0x0409;
+        const int Japanese = 0x0411;
+
+        var pe = BuildExecutable(
+            [],
+            languages: [English, Japanese],
+            perLanguage:
+            [
+                BuildVersionResource("1.0.0.0", "1.0.0.0", [("FileDescription", "Notepad")]),
+                BuildVersionResource("1.0.0.0", "1.0.0.0", [("FileDescription", "メモ帳")]),
+            ]);
+
+        Assert.Equal("メモ帳", VersionInfo.Read(pe, Japanese).Get("FileDescription"));
+        Assert.Equal("Notepad", VersionInfo.Read(pe, English).Get("FileDescription"));
+
+        // 持っていない言語を頼まれたら、最初のものに落とす。**読めないより良い。**
+        Assert.Equal("Notepad", VersionInfo.Read(pe, 0x040C).Get("FileDescription"));
+    }
+
+    [Fact]
+    public void 隣の言語フォルダの資源を使う()
+    {
+        // **実機で気づいた。** Windows のシステムファイルは exe 自身に英語だけを
+        // 置き、各言語を `<場所>\<言語>\<名前>.mui` に分ける。notepad.exe を
+        // 読むと "Notepad" だが、Windows 自身は「メモ帳」と言う。
+        var root = Path.Combine(Path.GetTempPath(), "dc-mui-" + Guid.NewGuid().ToString("N")[..8]);
+        var language = Path.Combine(root, System.Globalization.CultureInfo.CurrentUICulture.Name);
+        Directory.CreateDirectory(language);
+        try
+        {
+            var exe = Path.Combine(root, "app.exe");
+            File.WriteAllBytes(exe, BuildExecutable(BuildVersionResource("9.9.9.9", "9.9.9.9",
+                [("FileDescription", "English name"), ("CompanyName", "Only in exe")])));
+
+            // .mui は資源だけを持つ入れ物。版は 0 にしておく。
+            File.WriteAllBytes(Path.Combine(language, "app.exe.mui"),
+                BuildExecutable(BuildVersionResource("0.0.0.0", "0.0.0.0",
+                    [("FileDescription", "日本語の名前")])));
+
+            var version = VersionInfo.Read(exe);
+
+            Assert.Equal("日本語の名前", version.Get("FileDescription"));
+            // **数値の版は元のファイルのもの。** .mui の 0.0.0.0 で上書きしない。
+            Assert.Equal("9.9.9.9", version.FileVersion);
+            // .mui に無い項目は元のファイルのものが残る。
+            Assert.Equal("Only in exe", version.Get("CompanyName"));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void muiが無ければ元のファイルだけを見る()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "dc-mui-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(root);
+        try
+        {
+            var exe = Path.Combine(root, "app.exe");
+            File.WriteAllBytes(exe, BuildExecutable(BuildVersionResource("1.0.0.0", "1.0.0.0",
+                [("FileDescription", "そのまま")])));
+
+            Assert.Null(VersionInfo.FindMui(exe));
+            Assert.Equal("そのまま", VersionInfo.Read(exe).Get("FileDescription"));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
