@@ -158,8 +158,14 @@
   <StreamGeometry x:Key="IconCollapse">M6,4.5 l6,6 l6,-6 M6,19.5 l6,-6 l6,6</StreamGeometry>
 
   <!-- 差分を反映する向き -->
-  <StreamGeometry x:Key="IconToRight">M4,12 h15 M14,7 l5,5 l-5,5</StreamGeometry>
-  <StreamGeometry x:Key="IconToLeft">M20,12 h-15 M10,7 l-5,5 l5,5</StreamGeometry>
+  <!--
+    写しの矢印。**塗りつぶしの単純な形にする。**
+    線画で描いていたが、図形の左右が非対称で（尾が長く先が短い）、
+    枠の中で中心からずれて見えていた。ここは 16 四方の座標で、
+    縦横とも中心が (8,8) に来るように書く。
+  -->
+  <StreamGeometry x:Key="IconToRight">M1.5,6 h6.5 V3 L14.5,8 L8,13 V10 H1.5 Z</StreamGeometry>
+  <StreamGeometry x:Key="IconToLeft">M14.5,6 h-6.5 V3 L1.5,8 L8,13 V10 H14.5 Z</StreamGeometry>
 
   <!-- 参照（フォルダーを開く） -->
   <StreamGeometry x:Key="IconBrowse">M2.5,7.5 a1.5,1.5 0 0 1 1.5,-1.5 h5 l2,2.5 h9.5 a1.5,1.5 0 0 1 1.5,1.5 v7.5 a1.5,1.5 0 0 1 -1.5,1.5 h-16.5 a1.5,1.5 0 0 1 -1.5,-1.5 z M2.5,11.5 h19</StreamGeometry>

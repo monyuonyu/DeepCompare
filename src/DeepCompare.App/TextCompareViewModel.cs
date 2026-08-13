@@ -122,6 +122,10 @@ public sealed class TextCompareViewModel : ViewModelBase
             row => { CollapseOutline(row); return Task.CompletedTask; }, row => row.IsOutlineHead);
         ExpandFoldCommand = new RelayCommand<RowView>(
             band => { ExpandFold(band); return Task.CompletedTask; }, band => band.IsFoldBand);
+        HideDetailsCommand = new RelayCommand(
+            () => { ShowDetails = false; return Task.CompletedTask; });
+        ShowDetailsCommand = new RelayCommand(
+            () => { ShowDetails = true; return Task.CompletedTask; });
         SelectBlockCommand = new RelayCommand<RowView>(
             row => { SelectBlock(row); return Task.CompletedTask; }, row => row.BlockIndex >= 0);
 
@@ -1724,6 +1728,10 @@ public sealed class TextCompareViewModel : ViewModelBase
     private bool _showDetails = true;
 
     /// <summary>下の帯を出すか。狭い画面では畳みたいことがある。</summary>
+    /// <summary>下の帯を閉じる／開く。**帯の上と状態バーの両方から。**</summary>
+    public RelayCommand HideDetailsCommand { get; }
+    public RelayCommand ShowDetailsCommand { get; }
+
     public bool ShowDetails
     {
         get => _showDetails;

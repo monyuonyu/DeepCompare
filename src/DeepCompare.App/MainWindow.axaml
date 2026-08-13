@@ -8,7 +8,18 @@
         Width="1280" Height="820"
         MinWidth="860" MinHeight="480"
         Background="{DynamicResource WindowBg}"
-        DragDrop.AllowDrop="True">
+        DragDrop.AllowDrop="True"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="-1">
+  <!--
+    **題の帯を自前で持つ。** 既定では題の帯の下にタブ行が来るので、
+    上端に 2 段の帯ができていた。クライアント領域を上端まで伸ばし、
+    タブ行をそのまま題の帯として使う（空いた所を掴めば動かせる）。
+
+    最小化・最大化・閉じるは OS のものが上に載る。**自前で描かない** —
+    Windows の Snap も、帯の二度押しでの最大化も失われる。
+    そのぶんの幅を右に空ける（SystemChromeWidth）。
+  -->
 
   <Window.DataTemplates>
     <!-- 出す画面は今の状態の型で決まる。切り替えのための分岐をコード側に持たない。 -->
@@ -67,6 +78,12 @@
         右端の道具。**タブと同じ行に置く。** 別の帯を作ると、
         比較に使える高さがその分だけ減る。
       -->
+      <!--
+        **右上に OS のボタンが乗るので、そのぶん空ける。**
+        空けないと閉じるボタンの下に自前のボタンが潜り込む。
+      -->
+      <Border DockPanel.Dock="Right" Width="{Binding SystemChromeWidth}" />
+
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2"
                   VerticalAlignment="Center" Margin="6,0,8,0">
         <Button Classes="icon" Command="{Binding ToggleThemeCommand}"

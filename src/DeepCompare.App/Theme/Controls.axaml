@@ -392,11 +392,14 @@
   <Style Selector="Button.apply Path">
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="HorizontalAlignment" Value="Center" />
-    <Setter Property="Stroke" Value="{DynamicResource ApplyArrow}" />
-    <Setter Property="StrokeThickness" Value="2.4" />
-    <Setter Property="StrokeLineCap" Value="Round" />
+    <!--
+      **塗りつぶす。** 線画だと行の飾り（塊の縦線）と見分けが付かず、
+      押せる場所だと気づきにくかった。輪郭は付けない — 20x18 の枠に
+      収まる大きさでは、輪郭のぶんだけ形が潰れる。
+    -->
+    <Setter Property="Fill" Value="{DynamicResource ApplyArrow}" />
+    <Setter Property="Stroke" Value="{x:Null}" />
     <Setter Property="StrokeJoin" Value="Round" />
-    <Setter Property="Fill" Value="Transparent" />
     <!--
       **余白が偶数になる寸法にする。**
       箱 20×18、枠 1px なので内側は 18×16。中身を 12×12 にすると、
@@ -414,7 +417,7 @@
   </Style>
   <!-- 指したら面を塗るので、矢印は抜き色にする -->
   <Style Selector="Button.apply:pointerover Path">
-    <Setter Property="Stroke" Value="{DynamicResource ApplyArrowOn}" />
+    <Setter Property="Fill" Value="{DynamicResource ApplyArrowOn}" />
   </Style>
   <Style Selector="Button.apply:pressed /template/ ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource ApplyArrowHover}" />

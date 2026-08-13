@@ -152,6 +152,14 @@ public sealed class ShellViewModel : ViewModelBase
 
     public ObservableCollection<CompareKind> Kinds { get; }
 
+    /// <summary>
+    /// 右上で OS のボタンに譲る幅。
+    ///
+    /// **Windows だけ空ける。** Linux では窓の装飾を窓管理ソフトが
+    /// 持つので、こちらに重なるものが無い。空けると右端が間抜けに空く。
+    /// </summary>
+    public double SystemChromeWidth => OperatingSystem.IsWindows() ? 140 : 0;
+
     /// <summary>起動画面に出す、パスからは決まらないもの。</summary>
     public IReadOnlyList<CompareKind> SpecialKinds { get; }
 

@@ -113,10 +113,6 @@
                         ToolTip.Tip="本文の中で直接直す（選んだ行が入力欄になります）">
             <Path Classes="icon" Data="{StaticResource IconEdit}" />
           </ToggleButton>
-          <ToggleButton Classes="filter" IsChecked="{Binding ShowDetails}"
-                        ToolTip.Tip="選んだ行を下に出す（そこで直せます）">
-            <Path Classes="icon" Data="{StaticResource IconDetails}" />
-          </ToggleButton>
 
           <Border Classes="vsep" />
 
@@ -310,7 +306,8 @@
           長い行はどちらも右端で切れて、見るのに横スクロールが要る。
           上下なら、左右のどちらも画面いっぱいの幅で読める。
         -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="2,0,0,3">
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="2,0,0,3">
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
           <TextBlock Text="{Binding DetailLeftLabel}" Classes="hint" VerticalAlignment="Center" />
           <!--
             文字の対応で見る（BC の Alignment Details）。
@@ -326,6 +323,17 @@
             <TextBlock Text="16 進" FontSize="10" />
           </ToggleButton>
         </StackPanel>
+
+        <!--
+          **閉じるのはこの帯の上で。** 開け閉めのボタンをツールバーの
+          並びに置いていたが、閉じたい対象から遠く、どのボタンが効くのか
+          分からなかった。
+        -->
+        <Button Grid.Column="1" Classes="icon small" ToolTip.Tip="この帯を閉じる"
+                Command="{Binding HideDetailsCommand}">
+          <Path Classes="icon" Data="{StaticResource IconClose}" />
+        </Button>
+        </Grid>
 
         <!--
           文字で見る（直せる）。
@@ -388,6 +396,17 @@
           <TextBlock Text="{Binding LeftEnding}" FontSize="11" VerticalAlignment="Center"
                      Foreground="{DynamicResource FgDim}" />
         </StackPanel>
+        <!--
+          **閉じているときの開き口はここ。** 帯を閉じたあと、どこから
+          出せばいいのか分からなくなるのを避ける。
+        -->
+        <Button Grid.Column="1" HorizontalAlignment="Right" Classes="icon small"
+                IsVisible="{Binding !ShowDetails}"
+                Command="{Binding ShowDetailsCommand}"
+                ToolTip.Tip="選んだ行を下に出す（そこで直せます）">
+          <Path Classes="icon" Data="{StaticResource IconDetails}" />
+        </Button>
+
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
           <TextBlock Text="右" FontSize="11" VerticalAlignment="Center"
                      Foreground="{DynamicResource FgDim}" />
