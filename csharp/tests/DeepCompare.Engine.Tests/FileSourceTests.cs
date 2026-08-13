@@ -266,6 +266,27 @@ public sealed class S3ListingTests
     }
 
     [Fact]
+    public void 深い段でも根からの相対で返す()
+    {
+        // **ここを外すと、深い段の項目が「その段からの相対」になり、
+        // 次に読むときに 404 になる**（`下/b.txt` が `b.txt` になっていた）。
+        const string Xml = """
+            <?xml version="1.0"?>
+            <ListBucketResult>
+              <IsTruncated>false</IsTruncated>
+              <Contents><Key>接頭辞/下/b.txt</Key><Size>5</Size></Contents>
+              <CommonPrefixes><Prefix>接頭辞/下/さらに/</Prefix></CommonPrefixes>
+            </ListBucketResult>
+            """;
+
+        var entries = new List<RemoteEntry>();
+        S3FileSource.ParseListing(Xml, "接頭辞/下/", entries, "下");
+
+        Assert.Contains(entries, e => e.RelativePath == "下/b.txt" && !e.IsDirectory);
+        Assert.Contains(entries, e => e.RelativePath == "下/さらに" && e.IsDirectory);
+    }
+
+    [Fact]
     public void 続きがあれば印を返す()
     {
         // **1 回の応答は 1000 件まで。** ここを見落とすと 1001 件目から静かに消える。

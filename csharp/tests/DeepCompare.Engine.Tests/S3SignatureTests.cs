@@ -78,6 +78,18 @@ public sealed class S3SignatureTests
     }
 
     [Fact]
+    public void 鍵がASCIIでなければ断る()
+    {
+        // HTTP のヘッダは ASCII しか載らない。そのまま進むと送る直前に
+        // 「Request headers must contain only ASCII characters」で落ち、
+        // **その文言からは鍵が原因だと分からない。**
+        var error = Assert.Throws<ArgumentException>(() => new S3FileSource(
+            new S3Settings("https://例", "bucket", "日本語の鍵", "秘密")));
+
+        Assert.Contains("ASCII", error.Message);
+    }
+
+    [Fact]
     public void 本文が変われば署名も変わる()
     {
         // 本文の指紋が署名に入る。**後から中身を差し替えられない。**

@@ -1402,8 +1402,8 @@ internal static class Cli
 
         var started = DateTime.UtcNow;
         // 書庫は一時領域へ展開してから走査する。using で確実に片付ける。
-        using var leftSource = OpenOrFail(leftRoot, out var leftError);
-        using var rightSource = OpenOrFail(rightRoot, out var rightError);
+        using var leftSource = OpenOrFail(leftRoot, out var leftError, args);
+        using var rightSource = OpenOrFail(rightRoot, out var rightError, args);
         if (leftSource is null || rightSource is null)
         {
             Console.Error.WriteLine($"エラー: {leftError ?? rightError}");
@@ -1422,8 +1422,9 @@ internal static class Cli
 
         var stats = result.Stats;
         var text = new StringBuilder();
-        text.AppendLine($"left  {leftRoot}");
-        text.AppendLine($"right {rightRoot}");
+        // **合言葉を伏せる。** 結果はそのまま記録や課題に貼られる。
+        text.AppendLine($"left  {RemoteLocation.Redact(leftRoot)}");
+        text.AppendLine($"right {RemoteLocation.Redact(rightRoot)}");
         text.AppendLine($"stats identical={stats.Identical} different={stats.Different} "
             + $"left_only={stats.LeftOnly} right_only={stats.RightOnly} "
             + $"directories={stats.Directories} errors={stats.Errors} "
@@ -1480,13 +1481,41 @@ internal static class Cli
         return stats.Errors > 0 ? 2 : differs ? 1 : 0;
     }
 
-    /// <summary>フォルダーか書庫を開く。失敗しても例外を投げず、理由を返す。</summary>
-    private static ArchiveSource? OpenOrFail(string path, out string? error)
+    /// <summary>
+    /// フォルダー・書庫・リモートを開く。失敗しても例外を投げず、理由を返す。
+    ///
+    /// リモートは一時領域へ取ってくる。**絞り込みをそのまま渡す** — 渡さないと、
+    /// 除外したはずのものまで回線を使って取ってくることになる。
+    /// </summary>
+    private static ArchiveSource? OpenOrFail(string path, out string? error, string[]? args = null)
     {
         try
         {
             error = null;
-            return ArchiveSource.Open(path);
+            var options = args is null ? null : new MirrorOptions
+            {
+                Filter = new NameFilter(ValuesOf(args, "--include"), ValuesOf(args, "--exclude")),
+                MaximumFileSize = long.TryParse(ValueOf(args, "--max-size"), out var max)
+                    ? max : 32 * 1024 * 1024,
+            };
+
+            // **黙って何分も待たせない。** 取っている最中を標準エラーへ出す
+            // （標準出力は結果なので、混ぜると読み直せなくなる）。
+            var remote = RemoteLocation.IsRemote(path);
+            if (remote)
+            {
+                Console.Error.WriteLine($"{RemoteLocation.Redact(path)} から取ってきます…");
+            }
+
+            var source = ArchiveSource.Open(path, options,
+                remote ? name => Console.Error.Write($"\r  {name}") : null);
+
+            if (source.Mirror is { } mirror)
+            {
+                Console.Error.WriteLine();
+                Console.Error.WriteLine(mirror.Describe());
+            }
+            return source;
         }
         catch (Exception failure)
         {

@@ -21,11 +21,22 @@ public sealed class WebDavFileSource : IFileSource
     private readonly bool _ownsClient;
     private readonly Uri _root;
 
+    /// <summary>Basic 認証の値。毎回自分で付ける。</summary>
+    private readonly string? _authorization;
+
     /// <param name="root">根の URL。末尾の <c>/</c> は有っても無くてもよい。</param>
     /// <param name="credentials">要らなければ null（公開の置き場）。</param>
     public WebDavFileSource(string root, NetworkCredential? credentials = null)
-        : this(NormalizeRoot(root), CreateClient(credentials), ownsClient: true)
+        : this(NormalizeRoot(root), CreateClient(), ownsClient: true)
     {
+        // **認証ヘッダを自分で付ける。** HttpClientHandler.Credentials に任せると、
+        // 401 を受けてから送り直す形になり往復が倍になる。PreAuthenticate も
+        // 最初の 1 回には効かない（一度 401 を受けるまで事前送信できない）。
+        if (credentials is not null)
+        {
+            var pair = $"{credentials.UserName}:{credentials.Password}";
+            _authorization = "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(pair));
+        }
     }
 
     /// <summary>試験で HTTP のやり取りを差し替えるための入口。</summary>
@@ -39,21 +50,12 @@ public sealed class WebDavFileSource : IFileSource
     private static Uri NormalizeRoot(string root)
         => new(root.EndsWith('/') ? root : root + "/");
 
-    private static HttpClient CreateClient(NetworkCredential? credentials)
-    {
-        var handler = new HttpClientHandler();
-        if (credentials is not null)
-        {
-            handler.Credentials = credentials;
-            // **先に送る。** 401 を受けてから送り直す形だと、往復が倍になる。
-            handler.PreAuthenticate = true;
-        }
-        return new HttpClient(handler)
+    private static HttpClient CreateClient()
+        => new()
         {
             // 待ち続けない。相手が黙っていると画面が固まる。
             Timeout = TimeSpan.FromSeconds(60),
         };
-    }
 
     public string Display => _root.ToString();
 
@@ -226,8 +228,12 @@ public sealed class WebDavFileSource : IFileSource
 
     public bool Exists(string relativePath, CancellationToken cancellationToken = default)
     {
-        using var response = _client.Send(
-            new HttpRequestMessage(HttpMethod.Head, UriFor(relativePath)), cancellationToken);
+        var request = new HttpRequestMessage(HttpMethod.Head, UriFor(relativePath));
+        if (_authorization is not null)
+        {
+            request.Headers.TryAddWithoutValidation("Authorization", _authorization);
+        }
+        using var response = _client.Send(request, cancellationToken);
         return response.IsSuccessStatusCode;
     }
 
@@ -241,6 +247,10 @@ public sealed class WebDavFileSource : IFileSource
 
     private HttpResponseMessage Send(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        if (_authorization is not null)
+        {
+            request.Headers.TryAddWithoutValidation("Authorization", _authorization);
+        }
         var response = _client.Send(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {

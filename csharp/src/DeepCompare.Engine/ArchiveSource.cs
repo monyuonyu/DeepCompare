@@ -25,6 +25,15 @@ public sealed class ArchiveSource : IDisposable
     /// <summary>書庫を展開したものか。</summary>
     public bool IsExtracted => _temporary is not null;
 
+    /// <summary>
+    /// リモートから取ってきたもの。**取ってきた結果を知らせるために持つ**
+    /// （上限で切ったことを黙らないため）。
+    /// </summary>
+    public RemoteMirror? Mirror { get; private init; }
+
+    /// <summary>人に見せる場所。リモートなら元の場所（一時領域の名前ではなく）。</summary>
+    public string Display => Mirror?.Display ?? Path;
+
     /// <summary>拡張子から書庫と判断できるか。</summary>
     public static bool LooksLikeArchive(string path)
     {
@@ -38,8 +47,21 @@ public sealed class ArchiveSource : IDisposable
     /// <summary>
     /// フォルダーならそのまま、書庫なら一時領域へ展開して返す。
     /// </summary>
-    public static ArchiveSource Open(string path)
+    /// <param name="mirrorOptions">リモートのときの取り方。null なら既定。</param>
+    /// <param name="progress">リモートから取っている最中の知らせ。</param>
+    public static ArchiveSource Open(
+        string path, MirrorOptions? mirrorOptions = null, Action<string>? progress = null,
+        CancellationToken cancellationToken = default)
     {
+        // リモートは一時領域へ取ってきて、**普通のフォルダーとして**扱う。
+        // 比較の側に「リモートかどうか」を知らせない。
+        if (RemoteLocation.IsRemote(path))
+        {
+            using var source = RemoteLocation.Open(path);
+            var mirror = RemoteMirror.Fetch(source, mirrorOptions, progress, cancellationToken);
+            return new ArchiveSource(mirror.Path, null) { Mirror = mirror };
+        }
+
         if (Directory.Exists(path))
         {
             return new ArchiveSource(path, null);
@@ -96,6 +118,7 @@ public sealed class ArchiveSource : IDisposable
 
     public void Dispose()
     {
+        Mirror?.Dispose();
         if (_temporary is not null)
         {
             TryDelete(_temporary);

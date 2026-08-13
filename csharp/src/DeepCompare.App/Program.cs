@@ -22,7 +22,15 @@ internal static class Program
           deepcompare --print-folder 左 右
                                      フォルダーを比較して一覧を出す。終了コードは
                                      0 差異なし / 1 差異あり / 2 異常（CI で使える）。
-                                     zip / tar / tar.gz も中身をフォルダーとして扱う
+                                     zip / tar / tar.gz も中身をフォルダーとして扱う。
+                                     **リモートもパスの位置に書ける**:
+                                       dav://利用者:合言葉@主機/dav/
+                                       davs://主機/dav/         （https）
+                                       s3://鍵:秘密@入口/バケツ/接頭辞
+                                     鍵は AWS_ACCESS_KEY_ID などからも拾う。
+                                     リモートは一時領域へ取ってくるので、
+                                     --include / --exclude / --max-size で
+                                     取る量を絞る（取らなかったものは必ず言う）
           deepcompare --merge <向き> 左 右
                                      差分を反映する。向きは to-right か to-left。
                                      -o か --in-place を付けない限り何も書かない

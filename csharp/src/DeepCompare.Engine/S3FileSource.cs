@@ -50,6 +50,17 @@ public sealed class S3FileSource : IFileSource
     public S3FileSource(S3Settings settings, HttpClient? client = null,
         Func<DateTimeOffset>? now = null)
     {
+        // **鍵が ASCII でなければ、ここで断る。** HTTP のヘッダは ASCII しか
+        // 載らないので、そのまま進むと送る直前に
+        // 「Request headers must contain only ASCII characters」で落ちる。
+        // その文言からは、鍵が原因だと分からない。
+        if (!System.Text.Ascii.IsValid(settings.AccessKey)
+            || !System.Text.Ascii.IsValid(settings.SecretKey))
+        {
+            throw new ArgumentException(
+                "S3 の鍵は ASCII の文字だけで書きます（HTTP のヘッダに載るため）。");
+        }
+
         _settings = settings;
         _ownsClient = client is null;
         _client = client ?? new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
@@ -205,7 +216,7 @@ public sealed class S3FileSource : IFileSource
             using var response = Send(request, cancellationToken);
             var body = response.Content.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult();
 
-            token = ParseListing(body, prefix, result);
+            token = ParseListing(body, prefix, result, relativePath);
         }
         // **続きがある限り取りに行く。** 1 回の応答は 1000 件までなので、
         // ここを省くと 1001 件目から静かに消える。
@@ -214,9 +225,20 @@ public sealed class S3FileSource : IFileSource
         return result;
     }
 
-    /// <summary>一覧の応答を読む。続きがあれば継続の印を返す。</summary>
-    internal static string? ParseListing(string xml, string prefix, List<RemoteEntry> into)
+    /// <summary>
+    /// 一覧の応答を読む。続きがあれば継続の印を返す。
+    ///
+    /// <paramref name="basePath"/> は**根からの相対**の起点。これを前に付けないと、
+    /// 深い段の項目が「その段からの相対」になり、次に読むときに見つからない
+    /// （`下/b.txt` が `b.txt` になって 404 になる）。
+    /// </summary>
+    internal static string? ParseListing(
+        string xml, string prefix, List<RemoteEntry> into, string basePath = "")
     {
+        var baseTrimmed = basePath.Trim('/');
+        string Join(string name)
+            => baseTrimmed.Length == 0 ? name : $"{baseTrimmed}/{name}";
+
         using var reader = XmlReader.Create(new StringReader(xml), new XmlReaderSettings
         {
             DtdProcessing = DtdProcessing.Prohibit,
@@ -260,7 +282,7 @@ public sealed class S3FileSource : IFileSource
                         if (value.Length > prefix.Length)
                         {
                             into.Add(new RemoteEntry(
-                                value[prefix.Length..].TrimEnd('/'), true, 0, null));
+                                Join(value[prefix.Length..].TrimEnd('/')), true, 0, null));
                         }
                         continue;
                     }
@@ -278,7 +300,7 @@ public sealed class S3FileSource : IFileSource
                 inContents = false;
                 if (key is { Length: > 0 } && key.Length > prefix.Length)
                 {
-                    into.Add(new RemoteEntry(key[prefix.Length..], false, size, modified));
+                    into.Add(new RemoteEntry(Join(key[prefix.Length..]), false, size, modified));
                 }
             }
             reader.Read();
