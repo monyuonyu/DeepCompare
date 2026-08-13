@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.VisualTree;
 using Avalonia.Markup.Xaml;
 
 namespace DeepCompare.App.Views;
@@ -16,32 +18,19 @@ public partial class DiffEditorView : UserControl
         // 呼ぶと x:Name のフィールドが埋まらず、直後の組み立てで落ちる。
         InitializeComponent();
 
-        // **縦も横も同じだけ動かす。**
-        // 同じ行を見比べるのが目的なので、縦が揃っていないと意味が無い。
-        // 横も、片方だけ動くと同じ桁を見比べられない（Beyond Compare も
-        // 両方そろえる）。
-        //
-        // **スクロールバーの位置で合わせる。** TextView の ScrollOffset は
-        // 読むだけの値で、代入しても動かない。
-        LeftPane.Editor.TextArea.TextView.ScrollOffsetChanged +=
-            (_, _) => Sync(from: LeftPane, to: RightPane);
-        RightPane.Editor.TextArea.TextView.ScrollOffsetChanged +=
-            (_, _) => Sync(from: RightPane, to: LeftPane);
+        // **中のスクロール領域を直に掴む。**
+        // TextView の ScrollOffsetChanged では追従しなかった（実機で
+        // 左が 1 行目・右が 20 行目のまま動かない、という形で出た）。
+        // 部品が内側に持っている ScrollViewer の Offset を、
+        // そのまま相手へ写す。
+        AttachedToVisualTree += (_, _) => HookScroll();
 
-        // 写しの矢印。**位置は本文から測る。**
-        _leftArrows.ToRight = true;
-        _leftArrows.Attach(LeftPane.Editor.TextArea.TextView);
-        _leftArrows.Apply = block => ApplyBlock?.Invoke(block, true);
-        LeftArrows.Content = _leftArrows;
-
-        _rightArrows.ToRight = false;
-        _rightArrows.Attach(RightPane.Editor.TextArea.TextView);
-        _rightArrows.Apply = block => ApplyBlock?.Invoke(block, false);
-        RightArrows.Content = _rightArrows;
+        // 写しの矢印。左のものは右へ、右のものは左へ写す。
+        LeftPane.ArrowColumn.ToRight = true;
+        LeftPane.ArrowColumn.Apply = block => ApplyBlock?.Invoke(block, true);
+        RightPane.ArrowColumn.ToRight = false;
+        RightPane.ArrowColumn.Apply = block => ApplyBlock?.Invoke(block, false);
     }
-
-    private readonly ApplyArrowColumn _leftArrows = new();
-    private readonly ApplyArrowColumn _rightArrows = new();
 
     /// <summary>塊を写す。引数は（塊の番号, 右へ写すか）。</summary>
     public Action<int, bool>? ApplyBlock { get; set; }
@@ -65,16 +54,68 @@ public partial class DiffEditorView : UserControl
     {
         LeftPane.Fill(left, leftReadOnly);
         RightPane.Fill(right, rightReadOnly);
-        _leftArrows.Update(left.Lines);
-        _rightArrows.Update(right.Lines);
 
         // **入れ直した直後に揃える。** 片方だけ位置が残っていると、
         // 開いた瞬間から左右が別の場所を向いている。
-        Sync(from: LeftPane, to: RightPane);
+        Mirror(_leftScroll, _rightScroll);
     }
 
     public IReadOnlyList<string> LeftLines() => LeftPane.CurrentLines();
     public IReadOnlyList<string> RightLines() => RightPane.CurrentLines();
+
+    private ScrollViewer? _leftScroll;
+    private ScrollViewer? _rightScroll;
+
+    /// <summary>
+    /// 中のスクロール領域を探して繋ぐ。
+    ///
+    /// **見つかるまで探し続ける。** 部品の中身は木に付いた後に組まれる。
+    /// </summary>
+    private void HookScroll()
+    {
+        if (_leftScroll is not null && _rightScroll is not null)
+        {
+            return;
+        }
+
+        _leftScroll ??= LeftPane.Editor.GetVisualDescendants()
+            .OfType<ScrollViewer>().FirstOrDefault();
+        _rightScroll ??= RightPane.Editor.GetVisualDescendants()
+            .OfType<ScrollViewer>().FirstOrDefault();
+
+        if (_leftScroll is null || _rightScroll is null)
+        {
+            // まだ組まれていない。次の描画でもう一度。
+            Avalonia.Threading.Dispatcher.UIThread.Post(HookScroll);
+            return;
+        }
+
+        _leftScroll.ScrollChanged += (_, _) => Mirror(_leftScroll, _rightScroll);
+        _rightScroll.ScrollChanged += (_, _) => Mirror(_rightScroll, _leftScroll);
+    }
+
+    /// <summary>片方の位置をもう片方へ写す。縦も横も。</summary>
+    private void Mirror(ScrollViewer? from, ScrollViewer? to)
+    {
+        if (_syncing || from is null || to is null)
+        {
+            return;
+        }
+        _syncing = true;
+        try
+        {
+            var wanted = from.Offset;
+            if (Math.Abs(to.Offset.Y - wanted.Y) > 0.5
+                || Math.Abs(to.Offset.X - wanted.X) > 0.5)
+            {
+                to.Offset = new Vector(wanted.X, wanted.Y);
+            }
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
 
     private void Sync(DiffEditorPane from, DiffEditorPane to)
     {

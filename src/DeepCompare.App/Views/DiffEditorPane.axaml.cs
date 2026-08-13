@@ -33,6 +33,9 @@ public partial class DiffEditorPane : UserControl
         Editor.TextArea.TextView.LineTransformers.Add(_colorizer);
         Editor.TextArea.LeftMargins.Insert(0, _numbers);
 
+        ArrowColumn.Attach(Editor.TextArea.TextView);
+        Arrows.Content = ArrowColumn;
+
         // **打った内容を外へ伝える。** 詰め物を除いた形で渡す。
         Editor.TextChanged += (_, _) =>
         {
@@ -55,9 +58,13 @@ public partial class DiffEditorPane : UserControl
     /// **見ていた場所を保つ。** 入れ直しのたびに先頭へ戻ると、
     /// 反映のたびに現場まで戻ることになる。
     /// </summary>
+    /// <summary>写しの矢印。**このペインの左端に置く。**</summary>
+    public ApplyArrowColumn ArrowColumn { get; } = new();
+
     public void Fill(AlignedDocument document, bool readOnly)
     {
         _document = document;
+        ArrowColumn.Update(document.Lines);
         _background.Update(document.Lines);
         _colorizer.Update(document.Lines);
         _numbers.Update(document.Lines);

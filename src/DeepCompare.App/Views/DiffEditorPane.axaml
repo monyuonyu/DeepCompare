@@ -12,7 +12,14 @@
     そのまま数えると元のファイルの番号とずれる）。自前の余白を
     コード側から差し込む。
   -->
-  <ae:TextEditor x:Name="Editor"
+  <!--
+    **矢印もこの中に入れる。** 外に並べると、中央の境目を動かしたときに
+    境目が「矢印の列」を広げてしまい、本文と矢印が離れて残る。
+    まとまりを 1 つにして、境目には「本文のまとまり」だけを見せる。
+  -->
+  <Grid ColumnDefinitions="Auto,*">
+  <ContentControl x:Name="Arrows" Grid.Column="0" />
+  <ae:TextEditor x:Name="Editor" Grid.Column="1"
                  ShowLineNumbers="False"
                  WordWrap="False"
                  HorizontalScrollBarVisibility="Auto"
@@ -21,4 +28,5 @@
                  BorderThickness="0"
                  FontFamily="{DynamicResource MonoFont}"
                  FontSize="13" />
+  </Grid>
 </UserControl>
