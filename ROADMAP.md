@@ -16,7 +16,7 @@ Beyond Compare 4 の[公式ユーザーガイド](https://www.scootersoftware.co
 （[.github/workflows/release.yml](.github/workflows/release.yml)）。
 Windows と Linux の両方を NativeAOT で発行し、**試験を通してから**添える。
 
-    git tag -a v0.1.0 -m "..." && git push origin v0.1.0
+    git tag -a v0.0.1 -m "..." && git push origin v0.0.1
 
 配布物は 40MB（展開して 68MB、うち 22MB がモデル）。
 

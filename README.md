@@ -222,8 +222,8 @@ GUI では Git 画面に「いまの状態を説明」「草案をもらう」�
 
 **タグを打つと CI が作って Release へ添える。** 手元で発行する必要は無い。
 
-    git tag -a v0.1.0 -m "..."
-    git push origin v0.1.0
+    git tag -a v0.0.1 -m "..."
+    git push origin v0.0.1
 
 Windows と Linux の両方を作り、**試験を通してから**添える
 （[.github/workflows/release.yml](.github/workflows/release.yml)）。
