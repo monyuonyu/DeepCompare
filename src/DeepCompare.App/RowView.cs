@@ -95,49 +95,14 @@ public sealed class RowView : ViewModelBase
     public string EditLeft
     {
         get => _editLeft;
-        set { if (Set(ref _editLeft, value)) { RefreshWhileEditing(); } }
+        set => Set(ref _editLeft, value);
     }
 
     private string _editRight = string.Empty;
     public string EditRight
     {
         get => _editRight;
-        set { if (Set(ref _editRight, value)) { RefreshWhileEditing(); } }
-    }
-
-    private Language? _language;
-    private LexState _leftState;
-    private LexState _rightState;
-
-    /// <summary>
-    /// 打っている最中も、相手側の色を更新する。
-    ///
-    /// **編集中の行そのものには色を付けられない。** 入力欄は書式付きの
-    /// 文字を扱えないため。だが**相手側は入力欄ではない**ので、そちらを
-    /// 打つたびに塗り直せば「いまどこが違うか」が見える。
-    ///
-    /// 行の並びは触らない。**打つたびに組み直すと、書いている途中で
-    /// 行が動いてカーソルを見失う。**
-    /// </summary>
-    private void RefreshWhileEditing()
-    {
-        if (!IsEditing)
-        {
-            return;
-        }
-
-        var left = CanEditLeft ? EditLeft : LeftText;
-        var right = CanEditRight ? EditRight : RightText;
-        if (!CanEditLeft || !CanEditRight)
-        {
-            return;
-        }
-
-        var (leftSpans, rightSpans) = InlineDiff.Compute(left, right, _language);
-        LeftRuns = Build(left, leftSpans, _language, _leftState);
-        RightRuns = Build(right, rightSpans, _language, _rightState);
-        OnPropertyChanged(nameof(LeftRuns));
-        OnPropertyChanged(nameof(RightRuns));
+        set => Set(ref _editRight, value);
     }
 
     /// <summary>その側に行があるときだけ直せる。無い行は作れない。</summary>
@@ -216,14 +181,6 @@ public sealed class RowView : ViewModelBase
     /// 相手側を塗り直すため）。
     /// </summary>
     /// <summary>
-    /// 描く材料。**InlineCollection をそのまま渡さない。**
-    /// あれは 1 つの TextBlock にしか属せないので、仮想化した一覧で
-    /// 入れ物が使い回されると前の行から取り上げられ、そこが空白になる。
-    /// </summary>
-    public IReadOnlyList<RunSpec> LeftRuns { get; private set; } = [];
-    public IReadOnlyList<RunSpec> RightRuns { get; private set; } = [];
-
-    /// <summary>
     /// 空白を記号で見せるか。
     ///
     /// **1 文字を 1 文字に置き換える。** 「&lt;U+200B&gt;」のように長さの変わる
@@ -287,134 +244,6 @@ public sealed class RowView : ViewModelBase
 
         LeftText = row.Left is { } li ? left.Lines[li] : string.Empty;
         RightText = row.Right is { } ri ? right.Lines[ri] : string.Empty;
-        LeftRuns = Build(row.Left is null ? null : LeftText, row.LeftSpans, language, leftState);
-        RightRuns = Build(row.Right is null ? null : RightText, row.RightSpans, language, rightState);
-
-        // 打っている最中に塗り直すために覚えておく。
-        _language = language;
-        _leftState = leftState;
-        _rightState = rightState;
     }
 
-    /// <summary>
-    /// 差分の範囲と構文の範囲を重ねて描く。
-    ///
-    /// 2 つの範囲の切れ目は一致しないので、両方の境界で切り直す。差分が「変更あり」の
-    /// ところは差分の色を使い、それ以外を構文の色にする。**どこが変わったかは
-    /// 構文の色より優先する。** 色分けが綺麗でも変更点を見失っては本末転倒。
-    /// </summary>
-    private static IReadOnlyList<RunSpec> Build(
-        string? text, IReadOnlyList<EngineSpan> spans, Language? language, LexState state)
-    {
-        var inlines = new List<RunSpec>();
-        if (text is null || text.Length == 0)
-        {
-            return inlines;
-        }
-        if (spans.Count == 0)
-        {
-            AddRun(inlines, text, Palette.Brush("FgNormal"));
-            return inlines;
-        }
-
-        var tokens = language is null ? null : Lexer.Tokenize(text, language, ref state);
-
-        foreach (var span in spans)
-        {
-            var diffBrush = span.Kind switch
-            {
-                SpanKind.Changed => Palette.Brush("FgInline"),
-                SpanKind.Unimportant => Palette.Brush("FgUnimportant"),
-                _ => (IBrush?)null,
-            };
-
-            if (tokens is null || diffBrush is not null)
-            {
-                // 変更部分は構文で塗り分けない。1 つの塊として見せる。
-                //
-                // **変わった文字は背景で塗る。** 文字の色を変えるだけだと、
-                // 1 文字違いや、もともと色の付いた場所（文字列・注記）では
-                // 差分だと気づけない。Beyond Compare も背景で示している。
-                AddRun(inlines, text.Substring(span.Start, span.Length),
-                    diffBrush ?? Palette.Brush("FgNormal"),
-                    span.Kind == SpanKind.Changed ? Palette.Brush("BgInline") : null);
-                continue;
-            }
-
-            // 一致部分は構文の色で塗る。範囲を跨ぐトークンは切り出す。
-            var at = span.Start;
-            var end = span.Start + span.Length;
-            foreach (var token in tokens)
-            {
-                var from = Math.Max(at, token.Start);
-                var to = Math.Min(end, token.Start + token.Length);
-                if (to <= from)
-                {
-                    continue;
-                }
-                AddRun(inlines, text[from..to], Colour(token.Kind));
-                at = to;
-            }
-            if (at < end)
-            {
-                AddRun(inlines, text[at..end], Palette.Brush("FgNormal"));
-            }
-        }
-        return inlines;
-    }
-
-    /// <summary>
-    /// 文字を足す。空白の可視化が入っているときは、空白だけ別の色の記号にする。
-    ///
-    /// **記号は必ず 1 文字に置き換える。** 長さが変わると、差分の範囲（何文字目
-    /// から何文字目か）とずれて色の付く位置が狂う。
-    /// </summary>
-    private static void AddRun(
-        List<RunSpec> inlines, string text, IBrush brush, IBrush? background = null)
-    {
-        if (!ShowWhitespace || text.Length == 0)
-        {
-            inlines.Add(new RunSpec(text, brush, background));
-            return;
-        }
-
-        var faint = Palette.Brush("FgUnimportant");
-        var start = 0;
-        for (var i = 0; i < text.Length; i++)
-        {
-            var mark = text[i] switch
-            {
-                ' ' => '\u00b7',      // 半角空白 → 中点
-                '\t' => '\u2192',     // タブ → 矢印
-                '\u3000' => '\u25a1', // 全角空白 → 四角
-                '\u00a0' => '\u00b0', // ノーブレークスペース → 度記号（普通の空白と区別する）
-                _ => '\0',
-            };
-            if (mark == '\0')
-            {
-                continue;
-            }
-
-            if (i > start)
-            {
-                inlines.Add(new RunSpec(text[start..i], brush, background));
-            }
-            inlines.Add(new RunSpec(mark.ToString(), faint, background));
-            start = i + 1;
-        }
-        if (start < text.Length)
-        {
-            inlines.Add(new RunSpec(text[start..], brush, background));
-        }
-    }
-
-    private static IBrush Colour(TokenKind kind) => kind switch
-    {
-        TokenKind.Keyword => Palette.Brush("FgKeyword"),
-        TokenKind.String => Palette.Brush("FgString"),
-        TokenKind.Comment => Palette.Brush("FgComment"),
-        TokenKind.Number => Palette.Brush("FgNumber"),
-        TokenKind.Punctuation => Palette.Brush("FgPunctuation"),
-        _ => Palette.Brush("FgNormal"),
-    };
 }
