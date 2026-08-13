@@ -136,6 +136,12 @@ public sealed class TextCompareViewModel : ViewModelBase
             row => UnlinkAsync(row), row => row.Row is { Left: not null, Right: not null });
         ClearManualCommand = new RelayCommand(
             ClearManualAsync, () => !Manual.IsEmpty);
+        CloseSearchCommand = new RelayCommand(
+            () => { IsSearchOpen = false; return Task.CompletedTask; });
+        OpenSearchCommand = new RelayCommand(
+            () => { IsSearchOpen = true; return Task.CompletedTask; });
+        OpenReplaceCommand = new RelayCommand(
+            () => { IsReplaceOpen = true; return Task.CompletedTask; });
         ReplaceAllCommand = new RelayCommand(
             ReplaceAllAsync, () => SearchText.Length > 0 && (!LeftReadOnly || !RightReadOnly));
 
@@ -357,6 +363,44 @@ public sealed class TextCompareViewModel : ViewModelBase
         return Task.CompletedTask;
     }
 
+    private bool _isSearchOpen;
+
+    /// <summary>
+    /// 検索の枠を出しているか。
+    ///
+    /// **常に出しておかない。** 検索欄と置換欄をツールバーに並べると、
+    /// 使っていないときも幅を取り、他の操作が押し出される。
+    /// VS Code と同じで、Ctrl+F で開き Esc で閉じる。
+    /// </summary>
+    public bool IsSearchOpen
+    {
+        get => _isSearchOpen;
+        set
+        {
+            if (Set(ref _isSearchOpen, value) && !value)
+            {
+                // 閉じたら置換も畳む。**次に開いたとき置換が出ていると驚く。**
+                IsReplaceOpen = false;
+            }
+        }
+    }
+
+    private bool _isReplaceOpen;
+
+    /// <summary>置換の行も出しているか。**検索の中に畳んである。**</summary>
+    public bool IsReplaceOpen
+    {
+        get => _isReplaceOpen;
+        set
+        {
+            if (Set(ref _isReplaceOpen, value) && value)
+            {
+                // 置換を開くなら検索も開いている必要がある。
+                IsSearchOpen = true;
+            }
+        }
+    }
+
     private string _replaceText = string.Empty;
 
     /// <summary>置き換える文字列。**空でも通す**（消す操作になる）。</summary>
@@ -367,6 +411,9 @@ public sealed class TextCompareViewModel : ViewModelBase
     }
 
     public RelayCommand ReplaceAllCommand { get; }
+    public RelayCommand CloseSearchCommand { get; }
+    public RelayCommand OpenSearchCommand { get; }
+    public RelayCommand OpenReplaceCommand { get; }
 
     /// <summary>
     /// 検索に当たるところを全部置き換える。
@@ -876,9 +923,34 @@ public sealed class TextCompareViewModel : ViewModelBase
 
     private async Task RunCompareAsync()
     {
-        if (string.IsNullOrWhiteSpace(LeftPath) || string.IsNullOrWhiteSpace(RightPath))
+        // **フォルダーを渡されたらフォルダー比較へ移す。**
+        // 以前はそのまま読みに行き、「Access to the path ... is denied」という
+        // 何が悪いのか分からない知らせが出ていた（Windows で踏んだ）。
+        var leftIsFolder = LeftPath.Trim() is { Length: > 0 } l && Directory.Exists(l);
+        var rightIsFolder = RightPath.Trim() is { Length: > 0 } r && Directory.Exists(r);
+        if (leftIsFolder && rightIsFolder)
         {
-            Placeholder = "両方のファイルを指定してください。";
+            _shell.ShowFolders(LeftPath.Trim(), RightPath.Trim());
+            return;
+        }
+        if (leftIsFolder || rightIsFolder)
+        {
+            Placeholder = "片方がフォルダーです。"
+                + "テキストとして比べるならファイルを、"
+                + "中身を突き合わせるなら両方フォルダーを指定してください。";
+            return;
+        }
+
+        // **片方だけでも中身を出す。** 「両方指定してください」とだけ言われて
+        // 何も出ないと、指定したものが読めているのかすら分からない。
+        if (string.IsNullOrWhiteSpace(LeftPath) != string.IsNullOrWhiteSpace(RightPath))
+        {
+            await ShowOneSideAsync();
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(LeftPath) && string.IsNullOrWhiteSpace(RightPath))
+        {
+            Placeholder = "比べるファイルを指定してください。";
             return;
         }
 
@@ -1544,6 +1616,71 @@ public sealed class TextCompareViewModel : ViewModelBase
     private RowView? _detailRow;
 
     /// <summary>選んだ行を下の帯へ移す。</summary>
+    /// <summary>
+    /// 片側だけを並べる。
+    ///
+    /// **比較ではないので類似度は出さない。** 出すと「相手と比べた結果」に
+    /// 見えるが、相手はまだ無い。行番号と本文だけを見せて、
+    /// もう片方を指定すれば比べ始める、という状態にする。
+    /// </summary>
+    private async Task ShowOneSideAsync()
+    {
+        var left = !string.IsNullOrWhiteSpace(LeftPath);
+        var path = (left ? LeftPath : RightPath).Trim();
+
+        IsBusy = true;
+        try
+        {
+            var text = await Task.Run(() =>
+            {
+                var load = ContentLoader ?? File.ReadAllBytes;
+                return TextDecoder.Decode(load(path));
+            });
+
+            // 片側だけの「比較」を組む。相手は空。
+            var empty = new DecodedText([], text.Encoding, text.LineEnding);
+            var comparison = DiffComparer.Compare(
+                left ? text : empty, left ? empty : text, embedder: null, BuildOptions());
+
+            Apply(left ? text : empty, left ? empty : text, comparison, TimeSpan.Zero, refining: false);
+            StatusText = $"{Path.GetFileName(path)} だけを開いています"
+                + $"（{text.Lines.Count} 行）。"
+                + "もう片方を指定すると比べ始めます。";
+            Placeholder = string.Empty;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException
+                                        or NotSupportedException)
+        {
+            Placeholder = ReadableError(error, path);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// 読めなかった理由を、何をすればいいか分かる形にする。
+    ///
+    /// **元の文言をそのまま出さない。** 「Access to the path ... is denied」は
+    /// 英語なうえ、フォルダーを渡したのか権限が無いのかが読み取れない。
+    /// </summary>
+    private static string ReadableError(Exception error, string path)
+    {
+        var name = Path.GetFileName(path.TrimEnd('/', '\\'));
+        return error switch
+        {
+            UnauthorizedAccessException when Directory.Exists(path)
+                => $"{name} はフォルダーです。フォルダーどうしを比べるなら、"
+                   + "両方にフォルダーを指定してください。",
+            UnauthorizedAccessException
+                => $"{name} を読む権限がありません。",
+            FileNotFoundException or DirectoryNotFoundException
+                => $"{name} が見つかりません。",
+            _ => $"{name} を読めません: {error.Message}",
+        };
+    }
+
     private void ShowDetailFor(RowView? row)
     {
         _detailRow = row;

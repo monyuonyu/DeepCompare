@@ -263,6 +263,42 @@
     <Setter Property="Stroke" Value="{DynamicResource FgDim}" />
   </Style>
 
+  <!--
+    検索と置換の枠。**本文の上に浮かせる**（VS Code と同じ）。
+    影を落として、下の本文と層が違うことを示す。
+  -->
+  <Style Selector="Border.findbox">
+    <Setter Property="Background" Value="{DynamicResource PanelBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DividerStrong}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
+    <Setter Property="Padding" Value="6,5" />
+    <Setter Property="BoxShadow" Value="0 2 8 0 #22000000" />
+  </Style>
+
+  <!-- 枠の中の小さいボタン。ツールバーのものより一回り小さい -->
+  <Style Selector="Button.icon.small">
+    <Setter Property="Width" Value="26" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="MinWidth" Value="26" />
+    <Setter Property="MinHeight" Value="26" />
+  </Style>
+
+  <!-- 置換を開く折り返し。**枠だけの控えめな見た目にする。** -->
+  <Style Selector="ToggleButton.chevron">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="MinWidth" Value="18" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
+  </Style>
+  <Style Selector="ToggleButton.chevron:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource HoverBg}" />
+  </Style>
+
   <!-- ツールチップ。すぐ出したい。既定は遅すぎて「効かない」と思われる -->
   <Style Selector="ToolTip">
     <Setter Property="Background" Value="{DynamicResource TooltipBg}" />
@@ -271,6 +307,22 @@
     <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
     <Setter Property="Padding" Value="8,5" />
     <Setter Property="FontSize" Value="{DynamicResource FontTiny}" />
+  </Style>
+
+  <!--
+    **ツールチップの中の文字を明るくする。**
+
+    上で TextBlock に一律で FgNormal（濃い色）を当てているため、
+    ツールチップの濃い背景と重なって**黒く塗りつぶされたように見えていた**
+    （Windows で触ってもらって分かった。出た瞬間だけ読めて、すぐ潰れる）。
+    ToolTip の Foreground は継承で伝わるはずだが、要素に直接当てた指定の方が
+    強いので、ここで上書きする。
+  -->
+  <Style Selector="ToolTip TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource TooltipFg}" />
+  </Style>
+  <Style Selector="ToolTip AccessText">
+    <Setter Property="Foreground" Value="{DynamicResource TooltipFg}" />
   </Style>
 
   <!--

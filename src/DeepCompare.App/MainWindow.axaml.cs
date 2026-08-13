@@ -25,6 +25,9 @@ public partial class MainWindow : Window
         };
         DataContext = _shell;
 
+        RestoreWindow();
+        Closing += (_, _) => RememberWindow();
+
         AddHandler(DragDrop.DropEvent, OnDrop);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
 
@@ -50,6 +53,25 @@ public partial class MainWindow : Window
         {
             var where = startupPaths.Length > 0 ? startupPaths[0] : Environment.CurrentDirectory;
             Opened += (_, _) => _shell.ShowGit(where);
+            return;
+        }
+
+        // **1 つだけ渡されたら、それを開いて待つ。** 以前はホーム画面のままで、
+        // 渡したものが読めているのかすら分からなかった。
+        if (startupPaths.Length == 1 && !structured && !version)
+        {
+            var only = startupPaths[0];
+            Opened += (_, _) =>
+            {
+                if (Directory.Exists(only) || DeepCompare.Engine.RemoteLocation.IsRemote(only))
+                {
+                    _shell.ShowFolders(only, string.Empty);
+                }
+                else
+                {
+                    _shell.ShowText(only, string.Empty);
+                }
+            };
             return;
         }
 
@@ -111,6 +133,49 @@ public partial class MainWindow : Window
                 }
             };
         }
+    }
+
+    private readonly DeepCompare.Engine.SessionStore _windowStore =
+        DeepCompare.Engine.SessionStore.Default;
+
+    /// <summary>
+    /// 前に閉じたときの大きさに戻す。
+    ///
+    /// **画面より大きくは戻さない。** 大きな画面で最大化したものを
+    /// そのまま小さな画面で開くと、閉じるボタンが画面の外に出る。
+    /// </summary>
+    private void RestoreWindow()
+    {
+        var saved = _windowStore.LoadFile();
+        if (saved.WindowMaximized)
+        {
+            WindowState = WindowState.Maximized;
+            return;
+        }
+        if (saved.WindowWidth < MinWidth || saved.WindowHeight < MinHeight)
+        {
+            return;
+        }
+
+        var screen = Screens.Primary?.WorkingArea;
+        var maxWidth = screen?.Width ?? int.MaxValue;
+        var maxHeight = screen?.Height ?? int.MaxValue;
+        Width = Math.Min(saved.WindowWidth, maxWidth);
+        Height = Math.Min(saved.WindowHeight, maxHeight);
+    }
+
+    /// <summary>
+    /// 閉じるときに覚える。
+    ///
+    /// **最大化中は Width/Height を使わない。** 最大化した窓の
+    /// Width は画面いっぱいの値になり、戻したときの大きさが失われる。
+    /// </summary>
+    private void RememberWindow()
+    {
+        var maximized = WindowState == WindowState.Maximized;
+        var width = maximized ? 0 : Width;
+        var height = maximized ? 0 : Height;
+        _windowStore.SaveWindow(width, height, maximized);
     }
 
     /// <summary>

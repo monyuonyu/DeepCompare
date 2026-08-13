@@ -35,6 +35,10 @@ public sealed class HomeViewModel : ViewModelBase
         BrowseRightFileCommand = new RelayCommand(() => PickAsync(isFolder: false, left: false));
         BrowseLeftFolderCommand = new RelayCommand(() => PickAsync(isFolder: true, left: true));
         BrowseRightFolderCommand = new RelayCommand(() => PickAsync(isFolder: true, left: false));
+        UseRemoteLeftCommand = new RelayCommand(
+            () => { UseRemote(left: true); return Task.CompletedTask; });
+        UseRemoteRightCommand = new RelayCommand(
+            () => { UseRemote(left: false); return Task.CompletedTask; });
         StartKindCommand = new RelayCommand<CompareKind>(
             kind => { StartKind(kind); return Task.CompletedTask; });
         SaveSessionCommand = new RelayCommand(() => { SaveSession(); return Task.CompletedTask; });
@@ -70,7 +74,23 @@ public sealed class HomeViewModel : ViewModelBase
     private void StartKind(CompareKind kind)
     {
         Message = string.Empty;
-        _shell.Open(kind, LeftPath.Trim(), RightPath.Trim());
+        var left = LeftPath.Trim();
+        var right = RightPath.Trim();
+
+        // **入っているものと選んだ種類が食い違うなら、入っているものを優先する。**
+        // フォルダーを指定したまま「テキスト比較」を押せてしまい、
+        // 開いた先で「Access to the path ... is denied」になっていた。
+        var anyFolder = (left.Length > 0 && Directory.Exists(left))
+                     || (right.Length > 0 && Directory.Exists(right));
+        if (anyFolder && kind.Id is CompareKindId.Text or CompareKindId.Structured
+                                 or CompareKindId.Notebook or CompareKindId.Table
+                                 or CompareKindId.Image or CompareKindId.VersionInfo)
+        {
+            _shell.ShowFolders(left, right);
+            return;
+        }
+
+        _shell.Open(kind, left, right);
     }
     public ICommand OpenSessionCommand { get; }
     public ICommand RemoveSessionCommand { get; }
@@ -176,6 +196,35 @@ public sealed class HomeViewModel : ViewModelBase
     public ICommand BrowseLeftFolderCommand { get; }
     public ICommand BrowseRightFolderCommand { get; }
 
+    /// <summary>
+    /// リモートを組み立てる小画面。**左右で 1 つを使い回す。**
+    /// 開くたびに前の入力が残っていると、右に左の主機が入る。
+    /// </summary>
+    public RemoteBuilderViewModel Remote { get; } = new();
+
+    public ICommand UseRemoteLeftCommand { get; }
+    public ICommand UseRemoteRightCommand { get; }
+
+    /// <summary>組み立てた場所を欄に入れて開く。</summary>
+    private void UseRemote(bool left)
+    {
+        var location = Remote.Location;
+        if (location.Length == 0)
+        {
+            return;
+        }
+        if (left)
+        {
+            LeftPath = location;
+        }
+        else
+        {
+            RightPath = location;
+        }
+        Remote.Reset();
+        Open();
+    }
+
 
     private async Task PickAsync(bool isFolder, bool left)
     {
@@ -196,6 +245,9 @@ public sealed class HomeViewModel : ViewModelBase
             {
                 RightPath = path;
             }
+
+            // **選んだ時点で開く。** 落としたときと同じ。
+            Open();
         }
     }
 
@@ -203,9 +255,9 @@ public sealed class HomeViewModel : ViewModelBase
     {
         left = LeftPath.Trim();
         right = RightPath.Trim();
-        if (left.Length == 0 || right.Length == 0)
+        if (left.Length == 0 && right.Length == 0)
         {
-            Message = "左右の両方を指定してください。";
+            Message = "比べるものを指定してください。";
             return false;
         }
         Message = string.Empty;
@@ -240,16 +292,41 @@ public sealed class HomeViewModel : ViewModelBase
             LeftPath = paths[0];
         }
 
-        // 両方揃っていて、どちらもフォルダーなら、そのまま始めてよい。
+        // **落としたら、その場で比較の画面へ移る。**
+        // 以前は「揃いました。ボタンを押してください」と言うだけで、
+        // 落としたのにもう一手間かかった。片方だけでも中身は出せる。
+        Open();
+    }
+
+    /// <summary>
+    /// いま入っている指定で画面を開く。
+    ///
+    /// **片方だけでも開く。** 開いた先でもう片方を指定できるので、
+    /// ここで止める理由が無い。フォルダーかファイルかは中身で決める。
+    /// </summary>
+    public void Open()
+    {
         var left = LeftPath.Trim();
         var right = RightPath.Trim();
-        if (left.Length > 0 && right.Length > 0)
+        if (left.Length == 0 && right.Length == 0)
         {
-            Message = Directory.Exists(left) && Directory.Exists(right)
-                ? "フォルダーが 2 つ揃いました。「フォルダーを比較」を押してください。"
-                : File.Exists(left) && File.Exists(right)
-                    ? "ファイルが 2 つ揃いました。「テキストを比較」を押してください。"
-                    : string.Empty;
+            return;
         }
+
+        // **どちらか一方でもフォルダーなら、フォルダーとして開く。**
+        // 片方しか無いときは、それがフォルダーかどうかで決める。
+        var anyFolder = (left.Length > 0 && Directory.Exists(left))
+                     || (right.Length > 0 && Directory.Exists(right));
+        var anyRemote = RemoteLocation.IsRemote(left) || RemoteLocation.IsRemote(right);
+
+        if (anyFolder || anyRemote)
+        {
+            _shell.ShowFolders(left, right);
+        }
+        else
+        {
+            _shell.ShowText(left, right);
+        }
+        Message = string.Empty;
     }
 }

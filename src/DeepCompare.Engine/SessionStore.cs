@@ -74,6 +74,21 @@ public sealed record SessionFile
     /// </summary>
     public bool AssistAllowResolution { get; init; }
 
+    /// <summary>
+    /// 表示に使う言語。**いまは日本語だけ。**
+    /// 置き場所を先に決めておく（後から場所を変えると、覚えた設定が読めなくなる）。
+    /// </summary>
+    public string Language { get; init; } = "ja";
+
+    /// <summary>
+    /// 前に閉じたときのウィンドウ。**0 なら「まだ知らない」。**
+    /// 最大化していたかどうかも覚える（大きさだけ戻すと、最大化していた人が
+    /// 毎回小さな窓で始まることになる）。
+    /// </summary>
+    public double WindowWidth { get; init; }
+    public double WindowHeight { get; init; }
+    public bool WindowMaximized { get; init; }
+
     // **鍵はここに置かない。** 設定ファイルは平文で、バックアップにも
     // 同期にも乗る。外部の API を使うなら環境変数から読む
     // （DEEPCOMPARE_ASSIST_KEY）。
@@ -187,6 +202,66 @@ public sealed class SessionStore
     public void SaveLightTheme(bool light)
     {
         Save(Load(), light);
+    }
+
+    /// <summary>
+    /// ウィンドウの大きさだけを書き換える。
+    ///
+    /// **0 を渡されたら前の値を保つ。** 最大化したまま閉じると
+    /// 「戻したときの大きさ」が取れないが、それで前の値を消してしまうと、
+    /// 最大化を解除した瞬間に初期値の窓に戻ってしまう。
+    /// </summary>
+    public void SaveWindow(double width, double height, bool maximized)
+    {
+        var file = LoadFile();
+        WriteFile(file with
+        {
+            WindowWidth = width > 0 ? width : file.WindowWidth,
+            WindowHeight = height > 0 ? height : file.WindowHeight,
+            WindowMaximized = maximized,
+        });
+    }
+
+    /// <summary>言語だけを書き換える。</summary>
+    public void SaveLanguage(string code)
+    {
+        var file = LoadFile();
+        WriteFile(file with { Language = code });
+    }
+
+    /// <summary>LLM 支援の設定だけを書き換える。**鍵は保存しない。**</summary>
+    public void SaveAssist(string endpoint, string model, bool allowResolution)
+    {
+        var file = LoadFile();
+        WriteFile(file with
+        {
+            AssistEndpoint = endpoint.Trim(),
+            AssistModel = model.Trim(),
+            AssistAllowResolution = allowResolution,
+        });
+    }
+
+    /// <summary>
+    /// 設定ファイルをまるごと書く。
+    ///
+    /// **書けなくても落とさない。** 設定が保存できないことと、
+    /// 道具が使えないことは別。
+    /// </summary>
+    private void WriteFile(SessionFile file)
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(_path);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+            File.WriteAllText(_path,
+                JsonSerializer.Serialize(file, SessionJsonContext.Default.SessionFile));
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+        }
     }
 
     public void Save(IReadOnlyList<Session> sessions) => Save(sessions, LoadLightTheme());

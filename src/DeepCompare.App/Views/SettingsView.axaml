@@ -1,0 +1,102 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:DeepCompare.App"
+             x:Class="DeepCompare.App.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+  <ScrollViewer>
+    <StackPanel Margin="24" Spacing="20" MaxWidth="620" HorizontalAlignment="Left">
+
+      <TextBlock Text="設定" Classes="title" FontSize="20" />
+
+      <!-- 見た目 -->
+      <StackPanel Spacing="8">
+        <TextBlock Text="見た目" Classes="title" />
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Text="配色" VerticalAlignment="Center" Width="90" />
+          <RadioButton Content="明るい" GroupName="theme" IsChecked="{Binding LightTheme}" />
+          <RadioButton Content="暗い" GroupName="theme" IsChecked="{Binding !LightTheme}" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Text="言語" VerticalAlignment="Center" Width="90" />
+          <ComboBox ItemsSource="{Binding Languages}" SelectedItem="{Binding Language}"
+                    DisplayMemberBinding="{Binding Label}" MinWidth="160"
+                    IsEnabled="{Binding HasOtherLanguages}" />
+          <!--
+            **まだ 1 つしか無いことを言う。** 選べない箱が置いてあるだけだと、
+            壊れているのかと思わせる。
+          -->
+          <TextBlock Text="いまは日本語だけです" Classes="hint"
+                     VerticalAlignment="Center"
+                     IsVisible="{Binding !HasOtherLanguages}" />
+        </StackPanel>
+      </StackPanel>
+
+      <Border Height="1" Background="{DynamicResource Divider}" />
+
+      <!-- 比較の中身 -->
+      <StackPanel Spacing="8">
+        <TextBlock Text="比較" Classes="title" />
+
+        <StackPanel Orientation="Horizontal" Spacing="12" IsVisible="{Binding CanChooseModel}">
+          <TextBlock Text="モデル" VerticalAlignment="Center" Width="90" />
+          <ComboBox ItemsSource="{Binding AvailableModels}" SelectedItem="{Binding ModelName}"
+                    MinWidth="220" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Text="速さ優先" VerticalAlignment="Center" Width="90" />
+          <CheckBox IsChecked="{Binding Shell.FastMode}"
+                    Content="意味を見ずに、文字の一致だけで並べる" />
+        </StackPanel>
+        <TextBlock Classes="hint" Margin="102,0,0,0" TextWrapping="Wrap"
+                   Text="大きなファイルで待たされるときに。変数名を変えた行は対応しなくなります。" />
+      </StackPanel>
+
+      <Border Height="1" Background="{DynamicResource Divider}" />
+
+      <!-- LLM 支援 -->
+      <StackPanel Spacing="8">
+        <TextBlock Text="LLM 支援（任意）" Classes="title" />
+        <TextBlock Classes="hint" TextWrapping="Wrap"
+                   Text="git の状態を平易な言葉で説明します。接続先を入れるまで機能そのものが現れません。中身は機械の外に出さないので、手元で動かす Ollama や LM Studio を勧めます。" />
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Text="接続先" VerticalAlignment="Center" Width="90" />
+          <TextBox Text="{Binding AssistEndpoint}" MinWidth="300"
+                   Watermark="http://localhost:11434/v1" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Text="モデル名" VerticalAlignment="Center" Width="90" />
+          <TextBox Text="{Binding AssistModel}" MinWidth="220" Watermark="qwen2.5:7b" />
+          <Button Content="試す" Command="{Binding ProbeAssistCommand}" />
+          <TextBlock Text="{Binding AssistStatus}" Classes="hint" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Text="解決案" VerticalAlignment="Center" Width="90" />
+          <CheckBox IsChecked="{Binding AssistAllowResolution}"
+                    Content="衝突の解き方まで提案させる" />
+        </StackPanel>
+        <TextBlock Classes="hint" Margin="102,0,0,0" TextWrapping="Wrap"
+                   Text="既定では切ってあります。説明と違って意味を取り違えると害になり、7B でも引数を落としたまま構文としては正しいコードを出してきます。" />
+
+        <TextBlock Classes="hint" TextWrapping="Wrap"
+                   Text="鍵は設定ファイルに保存しません（平文で残るため）。外部の API を使うなら、環境変数 DEEPCOMPARE_ASSIST_KEY に入れてください。" />
+      </StackPanel>
+
+      <Border Height="1" Background="{DynamicResource Divider}" />
+
+      <!-- どこに保存されるか -->
+      <StackPanel Spacing="4">
+        <TextBlock Text="設定の保存先" Classes="title" />
+        <SelectableTextBlock Text="{Binding SettingsPath}" Classes="hint"
+                             FontFamily="{DynamicResource MonoFont}" />
+      </StackPanel>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

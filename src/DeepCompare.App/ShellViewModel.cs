@@ -132,6 +132,8 @@ public sealed class ShellViewModel : ViewModelBase
         CloseOthersCommand = new RelayCommand<CompareTab>(
             tab => { CloseOthers(tab); return Task.CompletedTask; });
         NewTabCommand = new RelayCommand(() => { Select(HomeTab); return Task.CompletedTask; });
+        OpenSettingsCommand = new RelayCommand(
+            () => { ShowSettings(); return Task.CompletedTask; });
     }
 
     public Func<string, bool, Task<string?>> PickPath { get; }
@@ -164,6 +166,27 @@ public sealed class ShellViewModel : ViewModelBase
     public RelayCommand<CompareTab> CloseTabCommand { get; }
     public RelayCommand<CompareTab> CloseOthersCommand { get; }
     public System.Windows.Input.ICommand NewTabCommand { get; }
+    public RelayCommand OpenSettingsCommand { get; }
+
+    private CompareTab? _settingsTab;
+
+    /// <summary>
+    /// 設定の画面を出す。
+    ///
+    /// **開いてあるなら、そこへ移るだけ。** 押すたびに増えると、
+    /// どれが今の設定なのか分からなくなる。
+    /// </summary>
+    public void ShowSettings()
+    {
+        if (_settingsTab is { } existing && Tabs.Contains(existing))
+        {
+            Selected = existing;
+            return;
+        }
+        var model = new SettingsViewModel(this);
+        _settingsTab = Add("設定", model);
+        model.Tab = _settingsTab;
+    }
 
     private void Select(CompareTab tab) => Selected = tab;
 

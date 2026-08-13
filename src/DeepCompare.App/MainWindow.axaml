@@ -12,6 +12,9 @@
 
   <Window.DataTemplates>
     <!-- 出す画面は今の状態の型で決まる。切り替えのための分岐をコード側に持たない。 -->
+    <DataTemplate DataType="vm:SettingsViewModel">
+      <views:SettingsView />
+    </DataTemplate>
     <DataTemplate DataType="vm:HomeViewModel">
       <views:HomeView />
     </DataTemplate>
@@ -58,6 +61,30 @@
   <DockPanel>
     <Border DockPanel.Dock="Top" Background="{DynamicResource SidebarBg}"
             BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
+      <DockPanel>
+
+      <!--
+        右端の道具。**タブと同じ行に置く。** 別の帯を作ると、
+        比較に使える高さがその分だけ減る。
+      -->
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2"
+                  VerticalAlignment="Center" Margin="6,0,8,0">
+        <Button Classes="icon" Command="{Binding ToggleThemeCommand}"
+                ToolTip.Tip="明るい／暗いを切り替える">
+          <Panel>
+            <!-- **いま押すとどうなるかを出す。** 暗いときは太陽（明るくする）。 -->
+            <Path Classes="icon" Data="{StaticResource IconSun}"
+                  IsVisible="{Binding !LightTheme}" />
+            <Path Classes="icon" Data="{StaticResource IconMoon}"
+                  IsVisible="{Binding LightTheme}" />
+          </Panel>
+        </Button>
+        <Button Classes="icon" Command="{Binding OpenSettingsCommand}"
+                ToolTip.Tip="設定">
+          <Path Classes="icon" Data="{StaticResource IconSettings}" />
+        </Button>
+      </StackPanel>
+
       <!--
         ListBox を使う。**選ばれているのが 1 枚だけであることが構造に出る。**
         自前で「どれが選ばれているか」を持つと、閉じたときや入れ替えたときに必ずずれる。
@@ -126,6 +153,7 @@
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
+      </DockPanel>
     </Border>
 
     <ContentControl Content="{Binding Selected.Content}" />
