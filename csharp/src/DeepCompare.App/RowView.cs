@@ -129,6 +129,18 @@ public sealed class RowView : ViewModelBase
     public int OutlineStart { get; set; }
     public int OutlineCount { get; set; }
 
+    /// <summary>
+    /// 差分の塊の範囲を示す線（折りたたみと同じ形）。
+    ///
+    /// **矢印がどこまでを写すのかを見せる。** 塊の先頭にしか矢印が出ないので、
+    /// 1 行だけなのか 20 行なのかが、押すまで分からなかった。
+    /// </summary>
+    public OutlineMark BlockOutline { get; set; }
+
+    public bool BlockLineAbove => BlockOutline is OutlineMark.Body or OutlineMark.Tail;
+    public bool BlockLineBelow => BlockOutline is OutlineMark.Head or OutlineMark.Body;
+    public bool BlockFoot => BlockOutline == OutlineMark.Tail;
+
     public bool IsOutlineHead => Outline == OutlineMark.Head;
     public bool HasOutline => Outline != OutlineMark.None;
 

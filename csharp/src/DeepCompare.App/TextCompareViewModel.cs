@@ -1574,6 +1574,50 @@ public sealed class TextCompareViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// 差分の塊の範囲に線を付ける。
+    ///
+    /// **矢印がどこまでを写すのかを見せる。** 塊の先頭にしか矢印が出ないので、
+    /// 1 行だけなのか 20 行なのかが、押すまで分からなかった。折りたたみと
+    /// 同じ形にして、線の意味を覚え直さなくて済むようにする。
+    ///
+    /// **1 行だけの塊には線を出さない。** 矢印だけで範囲は明らかで、
+    /// 線を足しても情報が増えない。
+    /// </summary>
+    private void MarkBlockRanges()
+    {
+        var start = -1;
+        var block = -1;
+
+        for (var i = 0; i <= VisibleRows.Count; i++)
+        {
+            var current = i < VisibleRows.Count && !VisibleRows[i].IsFoldBand
+                ? VisibleRows[i].BlockIndex
+                : -1;
+
+            if (current >= 0 && current == block)
+            {
+                continue;
+            }
+
+            // 塊が切り替わった。前の塊に線を引く。
+            if (start >= 0 && block >= 0)
+            {
+                var length = i - start;
+                for (var k = start; k < i; k++)
+                {
+                    VisibleRows[k].BlockOutline = length < 2 ? OutlineMark.None
+                        : k == start ? OutlineMark.Head
+                        : k == i - 1 ? OutlineMark.Tail
+                        : OutlineMark.Body;
+                }
+            }
+
+            block = current;
+            start = current >= 0 ? i : -1;
+        }
+    }
+
     /// <summary>表示している行が、元の並びで何番目か。</summary>
     private int OriginOf(RowView row) => _allRows.IndexOf(row);
 
@@ -1612,6 +1656,7 @@ public sealed class TextCompareViewModel : ViewModelBase
         }
 
         MarkOutlines();
+        MarkBlockRanges();
         OnPropertyChanged(nameof(ShowPlaceholder));
         OnPropertyChanged(nameof(SearchStatus));
         OnPropertyChanged(nameof(HasDifferences));
