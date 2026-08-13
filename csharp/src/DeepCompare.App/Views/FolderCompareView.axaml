@@ -167,6 +167,20 @@
                             Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).OpenBinaryCommand}"
                             CommandParameter="{Binding}" />
                   <Separator />
+                  <MenuItem Header="左から右へ写す"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).CopyToRightCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="右から左へ写す"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).CopyToLeftCommand}"
+                            CommandParameter="{Binding}" />
+                  <Separator />
+                  <MenuItem Header="これを一覧から外す"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).ExcludeCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="同じ種類を全部外す"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).ExcludeTypeCommand}"
+                            CommandParameter="{Binding}" />
+                  <Separator />
                   <MenuItem Header="左の場所を開く"
                             Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).RevealLeftCommand}"
                             CommandParameter="{Binding}" />

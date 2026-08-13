@@ -1,4 +1,6 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
@@ -20,6 +22,7 @@ public partial class FolderCompareView : UserControl
         {
             if (DataContext is FolderCompareViewModel model)
             {
+                model.Confirm = ConfirmAsync;
                 model.Clipboard = text =>
                 {
                     var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
@@ -31,6 +34,55 @@ public partial class FolderCompareView : UserControl
                 };
             }
         };
+    }
+
+    /// <summary>
+    /// 上書きの確認。
+    ///
+    /// **戻せない操作の前にだけ出す。** 何でも訊くと読まずに押すようになり、
+    /// 本当に危ないときの歯止めにならない。
+    /// </summary>
+    private async Task<bool> ConfirmAsync(string message)
+    {
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner is null)
+        {
+            return false;
+        }
+
+        var answer = false;
+        var yes = new Button { Content = "写す", Classes = { "accent" }, MinWidth = 90 };
+        var no = new Button { Content = "やめる", MinWidth = 90 };
+
+        var dialog = new Window
+        {
+            Title = "確認",
+            SizeToContent = SizeToContent.WidthAndHeight,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            CanResize = false,
+            Content = new StackPanel
+            {
+                Margin = new Thickness(20),
+                Spacing = 16,
+                Children =
+                {
+                    new TextBlock { Text = message, MaxWidth = 380, TextWrapping = TextWrapping.Wrap },
+                    new StackPanel
+                    {
+                        Orientation = Avalonia.Layout.Orientation.Horizontal,
+                        Spacing = 8,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+                        Children = { no, yes },
+                    },
+                },
+            },
+        };
+
+        yes.Click += (_, _) => { answer = true; dialog.Close(); };
+        no.Click += (_, _) => dialog.Close();
+
+        await dialog.ShowDialog(owner);
+        return answer;
     }
 
     private void OnDoubleTapped(object? sender, TappedEventArgs e)

@@ -282,6 +282,27 @@
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:RowView">
             <Border Background="{Binding Background}" Height="20">
+              <Border.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Header="この塊を左から右へ写す"
+                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyToRightCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="この塊を右から左へ写す"
+                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyToLeftCommand}"
+                            CommandParameter="{Binding}" />
+                  <Separator />
+                  <MenuItem Header="この塊の先頭へ移る"
+                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).SelectBlockCommand}"
+                            CommandParameter="{Binding}" />
+                  <Separator />
+                  <MenuItem Header="左の行を写す"
+                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyLineCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="左右をタブ区切りで写す"
+                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyBothLinesCommand}"
+                            CommandParameter="{Binding}" />
+                </ContextMenu>
+              </Border.ContextMenu>
               <StackPanel Orientation="Horizontal">
                 <TextBlock Classes="cell gutter" Text="{Binding LeftNumber}" />
 

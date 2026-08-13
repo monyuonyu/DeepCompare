@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
 
@@ -22,6 +24,22 @@ public partial class TextCompareView : UserControl
                 model.ViewportWidth = bounds.Width;
             }
         }));
+
+        // 書き込み先は表示側にしかない。ViewModel から画面に触らせず、ここで差し込む。
+        DataContextChanged += (_, _) =>
+        {
+            if (DataContext is TextCompareViewModel model)
+            {
+                model.Clipboard = text =>
+                {
+                    var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+                    if (clipboard is not null)
+                    {
+                        _ = clipboard.SetValueAsync(DataFormat.Text, text);
+                    }
+                };
+            }
+        };
 
         // 差分の地図に「いま見えている範囲」を出すために、スクロール位置を拾う。
         // ListBox の中の ScrollViewer は、テンプレートが当たるまで存在しない。

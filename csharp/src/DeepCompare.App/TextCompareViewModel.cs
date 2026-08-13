@@ -98,6 +98,10 @@ public sealed class TextCompareViewModel : ViewModelBase
         PreviousDifferenceCommand = new RelayCommand(() => { MoveToDifference(forward: false); return Task.CompletedTask; });
         FindNextCommand = new RelayCommand(() => { FindFrom(forward: true); return Task.CompletedTask; });
         FindPreviousCommand = new RelayCommand(() => { FindFrom(forward: false); return Task.CompletedTask; });
+        CopyLineCommand = new RelayCommand<RowView>(row => CopyTextAsync(row, both: false));
+        CopyBothLinesCommand = new RelayCommand<RowView>(row => CopyTextAsync(row, both: true));
+        SelectBlockCommand = new RelayCommand<RowView>(
+            row => { SelectBlock(row); return Task.CompletedTask; }, row => row.BlockIndex >= 0);
     }
 
     public ObservableCollection<RowView> VisibleRows { get; } = [];
@@ -109,6 +113,37 @@ public sealed class TextCompareViewModel : ViewModelBase
     public ShellViewModel Shell => _shell;
     public RelayCommand<RowView> CopyToRightCommand { get; }
     public RelayCommand<RowView> CopyToLeftCommand { get; }
+    public RelayCommand<RowView> CopyLineCommand { get; }
+    public RelayCommand<RowView> CopyBothLinesCommand { get; }
+    public RelayCommand<RowView> SelectBlockCommand { get; }
+
+    /// <summary>書き込み先。表示側から差し込む（ViewModel から画面に触らない）。</summary>
+    public Action<string>? Clipboard { get; set; }
+
+    /// <summary>
+    /// その行を写す。
+    ///
+    /// <paramref name="both"/> が真なら左右をタブで区切って写す。表計算や
+    /// 別の道具へ持っていくときに使う。
+    /// </summary>
+    private Task CopyTextAsync(RowView row, bool both)
+    {
+        Clipboard?.Invoke(both ? $"{row.LeftText}\t{row.RightText}" : row.LeftText);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>その塊の先頭へ移る。塊の途中で右クリックしたときに使う。</summary>
+    private void SelectBlock(RowView row)
+    {
+        for (var i = 0; i < VisibleRows.Count; i++)
+        {
+            if (VisibleRows[i].BlockIndex == row.BlockIndex && VisibleRows[i].IsBlockStart)
+            {
+                SelectedRowIndex = i;
+                return;
+            }
+        }
+    }
     public RelayCommand UndoCommand { get; }
     public RelayCommand RedoCommand { get; }
     public RelayCommand SaveLeftCommand { get; }

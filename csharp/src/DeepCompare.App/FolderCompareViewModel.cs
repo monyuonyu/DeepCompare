@@ -181,6 +181,17 @@ public sealed class FolderCompareViewModel : ViewModelBase
         ExportCsvCommand = new RelayCommand(ExportCsvAsync);
         OpenStructuredCommand = new RelayCommand<FolderRowView>(
             OpenStructuredAsync, row => row.CanOpenText);
+        // BC の Actions メニューにある「Exclude」。設定を開いて除外欄に打ち込む
+        // 近道で、実際いちばんよく使う操作の 1 つ。
+        ExcludeCommand = new RelayCommand<FolderRowView>(
+            row => { Exclude(row.Entry.Name); return Task.CompletedTask; });
+        ExcludeTypeCommand = new RelayCommand<FolderRowView>(
+            row => { Exclude("*" + System.IO.Path.GetExtension(row.Entry.Name)); return Task.CompletedTask; },
+            row => System.IO.Path.GetExtension(row.Entry.Name).Length > 0);
+        CopyToRightCommand = new RelayCommand<FolderRowView>(row => CopyFileAsync(row, toRight: true),
+            row => !row.Entry.IsDirectory && row.HasLeft);
+        CopyToLeftCommand = new RelayCommand<FolderRowView>(row => CopyFileAsync(row, toRight: false),
+            row => !row.Entry.IsDirectory && row.HasRight);
         OpenBinaryCommand = new RelayCommand<FolderRowView>(row =>
         {
             var (left, right) = PathsOf(row);
@@ -233,6 +244,71 @@ public sealed class FolderCompareViewModel : ViewModelBase
     public ICommand OpenRowCommand { get; }
     public ICommand OpenStructuredCommand { get; }
     public ICommand OpenBinaryCommand { get; }
+    public ICommand ExcludeCommand { get; }
+    public ICommand ExcludeTypeCommand { get; }
+    public ICommand CopyToRightCommand { get; }
+    public ICommand CopyToLeftCommand { get; }
+
+    /// <summary>
+    /// 除外の型に足して走査しなおす。
+    ///
+    /// **設定を開かずに 1 手で外せる**のが要点。「これは見なくていい」と
+    /// 分かるのは一覧を眺めている最中なので、そこで外せないと手が止まる。
+    /// </summary>
+    private void Exclude(string pattern)
+    {
+        var current = ExcludeNames.Trim();
+        if (current.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(pattern))
+        {
+            return;
+        }
+        ExcludeNames = current.Length == 0 ? pattern : $"{current} {pattern}";
+        _ = RunAsync();
+    }
+
+    /// <summary>
+    /// ファイルを反対側へ写す。
+    ///
+    /// **上書きの確認は呼ぶ側（画面）が出す。** ViewModel から確認の窓を
+    /// 出すと、試験ができなくなるうえ、画面のない経路（CLI）で使えなくなる。
+    /// </summary>
+    public Func<string, Task<bool>>? Confirm { get; set; }
+
+    private async Task CopyFileAsync(FolderRowView row, bool toRight)
+    {
+        var (left, right) = PathsOf(row);
+        var (from, to) = toRight ? (left, right) : (right, left);
+
+        if (!File.Exists(from))
+        {
+            StatusText = "写す元がありません。";
+            return;
+        }
+
+        // **上書きになるときだけ訊く。** 何も無い所へ写すのは戻せる（消せばよい）
+        // が、上書きは戻せない。
+        if (File.Exists(to) && Confirm is not null
+            && !await Confirm($"{Path.GetFileName(to)} を上書きします。よろしいですか。"))
+        {
+            return;
+        }
+
+        try
+        {
+            var directory = Path.GetDirectoryName(to);
+            if (directory is not null)
+            {
+                Directory.CreateDirectory(directory);
+            }
+            File.Copy(from, to, overwrite: true);
+            await RunAsync();
+            StatusText = $"{Path.GetFileName(from)} を写しました。";
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            StatusText = $"写せません: {error.Message}";
+        }
+    }
     public ICommand RevealLeftCommand { get; }
     public ICommand RevealRightCommand { get; }
     public ICommand CopyLeftPathCommand { get; }
@@ -427,7 +503,7 @@ public sealed class FolderCompareViewModel : ViewModelBase
     public string StatusText
     {
         get => _statusText;
-        private set => Set(ref _statusText, value);
+        set => Set(ref _statusText, value);
     }
 
     public FolderRowView? Selected
