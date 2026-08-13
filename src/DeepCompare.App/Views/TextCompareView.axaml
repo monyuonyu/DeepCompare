@@ -15,6 +15,15 @@
     <KeyBinding Gesture="Escape" Command="{Binding CloseSearchCommand}" />
     <KeyBinding Gesture="F3" Command="{Binding FindNextCommand}" />
     <KeyBinding Gesture="Shift+F3" Command="{Binding FindPreviousCommand}" />
+    <!--
+      **選んだ行をまとめて扱う。** これまでは 1 行ずつしか直せず、
+      「全部選んで消す」「全部選んで貼り替える」ができなかった。
+      Delete / BackSpace で消し、Ctrl+V で置き換える。
+      効く先は最後に押した側（左右）。
+    -->
+    <KeyBinding Gesture="Delete" Command="{Binding DeleteSelectedCommand}" />
+    <KeyBinding Gesture="Back" Command="{Binding DeleteSelectedCommand}" />
+    <KeyBinding Gesture="Ctrl+V" Command="{Binding PasteOverSelectionCommand}" />
     <KeyBinding Gesture="Ctrl+Z" Command="{Binding UndoCommand}" />
     <KeyBinding Gesture="Ctrl+Y" Command="{Binding RedoCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+Z" Command="{Binding RedoCommand}" />
@@ -758,7 +767,7 @@
                   本文。**選んだ 1 行だけが入力欄になる**（BC の Full Edit）。
                   全行を入力欄にすると、仮想化していても数千個を作ることになる。
                 -->
-                <Border Background="{Binding LeftBackground}"
+                <Border Tag="left" Background="{Binding LeftBackground}"
                         Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}">
                   <Panel>
                     <TextBlock Classes="cell" Inlines="{Binding LeftInlines}"
@@ -809,7 +818,7 @@
                   </Button>
                 </Panel>
 
-                <Border Background="{Binding RightBackground}"
+                <Border Tag="right" Background="{Binding RightBackground}"
                         Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}">
                   <Panel>
                     <TextBlock Classes="cell" Inlines="{Binding RightInlines}"

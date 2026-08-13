@@ -84,6 +84,10 @@ public partial class TextCompareView : UserControl
         // 行の中の入力欄で Enter を押したら確定、Esc で取り消す。
         // **入力欄ごとに仕掛けない。** 仮想化で作り直されるので、
         // ここで一括して拾う方が漏れない。
+        // **押した側を覚える。** まとめて消す・貼り替えるとき、
+        // どちらの本文を書き換えるかがこれで決まる。
+        AddHandler(PointerPressedEvent, OnPointerPressedForSide, handledEventsToo: true);
+
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
 
         // 差分の地図に「いま見えている範囲」を出すために、スクロール位置を拾う。
@@ -95,6 +99,36 @@ public partial class TextCompareView : UserControl
         // 木に付いたときの一度きりで諦めていたため、地図の「いま見えている
         // 範囲」がずっと初期値のまま（＝全体）になっていた。
         LayoutUpdated += (_, _) => HookScroll();
+    }
+
+    /// <summary>
+    /// 押した場所から、左右のどちらを触ったかを決める。
+    ///
+    /// **目印は親をたどって探す。** 押されたのは中の文字や余白なので、
+    /// その要素自身は左右を知らない。
+    /// </summary>
+    private void OnPointerPressedForSide(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is not TextCompareViewModel model)
+        {
+            return;
+        }
+        for (var at = e.Source as Visual; at is not null; at = at.GetVisualParent())
+        {
+            if (at is Control { Tag: string side })
+            {
+                if (side == "left")
+                {
+                    model.ActiveIsLeft = true;
+                    return;
+                }
+                if (side == "right")
+                {
+                    model.ActiveIsLeft = false;
+                    return;
+                }
+            }
+        }
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)

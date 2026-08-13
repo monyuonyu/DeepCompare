@@ -122,6 +122,8 @@ public sealed class TextCompareViewModel : ViewModelBase
             row => { CollapseOutline(row); return Task.CompletedTask; }, row => row.IsOutlineHead);
         ExpandFoldCommand = new RelayCommand<RowView>(
             band => { ExpandFold(band); return Task.CompletedTask; }, band => band.IsFoldBand);
+        DeleteSelectedCommand = new RelayCommand(DeleteSelectedAsync);
+        PasteOverSelectionCommand = new RelayCommand(PasteOverSelectionAsync);
         HideDetailsCommand = new RelayCommand(
             () => { ShowDetails = false; return Task.CompletedTask; });
         ShowDetailsCommand = new RelayCommand(
@@ -478,6 +480,101 @@ public sealed class TextCompareViewModel : ViewModelBase
     /// 1 行だけのときも入るので、写しの操作はこちらに寄せられる。
     /// </summary>
     public System.Collections.IList SelectedRows { get; } = new List<object>();
+
+    public RelayCommand DeleteSelectedCommand { get; private set; } = null!;
+    public RelayCommand PasteOverSelectionCommand { get; private set; } = null!;
+
+    /// <summary>
+    /// いま触っている側。
+    ///
+    /// **左右のどちらに効かせるかは、最後に押した側で決める。**
+    /// 一括の削除や貼り付けは「どちらの本文を書き換えるか」を必ず要求するが、
+    /// そのたびに選ばせるのは煩わしい。Beyond Compare も同じく、
+    /// 触った側が対象になる。
+    /// </summary>
+    public bool ActiveIsLeft { get; set; } = true;
+
+    /// <summary>
+    /// 選んだ行をまとめて消す。
+    ///
+    /// **読み取り専用の側は触らない。** 取り消しで戻せる。
+    /// </summary>
+    public async Task DeleteSelectedAsync()
+    {
+        await ReplaceSelectedAsync([]);
+    }
+
+    /// <summary>
+    /// 選んだ行を、クリップボードの中身で置き換える。
+    ///
+    /// **行の数が違ってもよい。** 1 行を選んで 100 行貼れば 100 行になる。
+    /// これができないと「全部選んで貼り替える」ができない。
+    /// </summary>
+    public async Task PasteOverSelectionAsync()
+    {
+        if (ReadClipboard is null)
+        {
+            return;
+        }
+        var text = await ReadClipboard();
+        if (string.IsNullOrEmpty(text))
+        {
+            StatusText = "クリップボードに文字がありません。";
+            return;
+        }
+        // 末尾の改行で空行が 1 つ増えるのを避ける。
+        var lines = text.Replace("\r\n", "\n").TrimEnd('\n').Split('\n');
+        await ReplaceSelectedAsync(lines);
+    }
+
+    /// <summary>選んだ行を差し替える土台。消すのも貼るのもここを通る。</summary>
+    private async Task ReplaceSelectedAsync(IReadOnlyList<string> replacement)
+    {
+        var document = ActiveIsLeft ? _leftDocument : _rightDocument;
+        var readOnly = ActiveIsLeft ? LeftReadOnly : RightReadOnly;
+        if (document is null || readOnly || SelectedRows.Count == 0)
+        {
+            StatusText = readOnly
+                ? "この側は読み取り専用です。"
+                : "行を選んでください。";
+            return;
+        }
+
+        // 選んだ行のうち、その側に実体のあるものだけを集める。
+        // **片側にしか無い行を選んでいることがある**（相手側は空欄）。
+        var indexes = new List<int>();
+        foreach (var item in SelectedRows)
+        {
+            if (item is not RowView row)
+            {
+                continue;
+            }
+            var at = ActiveIsLeft ? row.Row.Left : row.Row.Right;
+            if (at is { } value)
+            {
+                indexes.Add(value);
+            }
+        }
+        if (indexes.Count == 0)
+        {
+            StatusText = "選んだ行は、この側にはありません。";
+            return;
+        }
+
+        indexes.Sort();
+        var start = indexes[0];
+        var count = indexes[^1] - start + 1;
+
+        document.Replace(start, count, replacement);
+        _undoSides.Push(!ActiveIsLeft);
+        _redoSides.Clear();
+        RaiseEditState();
+        await RecompareAsync();
+
+        StatusText = replacement.Count == 0
+            ? $"{count} 行を消しました（取り消しで戻せます）。"
+            : $"{count} 行を {replacement.Count} 行に置き換えました（取り消しで戻せます）。";
+    }
 
     public RelayCommand CopySelectedLeftCommand { get; }
     public RelayCommand CopySelectedBothCommand { get; }
