@@ -44,6 +44,8 @@ internal static class Program
                                      バイト列として 16 進で比較する。テキストとして
                                      読めないファイル向け。終了コードは
                                      0 同じ / 1 違う / 2 異常
+          deepcompare --sync 左 右   フォルダーを揃える。**既定では予定を出すだけ。**
+                                     実行するには --apply を付ける
           deepcompare --multi A B C …
                                      3 つ以上を並べて比べる（dev / staging / prod の
                                      設定など）。**どれが仲間外れか**を出す。
@@ -109,6 +111,14 @@ internal static class Program
                            複数回指定可
           --ignore-order   配列の並び順の違いを報告しない
           --strict-numbers 1.0 と 1 を別のものとして扱う
+
+        同期のオプション（--sync と併用）
+          --direction <向き>
+                           to-right（既定）/ to-left / both（新しい方を採る）
+          --delete-orphans 片側にしか無いものを消す。**既定は消さない。**
+                           同期の事故はほとんどこれで起きる
+          --apply          実際に実行する。付けなければ予定を出すだけ
+          --tolerance <秒> both のときの時刻の許容誤差（既定 2 秒）
 
         秘密の検出のオプション（--secrets と併用）
           --secret-level <段階>

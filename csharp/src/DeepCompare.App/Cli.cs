@@ -37,6 +37,17 @@ internal static class Cli
         {
             return Report(() => RunFontCheck(output));
         }
+        if (args.Contains("--sync"))
+        {
+            var folders = Positional(args);
+            if (folders.Length < 2)
+            {
+                Console.Error.WriteLine("--sync には 2 つのフォルダーが必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return RunSync(folders[0], folders[1], args, output);
+        }
         if (args.Contains("--multi"))
         {
             var files = Positional(args);
@@ -280,6 +291,72 @@ internal static class Cli
         }
         return result.ToArray();
     }
+
+    /// <summary>
+    /// フォルダーの同期。
+    ///
+    /// **既定では予定を出すだけで、何も書き換えない。** 実際に走らせるには
+    /// --apply が要る。同期は取り返しがつかないので、見てから決められるようにする。
+    /// </summary>
+    private static int RunSync(string left, string right, string[] args, string? output)
+    {
+        var options = new SyncOptions
+        {
+            Direction = ValueOf(args, "--direction") switch
+            {
+                "to-left" => SyncDirection.ToLeft,
+                "both" => SyncDirection.Both,
+                _ => SyncDirection.ToRight,
+            },
+            DeleteOrphans = args.Contains("--delete-orphans"),
+            ToleranceSeconds = TimestampTolerance(args),
+        };
+
+        FolderComparison comparison;
+        try
+        {
+            comparison = FolderComparer.Compare(left, right, new FolderCompareOptions
+            {
+                Filter = new NameFilter(ValuesOf(args, "--include"), ValuesOf(args, "--exclude")),
+            });
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+
+        var plan = FolderSync.Plan(comparison, options);
+
+        var text = new StringBuilder();
+        text.AppendLine($"left  {left}");
+        text.AppendLine($"right {right}");
+        text.AppendLine("legend → 右へ写す / ← 左へ写す / ✕ 消す");
+        text.AppendLine("---");
+        text.Append(FolderSync.Format(plan));
+
+        if (!args.Contains("--apply"))
+        {
+            text.AppendLine();
+            text.AppendLine("（予定を出しただけです。実行するには --apply を付けてください）");
+            Emit(text.ToString(), output);
+            return plan.IsEmpty ? 0 : 1;
+        }
+
+        var result = FolderSync.Apply(plan, left, right);
+        text.AppendLine();
+        text.AppendLine($"{result.Done} 件を実行しました。");
+        foreach (var error in result.Errors)
+        {
+            text.AppendLine($"失敗: {error}");
+        }
+
+        Emit(text.ToString(), output);
+        return result.AllSucceeded ? 0 : 2;
+    }
+
+    private static double TimestampTolerance(string[] args)
+        => double.TryParse(ValueOf(args, "--tolerance"), out var value) ? value : 2;
 
     /// <summary>
     /// 秘密が混ざっていないか調べる。
