@@ -239,7 +239,52 @@ public sealed class ShellViewModel : ViewModelBase
     public event Action? ThemeChanged;
 
     /// <summary>初回だけ読む。呼び出し側は必ず作業スレッドから呼ぶこと。</summary>
-    public Embedder GetEmbedder() => _embedder ??= Embedder.CreateFromDefaultAssets();
+    public Embedder GetEmbedder() => _embedder ??= Embedder.CreateFromDefaultAssets(_modelName);
+
+    private string? _modelName;
+
+    /// <summary>
+    /// 使うモデル。空なら既定（実行ファイルの隣の minilm.dcm）。
+    ///
+    /// 現行モデルは英語中心で、日本語では濁点を落とす（`だ` → `た`）。
+    /// **日本語向けのモデルを置いて選べるようにするための入口。**
+    /// </summary>
+    public string ModelName
+    {
+        get => _modelName ?? Embedder.DefaultWeightsFileName;
+        set
+        {
+            var name = value == Embedder.DefaultWeightsFileName ? null : value;
+            if (name == _modelName)
+            {
+                return;
+            }
+            _modelName = name;
+            // **読み込んだものを捨てる。** 残すと、選び直しても前のモデルで
+            // 比べ続けることになる（そして誰も気づかない）。
+            _embedder = null;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>実行ファイルの隣にあるモデル。2 つ以上あるときだけ選ばせる。</summary>
+    public IReadOnlyList<string> AvailableModels { get; } = Embedder.AvailableModels();
+
+    public bool CanChooseModel => AvailableModels.Count > 1;
+
+    private bool _fastMode;
+
+    /// <summary>
+    /// 埋め込みを使わない。**大量のファイルを一次選別するとき**に使う。
+    ///
+    /// 意味的な対応付けは桁違いに遅い（2000 行で 25ms 対 3.4 秒）。
+    /// 「どのファイルが変わったか」を見るだけなら、そこまで要らない。
+    /// </summary>
+    public bool FastMode
+    {
+        get => _fastMode;
+        set => Set(ref _fastMode, value);
+    }
 
     // --- 画面を開く。**どれも新しいタブを作る** ---
 

@@ -105,6 +105,27 @@
             </Button>
           </Grid>
           <TextBlock Classes="hint" Text="ウィンドウに落として指定することもできます。" />
+
+          <!--
+            対応付けの取り方。**既定は意味的な比較**（このツールの持ち味）。
+            大量のファイルを一次選別するときだけ切る、という順序にする。
+          -->
+          <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
+            <CheckBox IsChecked="{Binding Shell.FastMode}"
+                      ToolTip.Tip="埋め込みを使わず、文字列一致だけで対応付けます。桁違いに速い代わりに、変数名を一括で変えた行などは別物として並びます">
+              <TextBlock Text="速さ優先（構造のみ）" FontSize="12" VerticalAlignment="Center" />
+            </CheckBox>
+
+            <!-- モデルは 2 つ以上あるときだけ出す。1 つしか無い選択欄は意味が無い -->
+            <StackPanel Orientation="Horizontal" Spacing="6"
+                        IsVisible="{Binding Shell.CanChooseModel}">
+              <TextBlock Text="モデル" FontSize="12" VerticalAlignment="Center"
+                         Foreground="{DynamicResource FgDim}" />
+              <ComboBox ItemsSource="{Binding Shell.AvailableModels}"
+                        SelectedItem="{Binding Shell.ModelName}"
+                        MinWidth="160" />
+            </StackPanel>
+          </StackPanel>
         </StackPanel>
       </Border>
 

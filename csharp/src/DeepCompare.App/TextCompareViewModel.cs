@@ -616,6 +616,13 @@ public sealed class TextCompareViewModel : ViewModelBase
             // ここで操作可能にする。以降は待たせない。
             IsBusy = false;
 
+            // 高速モードなら段階 2 を走らせない。**段階 1 の答えで確定する。**
+            if (_shell.FastMode)
+            {
+                StatusText += "（構造のみ）";
+                return;
+            }
+
             // 段階 2: 埋め込みで対応付けを取り直し、差し替える。
             var refinedResult = await Task.Run(() =>
             {

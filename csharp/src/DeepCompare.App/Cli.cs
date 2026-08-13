@@ -19,7 +19,7 @@ internal static class Cli
         "--merge", "--block", "--report", "--context",
         "--key", "--ignore-column", "--delimiter",
         "--array-key", "--ignore-path",
-        "--limit", "--rev", "--path", "--secret-level",
+        "--limit", "--rev", "--path", "--secret-level", "--model",
     ];
 
     /// <summary>画面を開かずに済む要求なら処理して終了コードを返す。GUI を開くなら null。</summary>
@@ -370,7 +370,8 @@ internal static class Cli
         return Report(() => RunCompare(
             positional[0], positional[1], threshold, output,
             args.Contains("--structural"), importance, reportFormat,
-            int.TryParse(ValueOf(args, "--context"), out var ctx) ? ctx : 3));
+            int.TryParse(ValueOf(args, "--context"), out var ctx) ? ctx : 3,
+            ValueOf(args, "--model")));
     }
 
     /// <summary>オプションとその値を取り除いた、位置引数だけの列。</summary>
@@ -682,7 +683,7 @@ internal static class Cli
             var left = TextDecoder.Decode(repository.Show(revision, path));
             var right = TextDecoder.Decode(File.ReadAllBytes(path));
 
-            var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets();
+            var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets(ValueOf(args, "--model"));
             var comparison = DiffComparer.Compare(left, right, embedder, new CompareOptions(
                 float.TryParse(ValueOf(args, "--threshold"), out var t) ? t : Aligner.DefaultPairThreshold));
 
@@ -1188,7 +1189,7 @@ internal static class Cli
         var keys = Columns(args, "--key", left);
         var ignored = Columns(args, "--ignore-column", left);
 
-        var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets();
+        var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets(ValueOf(args, "--model"));
         var result = TableCompare.Compare(left, right, keys, ignored, embedder);
 
         var text = new StringBuilder();
@@ -1236,7 +1237,7 @@ internal static class Cli
         var left = TextDecoder.Decode(File.ReadAllBytes(leftPath));
         var right = TextDecoder.Decode(File.ReadAllBytes(rightPath));
 
-        var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets();
+        var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets(ValueOf(args, "--model"));
         var result = ThreeWayMerge.Merge(baseText, left, right, embedder);
         var lines = result.ToLines(
             markConflicts: !args.Contains("--take-left"), leftPath, rightPath);
@@ -1280,7 +1281,7 @@ internal static class Cli
         var right = TextDecoder.Decode(File.ReadAllBytes(rightPath));
 
         // 反映は構造だけで決まる。埋め込みは対応付けの質を上げるので、既定では使う。
-        var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets();
+        var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets(ValueOf(args, "--model"));
         var comparison = DiffComparer.Compare(left, right, embedder, new CompareOptions());
         var blocks = Merge.Blocks(comparison);
 
@@ -1504,11 +1505,11 @@ internal static class Cli
     private static int RunCompare(
         string leftPath, string rightPath, float threshold, string? output,
         bool structural = false, Importance? importance = null,
-        string? reportFormat = null, int context = 3)
+        string? reportFormat = null, int context = 3, string? modelPath = null)
     {
         var left = TextDecoder.Decode(File.ReadAllBytes(leftPath));
         var right = TextDecoder.Decode(File.ReadAllBytes(rightPath));
-        var embedder = structural ? null : Embedder.CreateFromDefaultAssets();
+        var embedder = structural ? null : Embedder.CreateFromDefaultAssets(modelPath);
 
         var started = DateTime.UtcNow;
         var result = DiffComparer.Compare(
