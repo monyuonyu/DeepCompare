@@ -16,46 +16,87 @@
 
   <DockPanel>
 
-    <StackPanel DockPanel.Dock="Top" Margin="10,8" Spacing="8">
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button Content="再走査" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsBusy}" />
-        <CheckBox Content="差異のあるものだけ表示" IsChecked="{Binding DifferencesOnly}" />
-        <Button Content="CSV で書き出す" Command="{Binding ExportCsvCommand}" />
+    <!-- 上端。操作はアイコン 1 段、細かい絞り込みは歯車の中 -->
+    <Border DockPanel.Dock="Top" Classes="topbar">
+      <StackPanel Orientation="Horizontal" Spacing="2">
+        <Button Classes="icon" Command="{Binding Shell.GoHomeCommand}"
+                ToolTip.Tip="起動画面へ戻る（比較の状態は残ります）">
+          <Path Classes="icon" Data="{StaticResource IconHome}" />
+        </Button>
+        <Border Classes="vsep" />
+
+        <Button Classes="icon" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsBusy}"
+                ToolTip.Tip="走査しなおす">
+          <Path Classes="icon" Data="{StaticResource IconRefresh}" />
+        </Button>
+        <ToggleButton Classes="filter" IsChecked="{Binding DifferencesOnly}"
+                      ToolTip.Tip="差異のあるものだけ出す">
+          <Path Classes="icon" Data="{StaticResource IconFilterDiff}" />
+        </ToggleButton>
+
+        <Border Classes="vsep" />
+        <Button Classes="icon" Command="{Binding ExpandAllCommand}" ToolTip.Tip="全部開く">
+          <Path Classes="icon" Data="{StaticResource IconExpand}" />
+        </Button>
+        <Button Classes="icon" Command="{Binding CollapseAllCommand}" ToolTip.Tip="全部閉じる">
+          <Path Classes="icon" Data="{StaticResource IconCollapse}" />
+        </Button>
+
+        <Border Classes="vsep" />
+        <Button Classes="icon" Command="{Binding ExportCsvCommand}" ToolTip.Tip="一覧を CSV で書き出す">
+          <Path Classes="icon" Data="{StaticResource IconExport}" />
+        </Button>
+
         <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}"
-                     Width="90" VerticalAlignment="Center" />
+                     Width="70" VerticalAlignment="Center" Margin="6,0" />
+
+        <!-- 絞り込みと比較方式。変えたら「走査しなおす」で反映する -->
+        <Button Classes="icon" ToolTip.Tip="絞り込みと比較のしかた">
+          <Button.Flyout>
+            <Flyout Placement="BottomEdgeAlignedRight">
+              <StackPanel Width="330" Spacing="14" Margin="4">
+                <StackPanel Spacing="6">
+                  <TextBlock Text="名前で絞る" Classes="title" />
+                  <TextBlock Text="対象（空で全部）" Classes="hint" />
+                  <TextBox Text="{Binding IncludeNames}" PlaceholderText="*.cs *.md"
+                           ToolTip.Tip="ファイルにだけ効く。ディレクトリの走査は止めない。&#x0a;* と ? が使える。空白区切りで複数。" />
+                  <TextBlock Text="除外" Classes="hint" />
+                  <TextBox Text="{Binding ExcludeNames}" PlaceholderText="*.generated.cs"
+                           ToolTip.Tip="ファイルとディレクトリの両方に効く。" />
+                </StackPanel>
+
+                <StackPanel Spacing="6">
+                  <TextBlock Text="比較のしかた" Classes="title" />
+                  <CheckBox Content="大きさと日時で比べる（中身を読まない）"
+                            IsChecked="{Binding CompareByTimestamp}"
+                            ToolTip.Tip="速い。数が多いときに使う。" />
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="時刻の許容誤差（秒）" VerticalAlignment="Center"
+                               ToolTip.Tip="FAT と NTFS の間では 1〜2 秒ずれる。" />
+                    <TextBox Text="{Binding TimestampTolerance}" Width="60" />
+                  </StackPanel>
+                  <CheckBox Content="夏時間の 1 時間を無視" IsChecked="{Binding IgnoreDaylightSaving}" />
+                  <CheckBox Content="名前が変わっただけのものを探す"
+                            IsChecked="{Binding DetectRenames}"
+                            ToolTip.Tip="片側にしか無いファイルどうしを中身で突き合わせる。" />
+                </StackPanel>
+
+                <Button Content="走査しなおす" Classes="accent" HorizontalAlignment="Left"
+                        Command="{Binding RefreshCommand}" />
+              </StackPanel>
+            </Flyout>
+          </Button.Flyout>
+          <Path Classes="icon" Data="{StaticResource IconSettings}" />
+        </Button>
       </StackPanel>
+    </Border>
 
-      <!--
-        絞り込みと比較方式。変更したら「再走査」で反映する。入力のたびに走査すると、
-        大きなフォルダーで入力が止まる。
-      -->
-      <StackPanel Orientation="Horizontal" Spacing="6">
-        <TextBlock Text="対象:" VerticalAlignment="Center" />
-        <TextBox Text="{Binding IncludeNames}" Width="170" FontSize="11"
-                 PlaceholderText="*.cs *.md（空で全部）"
-                 ToolTip.Tip="ファイルにだけ効く。ディレクトリの走査は止めない。&#x0a;* と ? が使える。空白区切りで複数。" />
-        <TextBlock Text="除外:" VerticalAlignment="Center" />
-        <TextBox Text="{Binding ExcludeNames}" Width="170" FontSize="11"
-                 PlaceholderText="*.generated.cs"
-                 ToolTip.Tip="ファイルとディレクトリの両方に効く。" />
-        <Border Width="1" Background="{DynamicResource FgDim}" Margin="2,2" />
-        <CheckBox Content="大きさと日時で比べる" IsChecked="{Binding CompareByTimestamp}"
-                  ToolTip.Tip="中身を読まないので速い。数が多いときに使う。" />
-        <TextBlock Text="時刻の許容誤差(秒):" VerticalAlignment="Center"
-                   Foreground="{DynamicResource FgDim}"
-                   ToolTip.Tip="FAT と NTFS の間では 1〜2 秒ずれる。" />
-        <TextBox Text="{Binding TimestampTolerance}" Width="50" FontSize="11" />
-        <CheckBox Content="夏時間の 1 時間を無視" IsChecked="{Binding IgnoreDaylightSaving}" />
-        <CheckBox Content="リネームを探す" IsChecked="{Binding DetectRenames}"
-                  ToolTip.Tip="片側にしか無いファイルどうしを中身で突き合わせ、&#x0a;名前が変わっただけのものを見つける。" />
+    <Border DockPanel.Dock="Bottom" Classes="statusbar">
+      <StackPanel Orientation="Horizontal" Spacing="14">
+        <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource FgDim}" />
+        <TextBlock Text="{Binding RenameText}" IsVisible="{Binding HasRenames}"
+                   FontSize="11" Foreground="{DynamicResource FgMoved}" />
       </StackPanel>
-
-      <TextBlock Text="{Binding RenameText}" IsVisible="{Binding HasRenames}"
-                 FontSize="11" Foreground="{DynamicResource FgMoved}" TextWrapping="Wrap" />
-    </StackPanel>
-
-    <Border DockPanel.Dock="Bottom" Padding="10,4" Background="{DynamicResource StatusBarBg}">
-      <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource FgDim}" />
     </Border>
 
     <!--
@@ -97,8 +138,20 @@
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:FolderRowView">
             <Grid ColumnDefinitions="*,1,220,1,220,90">
-              <TextBlock Grid.Column="0" Text="{Binding Name}" Margin="{Binding Indent}"
-                         TextTrimming="CharacterEllipsis" FontWeight="{Binding NameWeight}" />
+              <!-- 名前の前に開閉の三角。子が無い行では出ない（Data が null） -->
+              <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="{Binding Indent}">
+                <Button Classes="icon" Width="20" Height="20" MinWidth="20" MinHeight="20"
+                        Padding="2" VerticalAlignment="Center"
+                        IsVisible="{Binding HasChildren}"
+                        Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).ToggleCommand}"
+                        CommandParameter="{Binding}">
+                  <Path Classes="icon dim" Data="{Binding ToggleIcon}" Width="10" Height="10" />
+                </Button>
+                <!-- 三角が無い行でも名前の位置を揃える -->
+                <Border Width="20" IsVisible="{Binding !HasChildren}" />
+                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" FontWeight="{Binding NameWeight}" />
+              </StackPanel>
 
               <Border Grid.Column="1" Background="{DynamicResource Divider}" />
               <Grid Grid.Column="2" ColumnDefinitions="80,*" Margin="8,0">

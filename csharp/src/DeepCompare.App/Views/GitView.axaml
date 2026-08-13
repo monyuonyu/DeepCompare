@@ -9,6 +9,11 @@
     <!-- 上の帯。操作はアイコン、場所は 1 行 -->
     <Border Grid.Row="0" Classes="topbar">
       <StackPanel Orientation="Horizontal" Spacing="6">
+      <Button Classes="icon" Command="{Binding Shell.GoHomeCommand}"
+              ToolTip.Tip="起動画面へ戻る（比較の状態は残ります）">
+        <Path Classes="icon" Data="{StaticResource IconHome}" />
+      </Button>
+      <Border Classes="vsep" />
         <Button Classes="icon" Command="{Binding RefreshCommand}" ToolTip.Tip="読み直す">
           <Path Classes="icon" Data="{StaticResource IconRefresh}" />
         </Button>

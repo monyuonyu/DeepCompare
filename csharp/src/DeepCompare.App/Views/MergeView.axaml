@@ -31,6 +31,11 @@
         </Grid>
 
         <StackPanel Orientation="Horizontal" Spacing="2">
+        <Button Classes="icon" Command="{Binding Shell.GoHomeCommand}"
+                ToolTip.Tip="起動画面へ戻る（比較の状態は残ります）">
+          <Path Classes="icon" Data="{StaticResource IconHome}" />
+        </Button>
+        <Border Classes="vsep" />
           <Button Classes="icon" Command="{Binding MergeCommand}" IsEnabled="{Binding !Busy}"
                   ToolTip.Tip="マージする">
             <Path Classes="icon" Data="{StaticResource IconRefresh}" />

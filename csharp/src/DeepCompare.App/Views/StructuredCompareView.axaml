@@ -9,6 +9,11 @@
     <!-- 上の帯。操作はアイコン 1 段 -->
     <Border Grid.Row="0" Classes="topbar" BorderThickness="0">
       <StackPanel Orientation="Horizontal" Spacing="2">
+      <Button Classes="icon" Command="{Binding Shell.GoHomeCommand}"
+              ToolTip.Tip="起動画面へ戻る（比較の状態は残ります）">
+        <Path Classes="icon" Data="{StaticResource IconHome}" />
+      </Button>
+      <Border Classes="vsep" />
         <Button Classes="icon" Command="{Binding CompareCommand}" IsEnabled="{Binding !Busy}"
                 ToolTip.Tip="構造として比較する。キーの順序や整形の違いは差分にしません">
           <Path Classes="icon" Data="{StaticResource IconRefresh}" />

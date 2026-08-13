@@ -7,13 +7,41 @@ using DeepCompare.Engine;
 namespace DeepCompare.App;
 
 /// <summary>フォルダー一覧の 1 行。</summary>
-public sealed class FolderRowView(FolderEntry entry)
+public sealed class FolderRowView(FolderEntry entry) : ViewModelBase
 {
 
     public FolderEntry Entry { get; } = entry;
 
-    /// <summary>階層を字下げで表す。木構造の畳み込みは持たず、一覧として素直に出す。</summary>
-    public Thickness Indent { get; } = new(entry.Depth * 16, 0, 0, 0);
+    /// <summary>階層を字下げで表す。</summary>
+    public Thickness Indent { get; } = new(entry.Depth * 14, 0, 0, 0);
+
+    /// <summary>下に何か入っているか。走査した後に決まる。</summary>
+    public bool HasChildren { get; set; }
+
+    private bool _isExpanded;
+
+    /// <summary>
+    /// 開いているか。**既定は閉じる。**
+    ///
+    /// 数千ファイルの木を最初から全部展開すると、目的の場所へ辿り着く前に
+    /// 一覧が流れてしまう。Beyond Compare も既定では閉じた状態で出す。
+    /// </summary>
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (Set(ref _isExpanded, value))
+            {
+                OnPropertyChanged(nameof(ToggleIcon));
+            }
+        }
+    }
+
+    /// <summary>開閉の三角。子が無ければ出さない。</summary>
+    public Avalonia.Media.Geometry? ToggleIcon => HasChildren
+        ? Icons.Get(_isExpanded ? "IconChevronDown" : "IconChevronRight")
+        : null;
 
     public string Name { get; } = entry.IsDirectory ? entry.Name + "/" : entry.Name;
 
@@ -88,6 +116,10 @@ public sealed class FolderCompareViewModel : ViewModelBase
         RefreshCommand = new RelayCommand(RunAsync);
         OpenSelectedCommand = new RelayCommand(() => { OpenSelected(); return Task.CompletedTask; });
         ExportCsvCommand = new RelayCommand(ExportCsvAsync);
+        ToggleCommand = new RelayCommand<FolderRowView>(
+            row => { Toggle(row); return Task.CompletedTask; });
+        ExpandAllCommand = new RelayCommand(() => { ExpandAll(true); return Task.CompletedTask; });
+        CollapseAllCommand = new RelayCommand(() => { ExpandAll(false); return Task.CompletedTask; });
         BrowseLeftCommand = new RelayCommand(() => PickAsync(left: true));
         BrowseRightCommand = new RelayCommand(() => PickAsync(left: false));
     }
@@ -114,6 +146,9 @@ public sealed class FolderCompareViewModel : ViewModelBase
     }
 
     public ObservableCollection<FolderRowView> Rows { get; } = [];
+    public ICommand ToggleCommand { get; }
+    public ICommand ExpandAllCommand { get; }
+    public ICommand CollapseAllCommand { get; }
     public ICommand BrowseLeftCommand { get; }
     public ICommand BrowseRightCommand { get; }
 
@@ -326,6 +361,14 @@ public sealed class FolderCompareViewModel : ViewModelBase
             return;
         }
         _allRows = _comparison.Entries.Select(e => new FolderRowView(e)).ToList();
+
+        // 下に何か入っているか。次の行の方が深ければ、そこが中身。
+        for (var i = 0; i < _allRows.Count; i++)
+        {
+            _allRows[i].HasChildren = _allRows[i].Entry.IsDirectory
+                && i + 1 < _allRows.Count
+                && _allRows[i + 1].Entry.Depth > _allRows[i].Entry.Depth;
+        }
         Rebuild();
     }
 
@@ -336,14 +379,52 @@ public sealed class FolderCompareViewModel : ViewModelBase
         {
             return;
         }
+
+        // 閉じているフォルダーの中身は出さない。**深さで飛ばす。**
+        // 親子の対応表を持たなくても、走査の順序が深さ優先なのでこれで足りる。
+        var closedAt = int.MaxValue;
+
         foreach (var row in _allRows)
         {
+            var depth = row.Entry.Depth;
+            if (depth > closedAt)
+            {
+                continue;
+            }
+            closedAt = int.MaxValue;
+
             if (!DifferencesOnly || row.Entry.Status != EntryStatus.Identical)
             {
                 Rows.Add(row);
             }
+
+            if (row.Entry.IsDirectory && !row.IsExpanded)
+            {
+                closedAt = depth;
+            }
         }
         OnPropertyChanged(nameof(IsEmpty));
+    }
+
+    /// <summary>その行を開閉する。</summary>
+    public void Toggle(FolderRowView row)
+    {
+        if (!row.HasChildren)
+        {
+            return;
+        }
+        row.IsExpanded = !row.IsExpanded;
+        Rebuild();
+    }
+
+    /// <summary>全部開く／全部閉じる。深い木で目的の場所を探すとき用。</summary>
+    public void ExpandAll(bool expand)
+    {
+        foreach (var row in _allRows)
+        {
+            row.IsExpanded = expand;
+        }
+        Rebuild();
     }
 
     public bool IsEmpty => Rows.Count == 0;

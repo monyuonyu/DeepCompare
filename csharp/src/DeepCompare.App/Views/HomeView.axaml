@@ -4,24 +4,83 @@
              x:Class="DeepCompare.App.Views.HomeView"
              x:DataType="vm:HomeViewModel">
 
-  <ScrollViewer>
-    <StackPanel MaxWidth="820" Margin="24,20" Spacing="16">
+  <!--
+    起動画面。Beyond Compare の Home view と同じ作りにする。
+    左に保存した比較の一覧、右に比較の種類を大きな絵で並べる。
+  -->
+  <Grid ColumnDefinitions="280,*">
 
-      <!--
-        比較の種類はサイドバーにあるので、ここには置かない。
-        この画面は**保存した組み合わせだけ**を扱う。
-      -->
-      <StackPanel Spacing="2">
-        <TextBlock Text="保存した比較" Classes="display" />
-        <TextBlock Classes="hint"
-                   Text="よく使う組み合わせに名前を付けて残します。そのとき何を無視していたかも一緒に覚えるので、開き直しても設定を入れ直す必要がありません。" />
+    <Border Grid.Column="0" Background="{DynamicResource SidebarBg}"
+            BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,1,0">
+      <DockPanel Margin="0">
+
+        <StackPanel DockPanel.Dock="Top" Margin="14,14,14,8" Spacing="2">
+          <TextBlock Text="保存した比較" Classes="title" />
+          <TextBlock Classes="hint"
+                     Text="そのとき何を無視していたかも一緒に覚えます。" />
+        </StackPanel>
+
+        <!-- 下端: いまの左右の指定に名前を付けて残す -->
+        <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource Divider}"
+                BorderThickness="0,1,0,0" Padding="12,10">
+          <StackPanel Spacing="6">
+            <TextBox Text="{Binding SessionName}" PlaceholderText="名前（空なら自動）" />
+            <Button Content="いまの指定を保存" HorizontalAlignment="Stretch"
+                    Command="{Binding SaveSessionCommand}" />
+          </StackPanel>
+        </Border>
+
+        <ScrollViewer Padding="8,0">
+          <StackPanel>
+            <TextBlock Text="まだ保存されたものはありません。" Classes="hint"
+                       Margin="6,4" IsVisible="{Binding !HasSessions}" />
+            <ItemsControl ItemsSource="{Binding Sessions}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:SessionEntry">
+                  <Border Classes="row" Background="{DynamicResource CardBg}" Padding="10,7">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                      <StackPanel Grid.Column="0" Spacing="1">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Paths}" Classes="hint"
+                                   TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{Binding Paths}" />
+                      </StackPanel>
+                      <Button Grid.Column="1" Classes="icon" ToolTip.Tip="開く"
+                              Command="{Binding $parent[UserControl].((vm:HomeViewModel)DataContext).OpenSessionCommand}"
+                              CommandParameter="{Binding}">
+                        <Path Classes="icon" Data="{StaticResource IconOpen}" />
+                      </Button>
+                      <Button Grid.Column="2" Classes="icon" ToolTip.Tip="この保存を消す"
+                              Command="{Binding $parent[UserControl].((vm:HomeViewModel)DataContext).RemoveSessionCommand}"
+                              CommandParameter="{Binding}">
+                        <Path Classes="icon" Data="{StaticResource IconClose}" />
+                      </Button>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+
+      </DockPanel>
+    </Border>
+
+    <DockPanel Grid.Column="1" Margin="24,20">
+
+      <StackPanel DockPanel.Dock="Top" Spacing="2" Margin="0,0,0,20">
+        <TextBlock Text="DeepCompare" Classes="display" />
+        <TextBlock Classes="hint" MaxWidth="620" HorizontalAlignment="Left"
+                   Text="意味的な類似度で行を対応付けるコード比較ツール。変数名を一括で変えた行のように、文字列としては別物でも役割が同じ行を同じ行として並べます。" />
       </StackPanel>
 
-      <Border Classes="card">
-        <StackPanel Spacing="10">
+      <!-- 左右の指定。ここで入れておくと、種類を選んだ時点でその比較が始まる -->
+      <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,20">
+        <StackPanel Spacing="8">
           <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-            <TextBlock Grid.Column="0" Text="左" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <TextBox Grid.Column="1" Text="{Binding LeftPath}" Margin="0,0,6,0"
+            <TextBlock Grid.Column="0" Text="左" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <TextBox Grid.Column="1" Text="{Binding LeftPath}" Margin="0,0,4,0"
                      PlaceholderText="ファイルまたはフォルダー" />
             <Button Grid.Column="2" Classes="icon" Command="{Binding BrowseLeftFileCommand}"
                     ToolTip.Tip="ファイルを選ぶ">
@@ -32,10 +91,9 @@
               <Path Classes="icon" Data="{StaticResource IconFolder}" />
             </Button>
           </Grid>
-
           <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-            <TextBlock Grid.Column="0" Text="右" VerticalAlignment="Center" Margin="0,0,8,0" />
-            <TextBox Grid.Column="1" Text="{Binding RightPath}" Margin="0,0,6,0"
+            <TextBlock Grid.Column="0" Text="右" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <TextBox Grid.Column="1" Text="{Binding RightPath}" Margin="0,0,4,0"
                      PlaceholderText="ファイルまたはフォルダー" />
             <Button Grid.Column="2" Classes="icon" Command="{Binding BrowseRightFileCommand}"
                     ToolTip.Tip="ファイルを選ぶ">
@@ -46,53 +104,36 @@
               <Path Classes="icon" Data="{StaticResource IconFolder}" />
             </Button>
           </Grid>
-
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <TextBox Text="{Binding SessionName}" Width="280"
-                     PlaceholderText="名前（空なら自動で付ける）" />
-            <Button Content="保存する" Classes="accent" Command="{Binding SaveSessionCommand}" />
-          </StackPanel>
-
-          <TextBlock Classes="hint"
-                     Text="ウィンドウにドラッグ＆ドロップしても指定できます。" />
+          <TextBlock Classes="hint" Text="ウィンドウに落として指定することもできます。" />
         </StackPanel>
       </Border>
 
-      <TextBlock Text="{Binding Message}" Foreground="{DynamicResource FgWarning}" TextWrapping="Wrap"
+      <TextBlock DockPanel.Dock="Bottom" Text="{Binding Message}"
+                 Foreground="{DynamicResource FgWarning}" TextWrapping="Wrap"
                  IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
-      <TextBlock Text="まだ保存されたものはありません。" Classes="hint"
-                 IsVisible="{Binding !HasSessions}" />
-
-      <ItemsControl ItemsSource="{Binding Sessions}" IsVisible="{Binding HasSessions}">
+      <!-- 比較の種類。BC と同じく大きな絵で選ぶ -->
+      <ItemsControl ItemsSource="{Binding Shell.Kinds}" VerticalAlignment="Top">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel Orientation="Horizontal" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:SessionEntry">
-            <Border Background="{DynamicResource PanelBg}" Classes="row" Padding="12,8">
-              <Grid ColumnDefinitions="*,Auto,Auto">
-                <StackPanel Grid.Column="0" Spacing="2">
-                  <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding Kind}" Classes="hint" VerticalAlignment="Center" />
-                  </StackPanel>
-                  <TextBlock Text="{Binding Paths}" Classes="hint"
-                             TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-                <Button Grid.Column="1" Classes="icon" ToolTip.Tip="開く"
-                        Command="{Binding $parent[UserControl].((vm:HomeViewModel)DataContext).OpenSessionCommand}"
-                        CommandParameter="{Binding}">
-                  <Path Classes="icon" Data="{StaticResource IconOpen}" />
-                </Button>
-                <Button Grid.Column="2" Classes="icon" ToolTip.Tip="この保存を消す"
-                        Command="{Binding $parent[UserControl].((vm:HomeViewModel)DataContext).RemoveSessionCommand}"
-                        CommandParameter="{Binding}">
-                  <Path Classes="icon" Data="{StaticResource IconClose}" />
-                </Button>
-              </Grid>
-            </Border>
+          <DataTemplate x:DataType="vm:CompareKind">
+            <Button Classes="tile" ToolTip.Tip="{Binding Hint}"
+                    Command="{Binding $parent[UserControl].((vm:HomeViewModel)DataContext).StartKindCommand}"
+                    CommandParameter="{Binding}">
+              <StackPanel Spacing="10" HorizontalAlignment="Center">
+                <Path Classes="icon" Data="{Binding Icon}" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding Label}" HorizontalAlignment="Center"
+                           TextAlignment="Center" TextWrapping="Wrap" />
+              </StackPanel>
+            </Button>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
-    </StackPanel>
-  </ScrollViewer>
+    </DockPanel>
+  </Grid>
 </UserControl>

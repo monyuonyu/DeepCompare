@@ -116,6 +116,9 @@ public sealed class MergeRegionRow(MergeRegion region, int index) : ViewModelBas
 public sealed class MergeViewModel : ViewModelBase
 {
     private readonly ShellViewModel _shell;
+
+    /// <summary>起動画面へ戻るなど、画面をまたぐ操作。</summary>
+    public ShellViewModel Shell => _shell;
     private DecodedText? _baseSource;
 
     public MergeViewModel(ShellViewModel shell)

@@ -35,6 +35,8 @@ public sealed class HomeViewModel : ViewModelBase
         BrowseRightFileCommand = new RelayCommand(() => PickAsync(isFolder: false, left: false));
         BrowseLeftFolderCommand = new RelayCommand(() => PickAsync(isFolder: true, left: true));
         BrowseRightFolderCommand = new RelayCommand(() => PickAsync(isFolder: true, left: false));
+        StartKindCommand = new RelayCommand<CompareKind>(
+            kind => { StartKind(kind); return Task.CompletedTask; });
         SaveSessionCommand = new RelayCommand(() => { SaveSession(); return Task.CompletedTask; });
         OpenSessionCommand = new RelayCommand<SessionEntry>(entry => { OpenSession(entry); return Task.CompletedTask; });
         RemoveSessionCommand = new RelayCommand<SessionEntry>(entry => { RemoveSession(entry); return Task.CompletedTask; });
@@ -52,7 +54,45 @@ public sealed class HomeViewModel : ViewModelBase
         set => Set(ref _sessionName, value);
     }
 
+    public ICommand StartKindCommand { get; }
     public ICommand SaveSessionCommand { get; }
+
+    /// <summary>テーマの切り替えなど、画面をまたぐ操作。</summary>
+    public ShellViewModel Shell => _shell;
+
+    /// <summary>
+    /// 種類を選んで始める。
+    ///
+    /// 左右が入っていればそのまま比較まで進み、空なら画面だけ開く。
+    /// **空でも開く**のは、その画面にも指定欄があるから。ここで止めると
+    /// 「どこに入れればいいのか」が分からなくなる。
+    /// </summary>
+    private void StartKind(CompareKind kind)
+    {
+        var left = LeftPath.Trim();
+        var right = RightPath.Trim();
+        Message = string.Empty;
+
+        switch (kind.Content)
+        {
+            case TextCompareViewModel when left.Length > 0 && right.Length > 0:
+                _shell.ShowText(left, right);
+                break;
+            case FolderCompareViewModel when left.Length > 0 && right.Length > 0:
+                _shell.ShowFolders(left, right);
+                break;
+            case StructuredCompareViewModel when left.Length > 0 && right.Length > 0:
+                _shell.ShowStructured(left, right);
+                break;
+            case GitViewModel:
+                // Git は左の欄だけで足りる。空なら今いる場所。
+                _shell.ShowGit(left.Length > 0 ? left : Environment.CurrentDirectory);
+                break;
+            default:
+                _shell.Open(kind);
+                break;
+        }
+    }
     public ICommand OpenSessionCommand { get; }
     public ICommand RemoveSessionCommand { get; }
 

@@ -4,29 +4,34 @@ using DeepCompare.Engine;
 
 namespace DeepCompare.App;
 
-/// <summary>サイドバーの 1 項目。</summary>
-public sealed class NavItem(string label, string hint, string iconKey, object content)
+/// <summary>
+/// 起動画面に並べる「比較の種類」1 つ。
+///
+/// Beyond Compare の Home view と同じ形にする。大きな絵と短い名前を並べ、
+/// そこへファイルを落とせばその種類で始まる。
+/// </summary>
+public sealed class CompareKind(string label, string hint, string iconKey, object content)
 {
     public string Label { get; } = label;
 
-    /// <summary>指したときに出す一言。ラベルだけでは伝わらない差を補う。</summary>
+    /// <summary>指したときに出す一言。</summary>
     public string Hint { get; } = hint;
 
     public Geometry? Icon => Icons.Get(iconKey);
 
-    /// <summary>この項目が出す画面。**作り直さず持ち回る**ので、状態が残る。</summary>
+    /// <summary>この種類が使う画面。**作り直さず持ち回る**ので、状態が残る。</summary>
     public object Content { get; } = content;
 }
 
 /// <summary>
 /// 画面全体の入れ物。
 ///
-/// **サイドバーで行き来する。** 以前は「起動画面 → 比較画面 → 戻る」の往復
-/// だったが、比較の種類が 5 つに増えると、種類を変えるたびに一度戻る必要があり
-/// 手数が増える。加えて**戻ると状態が捨てられる**（比較のやり直しになる）。
+/// **Beyond Compare と同じ形にする。** 起動画面で比較の種類を選び、
+/// 各画面のツールバーにある家の印で起動画面へ戻る。画面の左端は
+/// 比較そのもの（差分の地図）に使いたいので、種類の切り替えを左に置かない。
 ///
-/// 画面は最初に 1 つずつ作って持ち回る。切り替えても入力もスクロール位置も残る。
-/// モデル（90MB）と同じ理由で、作り直しは高い。
+/// ただし**画面は作り直さず持ち回る**。戻ってからもう一度開いても、
+/// 入力もスクロール位置も残る。BC も同じで、戻っても比較はやり直しにならない。
 /// </summary>
 public sealed class ShellViewModel : ViewModelBase
 {
@@ -48,6 +53,7 @@ public sealed class ShellViewModel : ViewModelBase
         _lightTheme = _settings.LoadLightTheme();
         Palette.Use(_lightTheme);
         ToggleThemeCommand = new RelayCommand(() => { LightTheme = !LightTheme; return Task.CompletedTask; });
+        GoHomeCommand = new RelayCommand(() => { GoHome(); return Task.CompletedTask; });
 
         Text = new TextCompareViewModel(this);
         Folder = new FolderCompareViewModel(this);
@@ -55,18 +61,17 @@ public sealed class ShellViewModel : ViewModelBase
         Merge = new MergeViewModel(this);
         Git = new GitViewModel(this, Environment.CurrentDirectory);
         Home = new HomeViewModel(this);
+        _current = Home;
 
-        Items =
+        Kinds =
         [
-            new NavItem("テキスト", "2 つのファイルを行で突き合わせる", "IconText", Text),
-            new NavItem("フォルダー", "2 つのフォルダーを再帰的に比べる", "IconFolder", Folder),
-            new NavItem("構造", "JSON を構造として比べる。キーの順序は差分にしない",
+            new CompareKind("テキスト比較", "2 つのファイルを行で突き合わせる", "IconText", Text),
+            new CompareKind("フォルダー比較", "2 つのフォルダーを再帰的に比べる", "IconFolder", Folder),
+            new CompareKind("構造として比較", "JSON を構造として比べる。キーの順序は差分にしない",
                 "IconStructure", Structured),
-            new NavItem("マージ", "共通の元から分かれた 2 つの変更を合わせる", "IconMerge", Merge),
-            new NavItem("Git", "作業ツリーと履歴", "IconGit", Git),
-            new NavItem("保存", "名前を付けた比較の組み合わせ", "IconSaved", Home),
+            new CompareKind("3 方向マージ", "共通の元から分かれた 2 つの変更を合わせる", "IconMerge", Merge),
+            new CompareKind("Git", "作業ツリーと履歴", "IconGit", Git),
         ];
-        _selected = Items[0];
     }
 
     public Func<string, bool, Task<string?>> PickPath { get; }
@@ -74,7 +79,7 @@ public sealed class ShellViewModel : ViewModelBase
     /// <summary>書き出し先を選ばせる。（題名、既定のファイル名）を受ける。</summary>
     public Func<string, string, Task<string?>> PickSavePath { get; }
 
-    public ObservableCollection<NavItem> Items { get; }
+    public ObservableCollection<CompareKind> Kinds { get; }
 
     public TextCompareViewModel Text { get; }
     public FolderCompareViewModel Folder { get; }
@@ -83,23 +88,30 @@ public sealed class ShellViewModel : ViewModelBase
     public GitViewModel Git { get; }
     public HomeViewModel Home { get; }
 
-    private NavItem _selected;
-    public NavItem Selected
+    private object _current;
+    public object Current
     {
-        get => _selected;
-        set
+        get => _current;
+        private set
         {
-            // ListBox は選択を外すことがある（項目の入れ替えなど）。null は無視する。
-            if (value is not null && Set(ref _selected, value))
+            if (Set(ref _current, value))
             {
-                OnPropertyChanged(nameof(Current));
+                OnPropertyChanged(nameof(IsHome));
             }
         }
     }
 
-    public object Current => _selected.Content;
+    /// <summary>起動画面に居るか。家の印を出すかどうかに使う。</summary>
+    public bool IsHome => ReferenceEquals(_current, Home);
+
+    /// <summary>起動画面へ戻る。**状態は捨てない。**</summary>
+    public void GoHome() => Current = Home;
+
+    /// <summary>選んだ種類の画面を出す。起動画面の大きな絵から呼ばれる。</summary>
+    public void Open(CompareKind kind) => Current = kind.Content;
 
     public System.Windows.Input.ICommand ToggleThemeCommand { get; }
+    public System.Windows.Input.ICommand GoHomeCommand { get; }
 
     /// <summary>
     /// 明るいテーマを使うか。切り替えたら、色を持っている行を作り直す必要がある。
@@ -133,17 +145,7 @@ public sealed class ShellViewModel : ViewModelBase
     /// <summary>初回だけ読む。呼び出し側は必ず作業スレッドから呼ぶこと。</summary>
     public Embedder GetEmbedder() => _embedder ??= Embedder.CreateFromDefaultAssets();
 
-    private void Go(object content)
-    {
-        foreach (var item in Items)
-        {
-            if (ReferenceEquals(item.Content, content))
-            {
-                Selected = item;
-                return;
-            }
-        }
-    }
+    private void Go(object content) => Current = content;
 
     // --- 画面を開く。指定があれば入れてから走らせる ---
 

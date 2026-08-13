@@ -35,7 +35,13 @@
       <Border Classes="topbar" BorderThickness="0">
         <StackPanel Orientation="Horizontal" Spacing="2">
 
-          <Button Classes="icon accent-icon" Command="{Binding CompareCommand}"
+          <Button Classes="icon" Command="{Binding Shell.GoHomeCommand}"
+                  ToolTip.Tip="起動画面へ戻る（比較の状態は残ります）">
+            <Path Classes="icon" Data="{StaticResource IconHome}" />
+          </Button>
+          <Border Classes="vsep" />
+
+          <Button Classes="icon" Command="{Binding CompareCommand}"
                   IsEnabled="{Binding !IsBusy}" ToolTip.Tip="比較する">
             <Path Classes="icon" Data="{StaticResource IconRefresh}" />
           </Button>
@@ -241,13 +247,13 @@
       差分ビューは画面に入る 40 行ほどしか見せないので、これが無いと
       2000 行のファイルで今どこに居るのかが掴めない。
     -->
-    <vm:DiffMap DockPanel.Dock="Right"
+    <vm:DiffMap DockPanel.Dock="Left"
                 Rows="{Binding VisibleRows}"
                 ViewStart="{Binding MapViewStart}"
                 ViewSize="{Binding MapViewSize}"
                 ClickedPosition="{Binding MapClicked, Mode=TwoWay}"
                 IsVisible="{Binding !ShowPlaceholder}"
-                ToolTip.Tip="差分の位置。押すとそこへ移ります" />
+                ToolTip.Tip="差分の位置。押すか、押したままなぞると、そこへ移ります" />
 
     <Panel>
       <TextBlock Text="{Binding Placeholder}" IsVisible="{Binding ShowPlaceholder}"

@@ -247,6 +247,37 @@
     <Setter Property="FontSize" Value="{DynamicResource FontTiny}" />
   </Style>
 
+  <!--
+    起動画面に並べる「比較の種類」の大きな絵。
+    Beyond Compare の Home view と同じ形。絵を大きく取り、名前を下に添える。
+    ここに落とせばその種類で始められるので、押せる範囲は広く取る。
+  -->
+  <Style Selector="Button.tile">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusLarge}" />
+    <Setter Property="Padding" Value="16,14" />
+    <Setter Property="Width" Value="132" />
+    <Setter Property="Height" Value="112" />
+  </Style>
+  <Style Selector="Button.tile:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ControlBgHover}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Divider}" />
+  </Style>
+  <Style Selector="Button.tile:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ControlBgPressed}" />
+  </Style>
+  <Style Selector="Button.tile Path.icon">
+    <Setter Property="Width" Value="40" />
+    <Setter Property="Height" Value="40" />
+    <Setter Property="StrokeThickness" Value="1.2" />
+    <Setter Property="Stroke" Value="{DynamicResource Accent}" />
+  </Style>
+  <Style Selector="Button.tile:pointerover Path.icon">
+    <Setter Property="Stroke" Value="{DynamicResource AccentHover}" />
+  </Style>
+
   <!-- 左のサイドバー -->
   <Style Selector="Border.sidebar">
     <Setter Property="Background" Value="{DynamicResource SidebarBg}" />

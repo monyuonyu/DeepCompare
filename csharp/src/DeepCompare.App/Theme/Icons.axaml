@@ -26,12 +26,18 @@
   <!-- マージ: 2 本が 1 本に合わさる -->
   <StreamGeometry x:Key="IconMerge">M3,2 V6 C3,9 8,9 8,12 V14 M13,2 V6 C13,9 8,9 8,12</StreamGeometry>
 
-  <!-- Git: 枝分かれ -->
-  <StreamGeometry x:Key="IconGit">M4.5,4 V12 M4.5,7 H9.5 C11,7 11.5,6.5 11.5,5.5</StreamGeometry>
-  <StreamGeometry x:Key="IconGitDots">M4.5,2.5 A1.6,1.6 0 1 1 4.5,2.6 Z M4.5,12.4 A1.6,1.6 0 1 1 4.5,12.5 Z M11.5,4 A1.6,1.6 0 1 1 11.5,4.1 Z</StreamGeometry>
+  <!--
+    Git: 枝分かれと 3 つの節。
+    **描く範囲は他のアイコンと揃える（およそ 2〜14）。** Stretch は Uniform なので、
+    範囲が狭い図形だけ引き伸ばされ、並べたときに 1 つだけ大きく見える。
+  -->
+  <StreamGeometry x:Key="IconGit">M4.5,4 V12 M4.5,7.5 H10 C11.5,7.5 12.5,6.8 12.5,5.5 M3,2.5 A1.5,1.5 0 1 0 6,2.5 A1.5,1.5 0 1 0 3,2.5 M3,13.5 A1.5,1.5 0 1 0 6,13.5 A1.5,1.5 0 1 0 3,13.5 M11,4 A1.5,1.5 0 1 0 14,4 A1.5,1.5 0 1 0 11,4</StreamGeometry>
 
   <!-- 保存した比較: しおり -->
   <StreamGeometry x:Key="IconSaved">M4,2 H12 V14 L8,10.5 L4,14 Z</StreamGeometry>
+
+  <!-- 起動画面へ戻る -->
+  <StreamGeometry x:Key="IconHome">M2,7.5 L8,2.5 L14,7.5 M3.5,6.5 V13.5 H12.5 V6.5 M6.5,13.5 V9.5 H9.5 V13.5</StreamGeometry>
 
   <!-- ==== 操作 ==== -->
 
@@ -70,6 +76,10 @@
   <StreamGeometry x:Key="IconFilterAll">M2.5,4 H13.5 M2.5,8 H13.5 M2.5,12 H13.5</StreamGeometry>
   <StreamGeometry x:Key="IconFilterDiff">M2.5,4 H13.5 M2.5,12 H13.5</StreamGeometry>
   <StreamGeometry x:Key="IconFilterSame">M2.5,8 H13.5</StreamGeometry>
+
+  <!-- 木の開閉。閉じているときは右、開いているときは下 -->
+  <StreamGeometry x:Key="IconChevronRight">M6,3.5 L10.5,8 L6,12.5</StreamGeometry>
+  <StreamGeometry x:Key="IconChevronDown">M3.5,6 L8,10.5 L12.5,6</StreamGeometry>
 
   <!-- 折り畳み -->
   <StreamGeometry x:Key="IconExpand">M8,3 V13 M4,7 L8,3 L12,7 M4,9 L8,13 L12,9</StreamGeometry>

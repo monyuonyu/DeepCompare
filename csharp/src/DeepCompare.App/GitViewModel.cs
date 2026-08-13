@@ -85,6 +85,9 @@ public sealed class GitCommitRow(GitCommit commit)
 public sealed class GitViewModel : ViewModelBase
 {
     private readonly ShellViewModel _shell;
+
+    /// <summary>起動画面へ戻るなど、画面をまたぐ操作。</summary>
+    public ShellViewModel Shell => _shell;
     private GitRepository? _repository;
 
     public GitViewModel(ShellViewModel shell, string path)
