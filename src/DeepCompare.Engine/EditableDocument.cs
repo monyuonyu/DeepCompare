@@ -30,12 +30,58 @@ public sealed class EditableDocument
 
     public IReadOnlyList<string> Lines => _lines;
 
+    private readonly HashSet<int> _edited = [];
+
+    /// <summary>
+    /// 自分が直した行。
+    ///
+    /// **どこを触ったかを見せるため。** 差分の色は「相手と違う」ことしか
+    /// 示さないので、元から違ったのか自分が変えたのかが区別できない。
+    /// Beyond Compare も、直した行の脇に印を出す。
+    ///
+    /// 行の増減に合わせて番号をずらす。ずらさないと、1 行挿入しただけで
+    /// 以降の印が全部 1 行ぶん上を指す。
+    /// </summary>
+    public IReadOnlySet<int> EditedLines => _edited;
+
     /// <summary>保存した時点から変わっているか。取り消して戻れば偽に戻る。</summary>
     public bool IsModified => _position != _savedPosition;
 
     public bool CanUndo => _position > 0;
 
     public bool CanRedo => _position < _history.Count;
+
+    /// <summary>
+    /// 直した印を、行の増減に合わせて付け直す。
+    ///
+    /// **消えた行の印は落とし、後ろの行はずらす。** そうしないと、
+    /// 行を 1 つ消しただけで以降の印が 1 行ぶんずれる。
+    /// </summary>
+    private void MarkEdited(int start, int count, int insertedCount)
+    {
+        var shifted = new HashSet<int>();
+        foreach (var line in _edited)
+        {
+            if (line < start)
+            {
+                shifted.Add(line);
+            }
+            else if (line >= start + count)
+            {
+                shifted.Add(line + insertedCount - count);
+            }
+            // 置き換えられた範囲の中の印は、下で入れ直す。
+        }
+        for (var i = 0; i < insertedCount; i++)
+        {
+            shifted.Add(start + i);
+        }
+        _edited.Clear();
+        foreach (var line in shifted)
+        {
+            _edited.Add(line);
+        }
+    }
 
     /// <summary>
     /// 範囲を置き換える。<paramref name="count"/> が 0 なら挿入、
@@ -53,6 +99,8 @@ public sealed class EditableDocument
         var removed = new string[count];
         _lines.CopyTo(start, removed, 0, count);
         var inserted = replacement.ToArray();
+
+        MarkEdited(start, count, inserted.Length);
 
         if (removed.AsSpan().SequenceEqual(inserted))
         {
@@ -105,6 +153,9 @@ public sealed class EditableDocument
 
     private void Apply(int start, int count, IReadOnlyList<string> replacement)
     {
+        // **取り消し・やり直しでも印を付け直す。** 取り消した行が
+        // 「直したまま」に見えると、何が今の状態なのか分からなくなる。
+        MarkEdited(start, count, replacement.Count);
         _lines.RemoveRange(start, count);
         _lines.InsertRange(start, replacement);
     }

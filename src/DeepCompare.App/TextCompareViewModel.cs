@@ -107,6 +107,9 @@ public sealed class TextCompareViewModel : ViewModelBase
         ApplyImportanceCommand = new RelayCommand(RecompareAsync);
         ExportUnifiedCommand = new RelayCommand(() => ExportAsync(unified: true));
         ExportHtmlCommand = new RelayCommand(() => ExportAsync(unified: false));
+        OpenGoToCommand = new RelayCommand(
+            () => { IsGoToOpen = true; return Task.CompletedTask; });
+        GoToCommand = new RelayCommand(() => { GoTo(); return Task.CompletedTask; });
         NextDifferenceCommand = new RelayCommand(
             () => { MoveToDifference(forward: true); return Task.CompletedTask; },
             () => HasDifferences);
@@ -140,8 +143,9 @@ public sealed class TextCompareViewModel : ViewModelBase
             row => UnlinkAsync(row), row => row.Row is { Left: not null, Right: not null });
         ClearManualCommand = new RelayCommand(
             ClearManualAsync, () => !Manual.IsEmpty);
+        // Escape は開いているものを閉じる。行移動の枠も同じ鍵で閉じる。
         CloseSearchCommand = new RelayCommand(
-            () => { IsSearchOpen = false; return Task.CompletedTask; });
+            () => { IsSearchOpen = false; IsGoToOpen = false; return Task.CompletedTask; });
         OpenSearchCommand = new RelayCommand(
             () => { IsSearchOpen = true; return Task.CompletedTask; });
         OpenReplaceCommand = new RelayCommand(
@@ -674,6 +678,71 @@ public sealed class TextCompareViewModel : ViewModelBase
     public ICommand ApplyImportanceCommand { get; }
     public ICommand ExportUnifiedCommand { get; }
     public ICommand ExportHtmlCommand { get; }
+    private bool _isGoToOpen;
+
+    /// <summary>
+    /// 行番号で飛ぶ枠を出しているか（BC の Go To）。
+    ///
+    /// **長いファイルで「あの行」へ戻る手段が無かった。** 検索は中身で
+    /// 探すもので、位置で戻る道具ではない。
+    /// </summary>
+    public bool IsGoToOpen
+    {
+        get => _isGoToOpen;
+        set => Set(ref _isGoToOpen, value);
+    }
+
+    private string _goToLine = string.Empty;
+    public string GoToLine
+    {
+        get => _goToLine;
+        set => Set(ref _goToLine, value);
+    }
+
+    public RelayCommand OpenGoToCommand { get; private set; } = null!;
+    public RelayCommand GoToCommand { get; private set; } = null!;
+
+    /// <summary>
+    /// 入れた番号の行へ飛ぶ。
+    ///
+    /// **左の行番号で数える。** 左が読み取り専用でも、人が見ているのは
+    /// たいてい左（元の側）。左に無い番号なら、右で数え直す。
+    /// </summary>
+    private void GoTo()
+    {
+        if (!int.TryParse(GoToLine.Trim(), out var wanted) || wanted <= 0)
+        {
+            SearchStatus = "行番号を入れてください。";
+            return;
+        }
+
+        for (var i = 0; i < VisibleRows.Count; i++)
+        {
+            var row = VisibleRows[i];
+            if (row.Row.Left is { } l && l + 1 == wanted)
+            {
+                SelectedRowIndex = i;
+                IsGoToOpen = false;
+                SearchStatus = string.Empty;
+                return;
+            }
+        }
+        for (var i = 0; i < VisibleRows.Count; i++)
+        {
+            var row = VisibleRows[i];
+            if (row.Row.Right is { } r && r + 1 == wanted)
+            {
+                SelectedRowIndex = i;
+                IsGoToOpen = false;
+                SearchStatus = string.Empty;
+                return;
+            }
+        }
+
+        // **見つからない理由を言う。** 絞り込みで隠れているだけのことがある。
+        SearchStatus = $"{wanted} 行目は見つかりません（絞り込みで隠れているかもしれません）。";
+    }
+
     public RelayCommand NextDifferenceCommand { get; }
     public RelayCommand PreviousDifferenceCommand { get; }
     public ICommand FindNextCommand { get; }
@@ -1277,6 +1346,15 @@ public sealed class TextCompareViewModel : ViewModelBase
                 warning = ModelCoverage.Warn(
                     first.left.Lines, first.right.Lines, embedder.VocabSize) ?? string.Empty;
 
+                // **効かないと分かっているなら計算しない。**
+                // 日本語の本文に、日本語を語彙に持たないモデルを掛けても
+                // 結果は文字の重なりと変わらない。それに 10 秒使っていた
+                // （87 行の比較で実測 10.7 秒。ほとんどが埋め込みの計算）。
+                if (warning.Length > 0)
+                {
+                    return (first.comparison, elapsed: TimeSpan.Zero);
+                }
+
                 var started = DateTime.UtcNow;
                 var comparison = DiffComparer.Compare(
                     first.left, first.right, embedder, compareOptions);
@@ -1356,7 +1434,14 @@ public sealed class TextCompareViewModel : ViewModelBase
                     Lexer.Tokenize(right.Lines[ri], language, ref rightState);
                 }
             }
-            _allRows.Add(new RowView(r, left, right, language, beforeLeft, beforeRight));
+            _allRows.Add(new RowView(r, left, right, language, beforeLeft, beforeRight)
+            {
+                // 自分が直した行に印を付ける。
+                LeftEdited = r.Left is { } el
+                    && _leftDocument?.EditedLines.Contains(el) == true,
+                RightEdited = r.Right is { } er
+                    && _rightDocument?.EditedLines.Contains(er) == true,
+            });
         }
 
         // 移動したブロックに印を付ける。片側だけに出た行が、実は別の場所へ動いた
@@ -2168,6 +2253,10 @@ public sealed class TextCompareViewModel : ViewModelBase
         var right = CurrentRight;
         RaiseEditState();
 
+        // **読んでいた場所を覚えておく。** 反映のたびに先頭へ戻ると、
+        // 塊を 1 つ写すごとに現場まで戻る羽目になる。
+        var anchor = CurrentAnchor();
+
         var first = await Task.Run(() =>
         {
             var started = DateTime.UtcNow;
@@ -2181,6 +2270,14 @@ public sealed class TextCompareViewModel : ViewModelBase
             return;
         }
         Apply(left, right, first.comparison, first.elapsed, refining: true);
+        RestoreAnchor(anchor);
+
+        // **効かないモデルなら 2 段階目を回さない。** 反映のたびに
+        // 数秒待たされていた原因がこれ。
+        if (ModelWarning.Length > 0)
+        {
+            return;
+        }
 
         var refined = await Task.Run(() =>
         {
@@ -2196,6 +2293,7 @@ public sealed class TextCompareViewModel : ViewModelBase
             return;
         }
         Apply(left, right, refined.comparison, refined.elapsed, refining: false);
+        RestoreAnchor(anchor);
     }
 
     /// <summary>比較結果を書き出す。</summary>

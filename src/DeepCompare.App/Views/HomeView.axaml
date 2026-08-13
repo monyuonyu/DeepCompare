@@ -13,7 +13,16 @@
     押せてしまった）。種類の一覧はやめ、パスから決まらないものだけ
     下に小さく残す。
   -->
-  <Grid ColumnDefinitions="280,*">
+  <!--
+    **袖の幅は掴んで変えられる。** 窓を小さくすると、袖が場所を取りすぎて
+    右側が読めなくなる。最小は 150（見出しと日付が読める幅）。
+  -->
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="280" MinWidth="150" />
+      <ColumnDefinition Width="1" />
+      <ColumnDefinition Width="*" MinWidth="200" />
+    </Grid.ColumnDefinitions>
 
     <Border Grid.Column="0" Background="{DynamicResource SidebarBg}"
             BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,1,0">
@@ -70,11 +79,15 @@
       </DockPanel>
     </Border>
 
+    <GridSplitter Grid.Column="1" Width="1" MinWidth="1"
+                  Background="{DynamicResource Divider}"
+                  ResizeDirection="Columns" />
+
     <!--
       **窓を小さくしても届くように、全体をスクロールさせる。**
       以前は下に置いたものが窓の外へ出たまま、たどり着けなかった。
     -->
-    <ScrollViewer Grid.Column="1">
+    <ScrollViewer Grid.Column="2">
       <StackPanel Margin="24,20" Spacing="20">
 
         <Border Classes="card">

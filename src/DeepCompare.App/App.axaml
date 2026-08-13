@@ -107,6 +107,8 @@
             行全体の色（BgChanged）より濃くする。
           -->
           <SolidColorBrush x:Key="BgInline">#FFC9C9</SolidColorBrush>
+          <!-- 自分が直した行の印。**差分の色と混ざらない色**にする -->
+          <SolidColorBrush x:Key="EditedMark">#E5A400</SolidColorBrush>
           <SolidColorBrush x:Key="FgUnimportant">#8C959F</SolidColorBrush>
           <SolidColorBrush x:Key="FgWarning">#9A6700</SolidColorBrush>
           <SolidColorBrush x:Key="FgMoved">#1A7F37</SolidColorBrush>
@@ -216,6 +218,7 @@
           <SolidColorBrush x:Key="FgDim">#7E838F</SolidColorBrush>
           <SolidColorBrush x:Key="FgInline">#FFA500</SolidColorBrush>
           <SolidColorBrush x:Key="BgInline">#6E2F35</SolidColorBrush>
+          <SolidColorBrush x:Key="EditedMark">#D9A22B</SolidColorBrush>
           <SolidColorBrush x:Key="FgUnimportant">#6E7488</SolidColorBrush>
           <SolidColorBrush x:Key="FgWarning">#E0A060</SolidColorBrush>
           <SolidColorBrush x:Key="FgMoved">#8FBF6F</SolidColorBrush>

@@ -227,6 +227,14 @@ public sealed class RowView : ViewModelBase
     /// </summary>
     public static bool ShowWhitespace { get; set; }
 
+    /// <summary>
+    /// 自分が直した行か。**左右それぞれで持つ。**
+    /// 差分の色は「相手と違う」ことしか示さないので、元から違ったのか
+    /// 自分が変えたのかが区別できなかった。
+    /// </summary>
+    public bool LeftEdited { get; init; }
+    public bool RightEdited { get; init; }
+
     public RowView(Row row, DecodedText left, DecodedText right,
         Language? language = null, LexState leftState = default, LexState rightState = default)
     {

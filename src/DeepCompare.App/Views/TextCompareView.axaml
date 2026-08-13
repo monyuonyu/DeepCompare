@@ -21,6 +21,7 @@
       Delete / BackSpace で消し、Ctrl+V で置き換える。
       効く先は最後に押した側（左右）。
     -->
+    <KeyBinding Gesture="Ctrl+G" Command="{Binding OpenGoToCommand}" />
     <KeyBinding Gesture="Delete" Command="{Binding DeleteSelectedCommand}" />
     <KeyBinding Gesture="Back" Command="{Binding DeleteSelectedCommand}" />
     <KeyBinding Gesture="Ctrl+V" Command="{Binding PasteOverSelectionCommand}" />
@@ -54,8 +55,27 @@
       <Setter Property="Padding" Value="0" />
       <Setter Property="Margin" Value="0" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="Background" Value="{DynamicResource InputBg}" />
+      <!--
+        **行の色を塗り潰さない。** 入力欄の地の色を敷いていたので、
+        選んだ行だけ差分の色が消え、環境によっては文字まで見えなく
+        なっていた（キーボードで上下に動かすと、動いた先が次々に
+        真っ白になる）。地は行に任せ、文字色だけ明示する。
+      -->
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource FgNormal}" />
+      <Setter Property="CaretBrush" Value="{DynamicResource FgNormal}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBox.inline /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <!-- 指しても押しても、地は行のまま -->
+    <Style Selector="TextBox.inline:pointerover /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="TextBox.inline:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="Transparent" />
     </Style>
     <Style Selector="TextBlock.gutter">
       <Setter Property="Foreground" Value="{DynamicResource FgDim}" />
@@ -321,7 +341,7 @@
     -->
     <Border DockPanel.Dock="Bottom" Background="{DynamicResource PanelBg}"
             BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0"
-            Padding="8,4" IsVisible="{Binding ShowDetails}">
+            Padding="6,2" IsVisible="{Binding ShowDetails}">
       <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
 
         <!--
@@ -332,8 +352,8 @@
           切り替えのボタンは右端へ。**読む物の上ではなく、脇に置く。**
         -->
         <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="1"
-                    Orientation="Vertical" Spacing="2" Margin="8,0,0,0"
-                    VerticalAlignment="Top">
+                    Orientation="Horizontal" Spacing="1" Margin="6,0,0,0"
+                    VerticalAlignment="Center">
           <Button Classes="icon small" ToolTip.Tip="この帯を閉じる"
                   Command="{Binding HideDetailsCommand}">
             <Path Classes="icon" Data="{StaticResource IconClose}" />
@@ -365,8 +385,8 @@
                  IsEnabled="{Binding CanEditLeftDetail}"
                  IsVisible="{Binding DetailShowsText}"
                  Watermark="{Binding DetailLeftLabel}"
-                 MinHeight="0" Padding="6,2"
-                 AcceptsReturn="False" Margin="0,0,0,2" />
+                 MinHeight="0" Padding="5,1"
+                 AcceptsReturn="False" Margin="0,0,0,1" />
 
         <TextBox Grid.Row="1" Grid.Column="0"
                  Text="{Binding DetailRight, UpdateSourceTrigger=LostFocus}"
@@ -374,7 +394,7 @@
                  IsEnabled="{Binding CanEditRightDetail}"
                  IsVisible="{Binding DetailShowsText}"
                  Watermark="{Binding DetailRightLabel}"
-                 MinHeight="0" Padding="6,2"
+                 MinHeight="0" Padding="5,1"
                  AcceptsReturn="False" />
 
         <!-- バイトで見る（読むだけ。ここから直すのは危ないので許さない） -->
@@ -533,6 +553,26 @@
         本文の幅を削らないので、探しながら読める。
         左端の折り返しボタンで置換の行を開く。
       -->
+      <!--
+        行番号で飛ぶ枠。**検索と同じ場所に出す。** 出る場所が同じなら、
+        どちらを開いたかは中身を見れば分かる。
+      -->
+      <Border Classes="findbox" IsVisible="{Binding IsGoToOpen}"
+              HorizontalAlignment="Right" VerticalAlignment="Top"
+              Margin="0,6,24,0" ZIndex="11">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <TextBlock Text="行" VerticalAlignment="Center" FontSize="12" />
+          <TextBox Text="{Binding GoToLine}" Width="90" MinHeight="0" Padding="6,3">
+            <TextBox.KeyBindings>
+              <KeyBinding Gesture="Enter" Command="{Binding GoToCommand}" />
+            </TextBox.KeyBindings>
+          </TextBox>
+          <Button Classes="icon small" Command="{Binding GoToCommand}" ToolTip.Tip="飛ぶ">
+            <Path Classes="icon" Data="{StaticResource IconCheck}" />
+          </Button>
+        </StackPanel>
+      </Border>
+
       <Border Classes="findbox" IsVisible="{Binding IsSearchOpen}"
               HorizontalAlignment="Right" VerticalAlignment="Top"
               Margin="0,6,18,0" ZIndex="10">
@@ -804,6 +844,13 @@
                   本文。**選んだ 1 行だけが入力欄になる**（BC の Full Edit）。
                   全行を入力欄にすると、仮想化していても数千個を作ることになる。
                 -->
+                <!--
+                  直した行の印。**本文のすぐ左に細い柱を立てる。**
+                  行の色（相手と違う）とは別の情報なので、色ではなく
+                  位置で分ける。
+                -->
+                <Border Width="3" Background="{DynamicResource EditedMark}"
+                        IsVisible="{Binding LeftEdited}" />
                 <Border Tag="left" Background="{Binding LeftBackground}"
                         Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}">
                   <Panel>
@@ -862,6 +909,8 @@
                   </Button>
                 </Panel>
 
+                <Border Width="3" Background="{DynamicResource EditedMark}"
+                        IsVisible="{Binding RightEdited}" />
                 <Border Tag="right" Background="{Binding RightBackground}"
                         Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}">
                   <Panel>
