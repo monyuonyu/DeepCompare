@@ -1,0 +1,21 @@
+DeepCompare は、埋め込みモデルの重みを同梱して配布します。
+
+## 同梱している成果物
+
+`assets/minilm.dcm` は次のモデルを int8 量子化して変換したものです。
+
+- sentence-transformers/paraphrase-MiniLM-L6-v2
+  https://huggingface.co/sentence-transformers/paraphrase-MiniLM-L6-v2
+  Apache License 2.0
+
+## 任意で置ける成果物
+
+日本語を扱うときに置く多言語モデル（README を参照）は次のものです。
+**同梱していません** — 使う人が自分で取得します。
+
+- sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+  https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+  Apache License 2.0
+
+Apache License 2.0 の全文は次にあります。
+https://www.apache.org/licenses/LICENSE-2.0

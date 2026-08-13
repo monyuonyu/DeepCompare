@@ -21,7 +21,12 @@ jobs:
 
       # エンジンは GUI に依存しないので、X11 も GL も無しで検証できる。
       - name: test
-        run: dotnet test csharp/tests/DeepCompare.Engine.Tests/DeepCompare.Engine.Tests.csproj
+        run: dotnet test tests/DeepCompare.Engine.Tests/DeepCompare.Engine.Tests.csproj
+
+      # LLM 支援。**本物の HTTP を流して確かめる**（模擬サーバーを立てる）ので、
+      # 外部への接続は要らない。
+      - name: test (assist)
+        run: dotnet test tests/DeepCompare.Assist.Tests/DeepCompare.Assist.Tests.csproj
 
       # 自前で書いた BERT が独立実装と一致することの確認。ここが崩れたら
       # 類似度も対応付けも意味を持たないので、CI で押さえる。
@@ -34,8 +39,15 @@ jobs:
           python3 -m venv .venv-ref
           .venv-ref/bin/pip install --quiet onnxruntime numpy tokenizers
           .venv-ref/bin/python tools/reference_embeddings.py
-          dotnet test csharp/tests/DeepCompare.Engine.Tests/DeepCompare.Engine.Tests.csproj \
+          dotnet test tests/DeepCompare.Engine.Tests/DeepCompare.Engine.Tests.csproj \
             --filter "EmbeddingsMatchTheReferenceImplementation" --logger "console;verbosity=detailed"
+
+      # **画面を開かない経路が壊れていないか。** ここが崩れると、CI から
+      # 呼んだときに GUI が立ち上がって固まる（実際に Windows で踏んだ）。
+      - name: CLI の終了コード
+        run: |
+          dotnet build src/DeepCompare.App/DeepCompare.App.csproj -c Debug
+          ./tools/cli-smoke.sh src/DeepCompare.App/bin/Debug/net10.0/deepcompare
 
   build:
     strategy:
@@ -62,7 +74,7 @@ jobs:
 
       - name: 発行
         run: >
-          dotnet publish csharp/src/DeepCompare.App/DeepCompare.App.csproj
+          dotnet publish src/DeepCompare.App/DeepCompare.App.csproj
           -c Release -r ${{ matrix.rid }} -p:PublishAot=true -o out
 
       - name: サイズを表示

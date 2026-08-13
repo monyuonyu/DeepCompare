@@ -111,7 +111,7 @@ C# + Avalonia。外部ランタイムを必要としないネイティブ実行�
 | f32 | **1.000000** / 1.000000 |
 | int8 | **0.999095** / 0.999422 |
 
-`dotnet test csharp/tests/DeepCompare.Engine.Tests/DeepCompare.Engine.Tests.csproj` で再現できる。
+`dotnet test tests/DeepCompare.Engine.Tests/DeepCompare.Engine.Tests.csproj` で再現できる。
 この段があるおかげで、不具合を「実装の誤り」と「量子化の誤差」に切り分けられる。
 
 ### 対応付けを二段に分ける
@@ -168,7 +168,7 @@ C# + Avalonia。外部ランタイムを必要としないネイティブ実行�
 - **`Microsoft.ML.Tokenizers` の `BertTokenizer` が記号を黙って捨てる。** `+`(1009)、
   `<`(1026)、`>`(1028) は語彙にあるのに出力から消え、`x + 1` が `x 1` になっていた。
   コード比較では `x + 1` と `x - 1` の区別が失われるため許容できず、
-  [トークナイザを自前で実装した](csharp/src/DeepCompare.Engine/WordPieceTokenizer.cs)。
+  [トークナイザを自前で実装した](src/DeepCompare.Engine/WordPieceTokenizer.cs)。
 - **.NET のコードページ 20932 は不正な EUC-JP を受理する。** `0xC3 0x28` を「構」として
   読むためバイナリを EUC-JP と誤判定していた。正しい日本語はどちらのコードページでも同じ
   バイト列で往復するので、壊れた入力を与えたときにだけ表面化する。51932 が正しい。
@@ -208,7 +208,7 @@ C# + Avalonia。外部ランタイムを必要としないネイティブ実行�
     python3 -c "import json;d=json.load(open('unigram.json'));print('\n'.join(f'{t}\t{s}' for t,s in d['vocab']))" \
         > multilingual.vocab
 
-    dotnet run --project csharp/src/DeepCompare.ModelPrep/DeepCompare.ModelPrep.csproj -c Release \
+    dotnet run --project src/DeepCompare.ModelPrep/DeepCompare.ModelPrep.csproj -c Release \
         -- model.safetensors multilingual.dcm
 
 `multilingual.dcm` と `multilingual.vocab` を**実行ファイルと同じ場所に、対で**置く。
@@ -228,18 +228,34 @@ int8 量子化の誤差の範囲。トークン化は参照実装（tokenizers�
 
 ---
 
+## 構成
+
+    src/
+      DeepCompare.Engine/     比較エンジン。**画面にも通信にも依存しない**
+      DeepCompare.App/        Avalonia の画面と CLI
+      DeepCompare.Assist/     LLM 支援（任意）。**Engine を参照しない**
+      DeepCompare.ModelPrep/  モデルを int8 へ変換する開発用ツール
+    tests/                    試験（789 件）
+    tools/                    参照実装との突き合わせ・CLI の確認
+    assets/                   埋め込みモデルの実体
+    docs/images/              README のスクリーンショット
+
+**依存の向きを構造で示している。** Engine は Assist を知らないので、
+比較の経路に通信が紛れ込む余地が無い。App だけが両方を知る。
+
+---
+
 ## ビルド
 
-    cd csharp
-    dotnet test tests/DeepCompare.Engine.Tests/DeepCompare.Engine.Tests.csproj
+        dotnet test tests/DeepCompare.Engine.Tests/DeepCompare.Engine.Tests.csproj
     dotnet run --project src/DeepCompare.App/DeepCompare.App.csproj
 
 ### 発行
 
 ネイティブ実行ファイル（NativeAOT）:
 
-    dotnet publish csharp/src/DeepCompare.App/DeepCompare.App.csproj -c Release -r linux-x64 -o out
-    dotnet publish csharp/src/DeepCompare.App/DeepCompare.App.csproj -c Release -r win-x64 -o out
+    dotnet publish src/DeepCompare.App/DeepCompare.App.csproj -c Release -r linux-x64 -o out
+    dotnet publish src/DeepCompare.App/DeepCompare.App.csproj -c Release -r win-x64 -o out
 
 Linux では `clang` と `zlib1g-dev`、Windows では MSVC（Visual Studio Build Tools の
 C++ ワークロード）がリンクに要る。Skia と HarfBuzz はネイティブライブラリなので、
@@ -247,7 +263,7 @@ C++ ワークロード）がリンクに要る。Skia と HarfBuzz はネイテ�
 
 MSVC を用意できない場合は、非 AOT の単一ファイルで代替できる。こちらは Linux からでも作れる:
 
-    dotnet publish csharp/src/DeepCompare.App/DeepCompare.App.csproj -c Release -r win-x64 \
+    dotnet publish src/DeepCompare.App/DeepCompare.App.csproj -c Release -r win-x64 \
         --self-contained true -p:PublishAot=false -p:PublishSingleFile=true \
         -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
 
@@ -259,7 +275,7 @@ MSVC を用意できない場合は、非 AOT の単一ファイルで代替で�
     B=https://huggingface.co/sentence-transformers/paraphrase-MiniLM-L6-v2/resolve/main
     curl -sSLO $B/model.safetensors && curl -sSLO $B/vocab.txt
     cd ../..
-    dotnet run --project csharp/src/DeepCompare.ModelPrep/DeepCompare.ModelPrep.csproj -c Release \
+    dotnet run --project src/DeepCompare.ModelPrep/DeepCompare.ModelPrep.csproj -c Release \
         -- assets/src/model.safetensors assets/minilm.dcm
 
 参照実装との突き合わせをやり直す場合は、加えて ONNX 版と検証用の環境が要る:

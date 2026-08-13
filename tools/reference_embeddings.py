@@ -41,7 +41,9 @@ def main() -> int:
     root = Path(__file__).resolve().parent.parent
     model_path = root / "assets" / "src" / "model.onnx"
     tokenizer_path = root / "assets" / "tokenizer.json"
-    out_path = root / "tests" / "reference_embeddings.json"
+    # **期待値はスクリプトの隣に置く。** 作る側と使う側が離れていると、
+    # 片方だけ動かしたときに古い値が残る。
+    out_path = root / "tools" / "reference_embeddings.json"
 
     tokenizer = Tokenizer.from_file(str(tokenizer_path))
     tokenizer.enable_truncation(max_length=512)

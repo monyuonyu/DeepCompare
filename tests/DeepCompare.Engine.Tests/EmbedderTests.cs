@@ -7,7 +7,7 @@ namespace DeepCompare.Engine.Tests;
 /// <summary>
 /// 埋め込みが Rust 版と一致することを確認する。
 ///
-/// 参照値 tests/reference_embeddings.json は Python + ONNX Runtime（fp32）で作ったもので、
+/// 参照値 tools/reference_embeddings.json は Python + ONNX Runtime（fp32）で作ったもので、
 /// Rust 版もこれと突き合わせて f32 で 0.999999 の一致を確認済み。同じ参照値に対して
 /// C# 版も一致すれば、言語を跨いでも同じ結果が出ていることになる。
 ///
@@ -31,7 +31,7 @@ public class EmbedderTests
 
     private static (List<string> Texts, List<float[]> Vectors)? LoadReference()
     {
-        var path = Path.Combine(RepositoryRoot, "tests", "reference_embeddings.json");
+        var path = Path.Combine(RepositoryRoot, "tools", "reference_embeddings.json");
         if (!File.Exists(path))
         {
             return null;
