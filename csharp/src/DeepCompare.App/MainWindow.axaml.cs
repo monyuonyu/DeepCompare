@@ -55,6 +55,14 @@ public partial class MainWindow : Window
                 {
                     _shell.ShowFolders(left, right);
                 }
+                // 両方が画像なら画像比較へ。**フラグを増やさない。** 画像を
+                // 行で突き合わせたい場面はまず無いので、既定をこちらにしてよい
+                // （テキストとして見たければ画面から切り替えられる）。
+                else if (DeepCompare.Engine.ImageCompare.LooksLikeImage(left)
+                         && DeepCompare.Engine.ImageCompare.LooksLikeImage(right))
+                {
+                    _shell.ShowImage(left, right);
+                }
                 else
                 {
                     _shell.ShowText(left, right);

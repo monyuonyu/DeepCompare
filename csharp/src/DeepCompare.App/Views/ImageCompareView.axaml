@@ -1,0 +1,171 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:DeepCompare.App"
+             x:Class="DeepCompare.App.Views.ImageCompareView"
+             x:DataType="vm:ImageCompareViewModel">
+
+  <UserControl.Styles>
+    <!--
+      画像は**引き伸ばさない**。等倍で見せて、拡大率は人が決める。枠に合わせて
+      勝手に縮めると、1 画素のずれを見に来たときに見えなくなる。
+      拡大時に補間もしない（画素を見に来ているのにぼかしては意味がない）。
+    -->
+    <Style Selector="Image">
+      <Setter Property="Stretch" Value="None" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+    <Style Selector="Border.canvas">
+      <!-- **縦に伸ばさない。** 既定の Stretch だと、画像が小さくても枠だけが
+           画面の下まで伸びて、何が写っているのか分かりにくくなる -->
+      <Setter Property="VerticalAlignment" Value="Top" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="Background" Value="{DynamicResource PanelBg}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Divider}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+
+    <Border DockPanel.Dock="Top" Classes="topbar" BorderThickness="0">
+      <StackPanel Orientation="Horizontal" Spacing="2">
+        <Button Classes="icon" Command="{Binding Shell.GoHomeCommand}"
+                ToolTip.Tip="起動画面へ戻る">
+          <Path Classes="icon" Data="{StaticResource IconHome}" />
+        </Button>
+        <Border Classes="vsep" />
+        <Button Classes="icon" Command="{Binding CompareCommand}" IsEnabled="{Binding !Busy}"
+                ToolTip.Tip="比べ直す">
+          <Path Classes="icon" Data="{StaticResource IconRefresh}" />
+        </Button>
+
+        <Border Classes="vsep" />
+        <!-- 見せ方。**言葉ではなくアイコンで** -->
+        <ToggleButton Classes="filter" IsChecked="{Binding IsSideBySide}"
+                      Command="{Binding SetSideBySideCommand}"
+                      ToolTip.Tip="左右に並べる">
+          <Path Classes="icon" Data="{StaticResource IconSideBySide}" />
+        </ToggleButton>
+        <ToggleButton Classes="filter" IsChecked="{Binding IsDifference}"
+                      Command="{Binding SetDifferenceCommand}"
+                      ToolTip.Tip="違うところを塗った 1 枚">
+          <Path Classes="icon" Data="{StaticResource IconImageDiff}" />
+        </ToggleButton>
+        <ToggleButton Classes="filter" IsChecked="{Binding IsSwipe}"
+                      Command="{Binding SetSwipeCommand}"
+                      ToolTip.Tip="重ねて、境目を動かす。ずれを見るとき">
+          <Path Classes="icon" Data="{StaticResource IconSwipe}" />
+        </ToggleButton>
+
+        <Border Classes="vsep" />
+        <Button Classes="icon" Command="{Binding ZoomOutCommand}" ToolTip.Tip="縮小">
+          <Path Classes="icon" Data="{StaticResource IconMinusSmall}" />
+        </Button>
+        <TextBlock Text="{Binding ZoomText}" VerticalAlignment="Center"
+                   MinWidth="44" TextAlignment="Center" FontSize="11"
+                   Foreground="{DynamicResource FgDim}" />
+        <Button Classes="icon" Command="{Binding ZoomInCommand}" ToolTip.Tip="拡大">
+          <Path Classes="icon" Data="{StaticResource IconPlusSmall}" />
+        </Button>
+        <Button Classes="icon" Command="{Binding ZoomResetCommand}" ToolTip.Tip="等倍に戻す">
+          <Path Classes="icon" Data="{StaticResource IconExpand}" />
+        </Button>
+
+        <Border Classes="vsep" />
+        <Button Classes="icon" Command="{Binding OpenAsBinaryCommand}"
+                ToolTip.Tip="バイト列として比べ直す">
+          <Path Classes="icon" Data="{StaticResource IconDetails}" />
+        </Button>
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}"
+                     Width="70" VerticalAlignment="Center" Margin="6,0" />
+      </StackPanel>
+    </Border>
+
+    <Border DockPanel.Dock="Top" Classes="topbar">
+      <Grid ColumnDefinitions="*,Auto,*">
+        <TextBox Grid.Column="0" Text="{Binding LeftPath}" PlaceholderText="左の画像" />
+        <TextBlock Grid.Column="1" Text="↔" Classes="dim" VerticalAlignment="Center" Margin="10,0" />
+        <TextBox Grid.Column="2" Text="{Binding RightPath}" PlaceholderText="右の画像" />
+      </Grid>
+    </Border>
+
+    <Border DockPanel.Dock="Bottom" Classes="statusbar">
+      <StackPanel Orientation="Horizontal" Spacing="14">
+        <!-- 大きさが違えば、それ自体が一番大きな差分。色を変えて目に入れる -->
+        <TextBlock Text="{Binding SizeText}" FontSize="12" VerticalAlignment="Center"
+                   Foreground="{Binding SizeBrush}" />
+        <TextBlock Text="{Binding Summary}" FontSize="12" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding Message}" Foreground="{DynamicResource FgWarning}"
+                   FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+
+    <!-- しきい値と境目。**数値を打ち込ませない**（動かして結果を見る種類の値） -->
+    <Border DockPanel.Dock="Bottom" Classes="topbar">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <TextBlock Text="しきい値" FontSize="11" VerticalAlignment="Center"
+                   Foreground="{DynamicResource FgDim}"
+                   ToolTip.Tip="これ以下の差は同じとみなします。0 にすると、JPEG を保存し直しただけで全画素が違うと出ます" />
+        <Slider Value="{Binding Tolerance}" Minimum="0" Maximum="64"
+                Width="150" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding Tolerance}" FontSize="11" MinWidth="22"
+                   VerticalAlignment="Center" Foreground="{DynamicResource FgDim}" />
+
+        <Border Classes="vsep" IsVisible="{Binding IsSwipe}" />
+        <TextBlock Text="境目" FontSize="11" VerticalAlignment="Center"
+                   IsVisible="{Binding IsSwipe}" Foreground="{DynamicResource FgDim}" />
+        <Slider Value="{Binding Swipe}" Minimum="0" Maximum="1"
+                Width="220" VerticalAlignment="Center" IsVisible="{Binding IsSwipe}" />
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+      <!--
+        拡大は LayoutTransformControl で行う。RenderTransform だと見た目だけが
+        大きくなり、**スクロールできる範囲が元の大きさのまま**になる。
+      -->
+      <LayoutTransformControl HorizontalAlignment="Center" VerticalAlignment="Top"
+                              Margin="12">
+        <LayoutTransformControl.LayoutTransform>
+          <ScaleTransform ScaleX="{Binding Zoom}" ScaleY="{Binding Zoom}" />
+        </LayoutTransformControl.LayoutTransform>
+
+        <Panel>
+          <!-- 左右に並べる -->
+          <Grid ColumnDefinitions="Auto,12,Auto" IsVisible="{Binding IsSideBySide}">
+            <Border Grid.Column="0" Classes="canvas">
+              <Image Source="{Binding Left}" />
+            </Border>
+            <Border Grid.Column="2" Classes="canvas">
+              <Image Source="{Binding Right}" />
+            </Border>
+          </Grid>
+
+          <!-- 違うところを塗った 1 枚 -->
+          <Border Classes="canvas" IsVisible="{Binding IsDifference}">
+            <Image Source="{Binding Difference}" />
+          </Border>
+
+          <!--
+            重ねて境目を動かす。下敷きが右、上に左を**幅で切って**重ねる。
+            画像そのものは作り直さない（境目を動かすたびに作ると重い）。
+          -->
+          <Border Classes="canvas" IsVisible="{Binding IsSwipe}">
+            <Panel Width="{Binding ImageWidth}" Height="{Binding ImageHeight}">
+              <Image Source="{Binding Right}" />
+              <Panel ClipToBounds="True" HorizontalAlignment="Left"
+                     Width="{Binding SwipeWidth}">
+                <Image Source="{Binding Left}" />
+              </Panel>
+              <!-- 境目の線。どこで切れているかが分からないと、ずれと見分けが付かない -->
+              <Rectangle Width="1" HorizontalAlignment="Left" Fill="{DynamicResource Accent}"
+                         Margin="{Binding SwipeLineMargin}" />
+            </Panel>
+          </Border>
+        </Panel>
+      </LayoutTransformControl>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

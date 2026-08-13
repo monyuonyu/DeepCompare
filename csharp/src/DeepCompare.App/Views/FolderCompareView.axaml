@@ -163,6 +163,9 @@
                   <MenuItem Header="構造として比較（JSON）"
                             Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).OpenStructuredCommand}"
                             CommandParameter="{Binding}" />
+                  <MenuItem Header="画像として比較"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).OpenImageCommand}"
+                            CommandParameter="{Binding}" />
                   <MenuItem Header="バイト列として比較（16 進）"
                             Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).OpenBinaryCommand}"
                             CommandParameter="{Binding}" />

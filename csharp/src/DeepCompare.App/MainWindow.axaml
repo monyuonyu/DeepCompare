@@ -33,6 +33,9 @@
     <DataTemplate DataType="vm:BinaryCompareViewModel">
       <views:BinaryCompareView />
     </DataTemplate>
+    <DataTemplate DataType="vm:ImageCompareViewModel">
+      <views:ImageCompareView />
+    </DataTemplate>
   </Window.DataTemplates>
 
   <!--

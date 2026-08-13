@@ -210,6 +210,17 @@ public sealed class FolderCompareViewModel : ViewModelBase
             }
             return Task.CompletedTask;
         }, row => !row.Entry.IsDirectory);
+        OpenImageCommand = new RelayCommand<FolderRowView>(row =>
+        {
+            var (left, right) = PathsOf(row);
+            if (File.Exists(left) && File.Exists(right))
+            {
+                _shell.ShowImage(left, right);
+            }
+            return Task.CompletedTask;
+        // 名前で判断する。中身を覗いて判断してもよいが、押せるかどうかを
+        // 決めるためだけに全行のファイルを開くことになる。
+        }, row => !row.Entry.IsDirectory && ImageCompare.LooksLikeImage(row.Entry.RelativePath));
         RevealLeftCommand = new RelayCommand<FolderRowView>(row => RevealAsync(row, left: true));
         RevealRightCommand = new RelayCommand<FolderRowView>(row => RevealAsync(row, left: false));
         CopyLeftPathCommand = new RelayCommand<FolderRowView>(row => CopyPathAsync(row, left: true));
@@ -253,6 +264,7 @@ public sealed class FolderCompareViewModel : ViewModelBase
     public ICommand OpenRowCommand { get; }
     public ICommand OpenStructuredCommand { get; }
     public ICommand OpenBinaryCommand { get; }
+    public ICommand OpenImageCommand { get; }
     public ICommand DeleteLeftCommand { get; }
     public ICommand DeleteRightCommand { get; }
     public ICommand TouchToLeftCommand { get; }

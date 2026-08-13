@@ -11,6 +11,7 @@ public enum CompareKindId
     Structured,
     Merge,
     Git,
+    Image,
 }
 
 /// <summary>
@@ -109,6 +110,8 @@ public sealed class ShellViewModel : ViewModelBase
                 "IconStructure", CompareKindId.Structured),
             new CompareKind("3 方向マージ", "共通の元から分かれた 2 つの変更を合わせる", "IconMerge",
                 CompareKindId.Merge),
+            new CompareKind("画像比較", "画素で比べる。大きさが違っても重なる範囲は比べる",
+                "IconImage", CompareKindId.Image),
             new CompareKind("Git", "作業ツリーと履歴", "IconGit", CompareKindId.Git),
         ];
 
@@ -320,6 +323,17 @@ public sealed class ShellViewModel : ViewModelBase
     }
 
     /// <summary>バイト列として比べる。テキストとして読めないファイル向け。</summary>
+    public void ShowImage(string left, string right)
+    {
+        var model = new ImageCompareViewModel(this) { LeftPath = left, RightPath = right };
+        var tab = Add(TitleFor(left, right) + "（画像）", model, $"{left}\n{right}");
+        model.Tab = tab;
+        if (left.Length > 0 && right.Length > 0)
+        {
+            model.CompareCommand.Execute(null);
+        }
+    }
+
     public void ShowBinary(string left, string right)
     {
         var model = new BinaryCompareViewModel(this) { LeftPath = left, RightPath = right };
@@ -355,6 +369,9 @@ public sealed class ShellViewModel : ViewModelBase
                 break;
             case CompareKindId.Merge:
                 ShowMerge(basePath, left, right);
+                break;
+            case CompareKindId.Image:
+                ShowImage(left, right);
                 break;
             case CompareKindId.Git:
                 ShowGit(left.Length > 0 ? left : Environment.CurrentDirectory);

@@ -37,6 +37,18 @@
   <!-- Git: 枝分かれと 3 つの節 -->
   <StreamGeometry x:Key="IconGit">M7,7 v10 M7,11 h7 a3,3 0 0 0 3,-3 M4.5,4.5 a2.5,2.5 0 1 0 5,0 a2.5,2.5 0 1 0 -5,0 M4.5,19.5 a2.5,2.5 0 1 0 5,0 a2.5,2.5 0 1 0 -5,0 M14.5,5.5 a2.5,2.5 0 1 0 5,0 a2.5,2.5 0 1 0 -5,0</StreamGeometry>
 
+  <!-- 左右に並べる: 枠が 2 つ -->
+  <StreamGeometry x:Key="IconSideBySide">M3,5 h8 v14 h-8 z M13,5 h8 v14 h-8 z</StreamGeometry>
+
+  <!-- 重ねて境目を動かす: 1 枚の枠を縦線で割り、つまみを付ける -->
+  <StreamGeometry x:Key="IconSwipe">M3,5 h18 v14 h-18 z M12,3 v18 M9,10 l-2.5,2 l2.5,2 M15,10 l2.5,2 l-2.5,2</StreamGeometry>
+
+  <!-- 画像の差分: 枠の中に、違う場所を表す小さな四角 -->
+  <StreamGeometry x:Key="IconImageDiff">M3.5,5 h17 v14 h-17 z M7.5,9 h3.5 v3.5 h-3.5 z M13,13 h3.5 v3.5 h-3.5 z</StreamGeometry>
+
+  <!-- 画像: 枠の中に山と太陽 -->
+  <StreamGeometry x:Key="IconImage">M3.5,5 h17 v14 h-17 z M3.5,16 l4.5,-4.5 l3.5,3.5 l3.5,-4 l5.5,5.5 M15.5,9 a1.5,1.5 0 1 0 3,0 a1.5,1.5 0 1 0 -3,0</StreamGeometry>
+
   <!-- 枝の札: 分岐（Git と同じ骨組みだが、札に載るので描く範囲を狭める） -->
   <StreamGeometry x:Key="IconBranch">M8,6.5 v11 M8,12 h5 a3,3 0 0 0 3,-3 v-2.5 M6,5 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M6,19 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M14,5 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0</StreamGeometry>
 
@@ -133,7 +145,12 @@
 
   <!-- 折りたたみの箱の中身。**小さく描くので線は 2 本だけ** -->
   <StreamGeometry x:Key="IconPlusSmall">M12,5 v14 M5,12 h14</StreamGeometry>
-  <StreamGeometry x:Key="IconMinusSmall">M5,12 h14</StreamGeometry>
+  <!--
+    横線だけだと図形の高さが 0 になり、Stretch=Uniform で点まで縮む
+    （＋の隣に並べると、片方だけ極小になって見えた）。線を引かない移動で
+    **描く範囲を＋と揃える**。連続する M は線にならないので、見た目は変わらない。
+  -->
+  <StreamGeometry x:Key="IconMinusSmall">M12,5 M12,19 M5,12 h14</StreamGeometry>
 
   <!-- 新しいタブ -->
   <StreamGeometry x:Key="IconPlus">M12,4.5 v15 M4.5,12 h15</StreamGeometry>
