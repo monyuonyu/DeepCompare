@@ -27,6 +27,10 @@ public partial class App : Application
     /// <summary>上下に並べた状態で開く（`--over-under`）。</summary>
     public static bool StartOverUnder { get; set; }
 
+    /// <summary>表として開くときのキー列と見ない列（`--key` / `--ignore-column`）。</summary>
+    public static string StartKeys { get; set; } = string.Empty;
+    public static string StartIgnoredColumns { get; set; } = string.Empty;
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
@@ -35,7 +39,7 @@ public partial class App : Application
         {
             desktop.MainWindow = new MainWindow(
                 StartupFiles, StartStructured, StartGit, StartMerge, StartVersion,
-                StartSnapshot, StartOverUnder);
+                StartSnapshot, StartOverUnder, StartKeys, StartIgnoredColumns);
         }
         base.OnFrameworkInitializationCompleted();
     }

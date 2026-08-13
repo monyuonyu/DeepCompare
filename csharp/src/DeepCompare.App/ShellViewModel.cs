@@ -505,10 +505,23 @@ public sealed class ShellViewModel : ViewModelBase
         }
     }
 
-    /// <summary>CSV / TSV を列単位で比べる画面。</summary>
-    public void ShowTable(string left, string right)
+    /// <summary>
+    /// CSV / TSV を列単位で比べる画面。
+    ///
+    /// キー列と見ない列は起動時にも渡せる。**毎回入力欄に打ち込ませない** —
+    /// 同じ表を繰り返し比べる場面（日次の書き出しなど）では、そこが
+    /// 一番よく使う指定になる。
+    /// </summary>
+    public void ShowTable(
+        string left, string right, string keys = "", string ignored = "")
     {
-        var model = new TableCompareViewModel(this) { LeftPath = left, RightPath = right };
+        var model = new TableCompareViewModel(this)
+        {
+            LeftPath = left,
+            RightPath = right,
+            KeyColumns = keys,
+            IgnoredColumns = ignored,
+        };
         var tab = Add(TitleFor(left, right) + "（表）", model, $"{left}\n{right}");
         model.Tab = tab;
         if (left.Length > 0 && right.Length > 0)

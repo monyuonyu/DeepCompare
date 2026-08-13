@@ -255,6 +255,9 @@ internal static class Program
         App.StartVersion = args.Contains("--version-view");
         App.StartSnapshot = args.Contains("--snapshot-view");
         App.StartOverUnder = args.Contains("--over-under");
+        // 表として開くときの指定。**画面から打ち込むのと同じものを引数でも渡せる。**
+        App.StartKeys = string.Join(",", Cli.ValuesOf(args, "--key"));
+        App.StartIgnoredColumns = string.Join(",", Cli.ValuesOf(args, "--ignore-column"));
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

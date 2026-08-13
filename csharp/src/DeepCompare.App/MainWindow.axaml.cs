@@ -9,14 +9,14 @@ public partial class MainWindow : Window
 {
     private readonly ShellViewModel _shell;
 
-    public MainWindow() : this([], false, false, false, false, false, false)
+    public MainWindow() : this([], false, false, false, false, false, false, "", "")
     {
     }
 
     public MainWindow(
         string[] startupPaths, bool structured = false, bool git = false,
         bool merge = false, bool version = false, bool snapshot = false,
-        bool overUnder = false)
+        bool overUnder = false, string keys = "", string ignoredColumns = "")
     {
         InitializeComponent();
         _shell = new ShellViewModel(PickPathAsync, PickSavePathAsync)
@@ -97,7 +97,7 @@ public partial class MainWindow : Window
                 // 1 行挿入されただけで以降が全部ずれる。
                 else if (LooksLikeTable(left) && LooksLikeTable(right))
                 {
-                    _shell.ShowTable(left, right);
+                    _shell.ShowTable(left, right, keys, ignoredColumns);
                 }
                 // Office は**本文を取り出して**テキスト比較へ。
                 // 中身をそのまま行で比べても読めない（zip + XML）。

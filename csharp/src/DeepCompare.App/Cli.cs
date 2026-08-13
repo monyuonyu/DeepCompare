@@ -1774,7 +1774,7 @@ internal static class Cli
     };
 
     /// <summary>同じフラグが複数回現れることを許す。--ignore-pattern 用。</summary>
-    private static List<string> ValuesOf(string[] args, string flag)
+    public static List<string> ValuesOf(string[] args, string flag)
     {
         var values = new List<string>();
         for (var i = 0; i + 1 < args.Length; i++)
