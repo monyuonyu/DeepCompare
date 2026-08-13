@@ -178,6 +178,10 @@ public sealed class TextCompareViewModel : ViewModelBase
         ApplyImportanceCommand = new RelayCommand(RecompareAsync);
         ExportUnifiedCommand = new RelayCommand(() => ExportAsync(unified: true));
         ExportHtmlCommand = new RelayCommand(() => ExportAsync(unified: false));
+        ShowPatchCommand = new RelayCommand(
+            () => { ShowPatch(); return Task.CompletedTask; });
+        ClosePatchCommand = new RelayCommand(
+            () => { IsPatchOpen = false; return Task.CompletedTask; });
         OpenGoToCommand = new RelayCommand(
             () => { IsGoToOpen = true; return Task.CompletedTask; });
         GoToCommand = new RelayCommand(() => { GoTo(); return Task.CompletedTask; });
@@ -219,8 +223,14 @@ public sealed class TextCompareViewModel : ViewModelBase
         ClearManualCommand = new RelayCommand(
             ClearManualAsync, () => !Manual.IsEmpty);
         // Escape は開いているものを閉じる。行移動の枠も同じ鍵で閉じる。
-        CloseSearchCommand = new RelayCommand(
-            () => { IsSearchOpen = false; IsGoToOpen = false; return Task.CompletedTask; });
+        // Escape は開いているものを閉じる。**開いた順に関係なく全部。**
+        CloseSearchCommand = new RelayCommand(() =>
+        {
+            IsSearchOpen = false;
+            IsGoToOpen = false;
+            IsPatchOpen = false;
+            return Task.CompletedTask;
+        });
         OpenSearchCommand = new RelayCommand(
             () => { IsSearchOpen = true; return Task.CompletedTask; });
         OpenReplaceCommand = new RelayCommand(
@@ -2481,6 +2491,43 @@ public sealed class TextCompareViewModel : ViewModelBase
     }
 
     /// <summary>比較結果を書き出す。</summary>
+    private string _patchText = string.Empty;
+
+    /// <summary>
+    /// 差分を patch の形で出したもの。**保存せずに見るためのもの。**
+    /// 貼り付けて誰かに渡す、レビューに引用する、といった場面で要る
+    /// （BC の View Patch）。
+    /// </summary>
+    public string PatchText
+    {
+        get => _patchText;
+        private set => Set(ref _patchText, value);
+    }
+
+    private bool _isPatchOpen;
+    public bool IsPatchOpen
+    {
+        get => _isPatchOpen;
+        set => Set(ref _isPatchOpen, value);
+    }
+
+    public RelayCommand ShowPatchCommand { get; private set; } = null!;
+    public RelayCommand ClosePatchCommand { get; private set; } = null!;
+
+    private void ShowPatch()
+    {
+        if (_comparison is null || _leftSource is null || _rightSource is null)
+        {
+            StatusText = "先に比較してください。";
+            return;
+        }
+        PatchText = Report.UnifiedDiff(
+            _comparison, CurrentLeft, CurrentRight,
+            Path.GetFileName(LeftPath.Trim()), Path.GetFileName(RightPath.Trim()),
+            (int)ContextLines);
+        IsPatchOpen = true;
+    }
+
     private async Task ExportAsync(bool unified)
     {
         if (_comparison is null || _leftSource is null || _rightSource is null)
