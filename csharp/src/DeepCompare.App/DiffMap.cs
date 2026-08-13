@@ -209,13 +209,18 @@ public sealed class DiffMap : Control
         }
     }
 
-    /// <summary>その行を地図に出すか、出すなら何色か。一致した行は出さない。</summary>
+    /// <summary>
+    /// その行を地図に出すか、出すなら何色か。一致した行は出さない。
+    ///
+    /// **一覧の状態色とは別の色を使う。** 地図は細長い帯にびっしり並ぶので、
+    /// 一覧と同じ濃さだと目に刺さる。位置が分かればよい。
+    /// </summary>
     private static IBrush? Kind(RowView row) => (row.Row.Left, row.Row.Right) switch
     {
         (not null, not null) when row.Row.IsUnchanged => null,
-        (not null, not null) => Palette.Brush("StatusDifferent"),
-        (not null, null) => Palette.Brush("StatusLeftOnly"),
-        (null, not null) => Palette.Brush("StatusRightOnly"),
+        (not null, not null) => Palette.Brush("MapChanged"),
+        (not null, null) => Palette.Brush("MapRemoved"),
+        (null, not null) => Palette.Brush("MapAdded"),
         _ => null,
     };
 }

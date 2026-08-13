@@ -103,6 +103,15 @@
             一覧の中で一番拾いたい情報。
           -->
           <SolidColorBrush x:Key="StatusDifferent">#CF222E</SolidColorBrush>
+
+          <!--
+            差分の地図の色。**一覧の状態色より彩度を落とす。**
+            地図は細長い帯にびっしり並ぶので、一覧と同じ濃さだと目に刺さる。
+            位置が分かればよいので、そこまで強い色は要らない。
+          -->
+          <SolidColorBrush x:Key="MapAdded">#8FC7A3</SolidColorBrush>
+          <SolidColorBrush x:Key="MapRemoved">#E2A0A5</SolidColorBrush>
+          <SolidColorBrush x:Key="MapChanged">#E0B98A</SolidColorBrush>
           <SolidColorBrush x:Key="StatusLeftOnly">#CF222E</SolidColorBrush>
           <SolidColorBrush x:Key="StatusRightOnly">#1A7F37</SolidColorBrush>
           <SolidColorBrush x:Key="StatusSame">#8C959F</SolidColorBrush>
@@ -159,6 +168,11 @@
           <SolidColorBrush x:Key="FgComment">#6A7B8C</SolidColorBrush>
           <SolidColorBrush x:Key="FgNumber">#D19A66</SolidColorBrush>
           <SolidColorBrush x:Key="FgPunctuation">#9AA0AC</SolidColorBrush>
+
+          <!-- 差分の地図。暗い背景では明るすぎない方へ寄せる -->
+          <SolidColorBrush x:Key="MapAdded">#5E8F6E</SolidColorBrush>
+          <SolidColorBrush x:Key="MapRemoved">#A0666C</SolidColorBrush>
+          <SolidColorBrush x:Key="MapChanged">#9E7B53</SolidColorBrush>
 
           <!-- フォルダー一覧の状態。「中身が違う」は BC に合わせて赤 -->
           <SolidColorBrush x:Key="StatusDifferent">#F0666F</SolidColorBrush>
