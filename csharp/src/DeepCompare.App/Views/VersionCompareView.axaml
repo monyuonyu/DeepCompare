@@ -1,0 +1,85 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:DeepCompare.App"
+             x:Class="DeepCompare.App.Views.VersionCompareView"
+             x:DataType="vm:VersionCompareViewModel">
+
+  <DockPanel>
+
+    <Border DockPanel.Dock="Top" Classes="topbar" BorderThickness="0">
+      <StackPanel Orientation="Horizontal" Spacing="2">
+        <Button Classes="icon" Command="{Binding Shell.GoHomeCommand}"
+                ToolTip.Tip="起動画面へ戻る">
+          <Path Classes="icon" Data="{StaticResource IconHome}" />
+        </Button>
+        <Border Classes="vsep" />
+        <Button Classes="icon" Command="{Binding CompareCommand}" IsEnabled="{Binding !Busy}"
+                ToolTip.Tip="読み直す">
+          <Path Classes="icon" Data="{StaticResource IconRefresh}" />
+        </Button>
+        <ToggleButton Classes="filter" IsChecked="{Binding DifferencesOnly}"
+                      ToolTip.Tip="違う項目だけ出す">
+          <Path Classes="icon" Data="{StaticResource IconFilterDiff}" />
+        </ToggleButton>
+        <Border Classes="vsep" />
+        <Button Classes="icon" Command="{Binding OpenAsBinaryCommand}"
+                ToolTip.Tip="バイト列として比べ直す">
+          <Path Classes="icon" Data="{StaticResource IconDetails}" />
+        </Button>
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}"
+                     Width="70" VerticalAlignment="Center" Margin="6,0" />
+      </StackPanel>
+    </Border>
+
+    <Border DockPanel.Dock="Top" Classes="topbar">
+      <Grid ColumnDefinitions="*,Auto,*">
+        <TextBox Grid.Column="0" Text="{Binding LeftPath}" PlaceholderText="左の実行ファイル" />
+        <TextBlock Grid.Column="1" Text="↔" Classes="dim" VerticalAlignment="Center" Margin="10,0" />
+        <TextBox Grid.Column="2" Text="{Binding RightPath}" PlaceholderText="右の実行ファイル" />
+      </Grid>
+    </Border>
+
+    <Border DockPanel.Dock="Bottom" Classes="statusbar">
+      <StackPanel Orientation="Horizontal" Spacing="14">
+        <TextBlock Text="{Binding Summary}" FontSize="12" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding Message}" Foreground="{DynamicResource FgWarning}"
+                   FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+
+    <!-- 見出し。**本体と同じ列幅**にして、目が縦に落ちるようにする -->
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="190,*,*" Margin="12,8,12,2">
+      <TextBlock Grid.Column="0" Text="項目" Classes="columnhead" />
+      <TextBlock Grid.Column="1" Text="左" Classes="columnhead" />
+      <TextBlock Grid.Column="2" Text="右" Classes="columnhead" />
+    </Grid>
+
+    <ScrollViewer Margin="12,0,12,8">
+      <ItemsControl ItemsSource="{Binding Rows}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:VersionRowView">
+            <Border Background="{Binding Background}" Classes="row">
+              <Grid ColumnDefinitions="190,*,*">
+                <TextBlock Grid.Column="0" Text="{Binding Key}" FontSize="12"
+                           Foreground="{DynamicResource FgDim}"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+
+                <!-- 片方に無い側は斜線。テキスト比較・フォルダー比較と同じ見せ方 -->
+                <Border Grid.Column="1" Background="{Binding LeftBackground}" Padding="4,1">
+                  <SelectableTextBlock Text="{Binding Left}" Classes="mono" FontSize="12"
+                                       FontWeight="{Binding Weight}"
+                                       TextWrapping="Wrap" />
+                </Border>
+                <Border Grid.Column="2" Background="{Binding RightBackground}" Padding="4,1">
+                  <SelectableTextBlock Text="{Binding Right}" Classes="mono" FontSize="12"
+                                       FontWeight="{Binding Weight}"
+                                       TextWrapping="Wrap" />
+                </Border>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

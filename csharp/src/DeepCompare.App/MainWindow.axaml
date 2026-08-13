@@ -36,6 +36,9 @@
     <DataTemplate DataType="vm:ImageCompareViewModel">
       <views:ImageCompareView />
     </DataTemplate>
+    <DataTemplate DataType="vm:VersionCompareViewModel">
+      <views:VersionCompareView />
+    </DataTemplate>
   </Window.DataTemplates>
 
   <!--

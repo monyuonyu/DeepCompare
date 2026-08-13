@@ -9,12 +9,13 @@ public partial class MainWindow : Window
 {
     private readonly ShellViewModel _shell;
 
-    public MainWindow() : this([], false, false, false)
+    public MainWindow() : this([], false, false, false, false)
     {
     }
 
     public MainWindow(
-        string[] startupPaths, bool structured = false, bool git = false, bool merge = false)
+        string[] startupPaths, bool structured = false, bool git = false,
+        bool merge = false, bool version = false)
     {
         InitializeComponent();
         _shell = new ShellViewModel(PickPathAsync, PickSavePathAsync);
@@ -50,6 +51,10 @@ public partial class MainWindow : Window
                 if (structured)
                 {
                     _shell.ShowStructured(left, right);
+                }
+                else if (version)
+                {
+                    _shell.ShowVersionInfo(left, right);
                 }
                 else if (Directory.Exists(left) && Directory.Exists(right))
                 {

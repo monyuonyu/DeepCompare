@@ -18,6 +18,9 @@ public partial class App : Application
     /// <summary>起動と同時に 3 方向マージの画面を開くか（<c>--merge-view</c>）。</summary>
     public static bool StartMerge { get; set; }
 
+    /// <summary>版の比較を出して起動する。</summary>
+    public static bool StartVersion { get; set; }
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
@@ -25,7 +28,7 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow = new MainWindow(
-                StartupFiles, StartStructured, StartGit, StartMerge);
+                StartupFiles, StartStructured, StartGit, StartMerge, StartVersion);
         }
         base.OnFrameworkInitializationCompleted();
     }

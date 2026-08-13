@@ -43,6 +43,12 @@
   <!-- 重ねて境目を動かす: 1 枚の枠を縦線で割り、つまみを付ける -->
   <StreamGeometry x:Key="IconSwipe">M3,5 h18 v14 h-18 z M12,3 v18 M9,10 l-2.5,2 l2.5,2 M15,10 l2.5,2 l-2.5,2</StreamGeometry>
 
+  <!--
+    版: 荷札に刻みを入れる。**枠に線 4 本だと「＝」にしか見えなかった**
+    （起動画面に並べて確かめた）。タグの形なら「これに版が書いてある」と伝わる。
+  -->
+  <StreamGeometry x:Key="IconVersion">M12.5,3.5 h8 v8 l-9,9 l-8,-8 z M17,7.5 a1.2,1.2 0 1 0 2.4,0 a1.2,1.2 0 1 0 -2.4,0 M6.5,12 l3,3 M9.5,9 l3,3</StreamGeometry>
+
   <!-- 画像の差分: 枠の中に、違う場所を表す小さな四角 -->
   <StreamGeometry x:Key="IconImageDiff">M3.5,5 h17 v14 h-17 z M7.5,9 h3.5 v3.5 h-3.5 z M13,13 h3.5 v3.5 h-3.5 z</StreamGeometry>
 

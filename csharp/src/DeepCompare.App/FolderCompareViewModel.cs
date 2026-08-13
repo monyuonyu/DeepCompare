@@ -221,6 +221,18 @@ public sealed class FolderCompareViewModel : ViewModelBase
         // 名前で判断する。中身を覗いて判断してもよいが、押せるかどうかを
         // 決めるためだけに全行のファイルを開くことになる。
         }, row => !row.Entry.IsDirectory && ImageCompare.LooksLikeImage(row.Entry.RelativePath));
+        OpenVersionCommand = new RelayCommand<FolderRowView>(row =>
+        {
+            var (left, right) = PathsOf(row);
+            if (File.Exists(left) && File.Exists(right))
+            {
+                _shell.ShowVersionInfo(left, right);
+            }
+            return Task.CompletedTask;
+        // 中身の先頭 2 バイトで判断する。**拡張子では決めない** —
+        // .dll も .exe も .sys も .ocx も同じ形式で、名前の方が当てにならない。
+        }, row => !row.Entry.IsDirectory && row.HasLeft && row.HasRight
+                  && VersionInfo.LooksLikeExecutable(PathsOf(row).Left));
         RevealLeftCommand = new RelayCommand<FolderRowView>(row => RevealAsync(row, left: true));
         RevealRightCommand = new RelayCommand<FolderRowView>(row => RevealAsync(row, left: false));
         CopyLeftPathCommand = new RelayCommand<FolderRowView>(row => CopyPathAsync(row, left: true));
@@ -265,6 +277,7 @@ public sealed class FolderCompareViewModel : ViewModelBase
     public ICommand OpenStructuredCommand { get; }
     public ICommand OpenBinaryCommand { get; }
     public ICommand OpenImageCommand { get; }
+    public ICommand OpenVersionCommand { get; }
     public ICommand DeleteLeftCommand { get; }
     public ICommand DeleteRightCommand { get; }
     public ICommand TouchToLeftCommand { get; }
