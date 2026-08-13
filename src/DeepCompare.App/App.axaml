@@ -35,14 +35,14 @@
           <SolidColorBrush x:Key="AccentSoft">#DDEBFC</SolidColorBrush>
 
           <!-- 面 -->
-          <SolidColorBrush x:Key="WindowBg">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="WindowBg">#FCFCFB</SolidColorBrush>
           <SolidColorBrush x:Key="PanelBg">#F6F8FA</SolidColorBrush>
           <SolidColorBrush x:Key="CardBg">#EEF1F4</SolidColorBrush>
           <SolidColorBrush x:Key="StatusBarBg">#F0F2F5</SolidColorBrush>
           <SolidColorBrush x:Key="AltRowBg">#F6F8FA</SolidColorBrush>
           <SolidColorBrush x:Key="Divider">#D8DEE4</SolidColorBrush>
           <SolidColorBrush x:Key="DividerStrong">#BAC2CB</SolidColorBrush>
-          <SolidColorBrush x:Key="SidebarBg">#F6F8FA</SolidColorBrush>
+          <SolidColorBrush x:Key="SidebarBg">#FBFBF9</SolidColorBrush>
           <SolidColorBrush x:Key="NavSelectedBg">#DDEBFC</SolidColorBrush>
 
           <!-- 操作できるもの -->
