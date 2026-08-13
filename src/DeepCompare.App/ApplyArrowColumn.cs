@@ -140,9 +140,10 @@ public sealed class ApplyArrowColumn : Control
             }
             else if (!last)
             {
-                // 先頭の行。矢印の下から下端まで。
+                // 先頭の行。**枠から 2 画素離して**下端まで。
+                // 枠の底辺と重ねると、線が枠に食い込んで見える。
                 context.DrawLine(stroke,
-                    new Point(x, middle + 9), new Point(x, top + visual.Height));
+                    new Point(x, middle + 11), new Point(x, top + visual.Height));
             }
 
             if (last && !line.IsBlockStart)

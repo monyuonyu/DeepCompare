@@ -184,7 +184,8 @@ public partial class TextCompareView : UserControl
         }
         Editors.Fill(
             model.AlignedLeft, model.AlignedRight,
-            model.LeftReadOnly, model.RightReadOnly);
+            model.LeftReadOnly, model.RightReadOnly,
+            model.CurrentLanguage);
     }
 
     /// <summary>

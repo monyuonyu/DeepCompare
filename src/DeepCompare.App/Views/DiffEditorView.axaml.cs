@@ -85,10 +85,11 @@ public partial class DiffEditorView : UserControl
 
     public void Fill(
         AlignedDocument left, AlignedDocument right,
-        bool leftReadOnly, bool rightReadOnly)
+        bool leftReadOnly, bool rightReadOnly,
+        DeepCompare.Engine.Language? language = null)
     {
-        LeftPane.Fill(left, leftReadOnly);
-        RightPane.Fill(right, rightReadOnly);
+        LeftPane.Fill(left, leftReadOnly, language);
+        RightPane.Fill(right, rightReadOnly, language);
 
         // **入れ直した直後に揃える。** 片方だけ位置が残っていると、
         // 開いた瞬間から左右が別の場所を向いている。

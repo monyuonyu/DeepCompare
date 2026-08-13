@@ -4,6 +4,7 @@ using Avalonia.Markup.Xaml;
 using AvaloniaEdit;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Folding;
+using DeepCompare.Engine;
 
 namespace DeepCompare.App.Views;
 
@@ -212,12 +213,12 @@ public partial class DiffEditorPane : UserControl
     /// <summary>写しの矢印。**このペインの左端に置く。**</summary>
     public ApplyArrowColumn ArrowColumn { get; } = new();
 
-    public void Fill(AlignedDocument document, bool readOnly)
+    public void Fill(AlignedDocument document, bool readOnly, Language? language = null)
     {
         _document = document;
         ArrowColumn.Update(document.Lines);
         _background.Update(document.Lines);
-        _colorizer.Update(document.Lines);
+        _colorizer.Update(document.Lines, language);
         _numbers.Update(document.Lines);
 
         var caret = Editor.CaretOffset;

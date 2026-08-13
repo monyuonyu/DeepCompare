@@ -33,6 +33,12 @@ public sealed class TextCompareViewModel : ViewModelBase
     public event EventHandler? AlignedChanged;
 
     /// <summary>
+    /// いま扱っている言語。**構文の色分けに使う。**
+    /// 拡張子から決まるので、比較のたびに入れ直す。
+    /// </summary>
+    public Language? CurrentLanguage { get; private set; }
+
+    /// <summary>
     /// この行へ移してほしい、と画面側へ頼む（揃えた本文での行番号）。
     /// **ViewModel から部品には触らない。**
     /// </summary>
@@ -1497,6 +1503,7 @@ public sealed class TextCompareViewModel : ViewModelBase
         // 色分けの状態は行をまたぐ（ブロックコメント）ので、左右それぞれ順に持ち回る。
         // 表示している行だけを見ると、コメントの途中の行が色付かない。
         var language = DetectLanguage();
+        CurrentLanguage = language;
         var leftState = LexState.Start;
         var rightState = LexState.Start;
         _allRows = new List<RowView>(comparison.Rows.Count);

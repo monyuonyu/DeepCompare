@@ -48,6 +48,9 @@ public sealed class DiffBackgroundRenderer : IBackgroundRenderer
 
     public KnownLayer Layer => KnownLayer.Background;
 
+    private static void DrawHatch(DrawingContext context, Rect area)
+        => Hatching.Draw(context, area);
+
     public void Draw(TextView view, DrawingContext context)
     {
         if (view.VisualLinesValid is false)
@@ -64,9 +67,21 @@ public sealed class DiffBackgroundRenderer : IBackgroundRenderer
             }
             var line = _lines[number - 1];
 
+            var top = visual.GetTextLineVisualYPosition(
+                visual.TextLines[0], VisualYPosition.TextTop) - view.VerticalOffset;
+            var area = new Rect(0, top, view.Bounds.Width, visual.Height);
+
+            if (line.IsFiller)
+            {
+                // **斜線で「ここには行が無い」を示す。**
+                // 色を塗るだけだと「空行がある」と読まれる。相手側にしか
+                // 行が無いことを、地の模様で言う（Beyond Compare も同じ）。
+                DrawHatch(context, area);
+                continue;
+            }
+
             var brush = line switch
             {
-                { IsFiller: true } => Palette.Brush("GapBg"),
                 { IsChanged: true } => Palette.Brush("BgChanged"),
                 { IsOnlyHere: true } => Palette.Brush("BgAdded"),
                 _ => null,
@@ -76,24 +91,40 @@ public sealed class DiffBackgroundRenderer : IBackgroundRenderer
                 continue;
             }
 
-            foreach (var rect in BackgroundGeometryBuilder.GetRectsFromVisualSegment(
-                view, visual, 0, 1000))
-            {
-                context.FillRectangle(
-                    brush,
-                    new Rect(0, rect.Y, view.Bounds.Width, rect.Height));
-            }
+            context.FillRectangle(brush, area);
 
             // 自分が直した行の印。**左端に細い柱。**
             if (line.IsEdited)
             {
-                foreach (var rect in BackgroundGeometryBuilder.GetRectsFromVisualSegment(
-                    view, visual, 0, 1))
-                {
-                    context.FillRectangle(
-                        Palette.Brush("EditedMark"),
-                        new Rect(0, rect.Y, 3, rect.Height));
-                }
+                context.FillRectangle(
+                    Palette.Brush("EditedMark"), new Rect(0, top, 3, visual.Height));
+            }
+        }
+    }
+}
+
+/// <summary>
+/// 斜線を引く。**行が無いことを示す模様。**
+///
+/// 一定の間隔で 45 度の線を引くだけ。模様の画像を作って敷く手もあるが、
+/// 行の高さが変わるたびに作り直すことになる。
+/// </summary>
+file static class Hatching
+{
+    public static void Draw(DrawingContext context, Rect area)
+    {
+        const double gap = 7;
+        var pen = new Pen(Palette.Brush("GapLine"), 1);
+        using (context.PushClip(area))
+        {
+            // 左上から右下へ。**高さのぶんだけ左へずらして始める** —
+            // そうしないと左端の三角が塗り残る。
+            for (var x = area.X - area.Height; x < area.Right; x += gap)
+            {
+                context.DrawLine(
+                    pen,
+                    new Point(x, area.Bottom),
+                    new Point(x + area.Height, area.Y));
             }
         }
     }
@@ -108,8 +139,13 @@ public sealed class DiffBackgroundRenderer : IBackgroundRenderer
 public sealed class InlineDiffColorizer : DocumentColorizingTransformer
 {
     private IReadOnlyList<AlignedLine> _lines = [];
+    private Language? _language;
 
-    public void Update(IReadOnlyList<AlignedLine> lines) => _lines = lines;
+    public void Update(IReadOnlyList<AlignedLine> lines, Language? language = null)
+    {
+        _lines = lines;
+        _language = language;
+    }
 
     protected override void ColorizeLine(DocumentLine line)
     {
@@ -121,6 +157,30 @@ public sealed class InlineDiffColorizer : DocumentColorizingTransformer
 
         var info = _lines[number - 1];
         var length = line.Length;
+
+        // **構文の色を先に置く。** 差分の地はこの後に重ねるので、
+        // 「どこが変わったか」が構文の色に負けない。
+        if (_language is { } language && length > 0)
+        {
+            var text = CurrentContext.Document.GetText(line.Offset, length);
+            var state = default(LexState);
+            foreach (var token in Lexer.Tokenize(text, language, ref state))
+            {
+                var brush = TokenBrush(token.Kind);
+                if (brush is null || token.Length <= 0)
+                {
+                    continue;
+                }
+                var from = Math.Min(token.Start, length);
+                var to = Math.Min(token.Start + token.Length, length);
+                if (to <= from)
+                {
+                    continue;
+                }
+                ChangeLinePart(line.Offset + from, line.Offset + to, element =>
+                    element.TextRunProperties.SetForegroundBrush(brush));
+            }
+        }
         foreach (var span in info.Spans)
         {
             if (span.Kind != SpanKind.Changed || span.Length <= 0)
@@ -141,4 +201,15 @@ public sealed class InlineDiffColorizer : DocumentColorizingTransformer
             });
         }
     }
+
+    /// <summary>構文の色。**行の中で意味の違うものだけ分ける。**</summary>
+    private static IBrush? TokenBrush(TokenKind kind) => kind switch
+    {
+        TokenKind.Keyword => Palette.Brush("FgKeyword"),
+        TokenKind.String => Palette.Brush("FgString"),
+        TokenKind.Comment => Palette.Brush("FgComment"),
+        TokenKind.Number => Palette.Brush("FgNumber"),
+        TokenKind.Punctuation => Palette.Brush("FgPunctuation"),
+        _ => null,
+    };
 }

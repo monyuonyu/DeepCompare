@@ -119,6 +119,8 @@
             差分の色と混ぜない — ここは「無い」のであって「違う」のではない。
           -->
           <SolidColorBrush x:Key="GapBg">#F0F1F3</SolidColorBrush>
+          <!-- 斜線の色。**薄く。** 模様であって、読むものではない -->
+          <SolidColorBrush x:Key="GapLine">#DDE0E4</SolidColorBrush>
           <SolidColorBrush x:Key="FgUnimportant">#8C959F</SolidColorBrush>
           <SolidColorBrush x:Key="FgWarning">#9A6700</SolidColorBrush>
           <SolidColorBrush x:Key="FgMoved">#1A7F37</SolidColorBrush>
@@ -230,6 +232,7 @@
           <SolidColorBrush x:Key="BgInline">#6E2F35</SolidColorBrush>
           <SolidColorBrush x:Key="EditedMark">#D9A22B</SolidColorBrush>
           <SolidColorBrush x:Key="GapBg">#1C1C1C</SolidColorBrush>
+          <SolidColorBrush x:Key="GapLine">#2E2E2E</SolidColorBrush>
           <SolidColorBrush x:Key="FgUnimportant">#6E7488</SolidColorBrush>
           <SolidColorBrush x:Key="FgWarning">#E0A060</SolidColorBrush>
           <SolidColorBrush x:Key="FgMoved">#8FBF6F</SolidColorBrush>
