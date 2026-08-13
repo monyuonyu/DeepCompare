@@ -116,7 +116,7 @@ public sealed class ApplyArrowColumn : Control
                 continue;
             }
             var line = _lines[number - 1];
-            if (!line.IsBlockStart || line.BlockIndex < 0)
+            if (line.BlockIndex < 0)
             {
                 continue;
             }
@@ -124,6 +124,39 @@ public sealed class ApplyArrowColumn : Control
             var top = visual.GetTextLineVisualYPosition(
                 visual.TextLines[0], VisualYPosition.TextTop) - view.VerticalOffset;
             var middle = top + visual.Height / 2;
+
+            // **塊の範囲を線で示す。**
+            // 矢印は先頭にしか出ないので、線が無いと「どこまで写るのか」が
+            // 分からない。最後の行では下へ折る（範囲の終わりを閉じる）。
+            var last = number >= _lines.Count
+                || _lines[number].BlockIndex != line.BlockIndex;
+            var stroke = new Pen(Palette.Brush("ApplyArrow"), 1);
+            var x = 4.5;
+
+            if (!line.IsBlockStart)
+            {
+                // 途中の行。上から下まで通す。
+                context.DrawLine(stroke, new Point(x, top), new Point(x, top + visual.Height));
+            }
+            else if (!last)
+            {
+                // 先頭の行。矢印の下から下端まで。
+                context.DrawLine(stroke,
+                    new Point(x, middle + 9), new Point(x, top + visual.Height));
+            }
+
+            if (last && !line.IsBlockStart)
+            {
+                // 末尾の折れ。**線と 1 画素重ねる** — 離すと角が切れる。
+                context.DrawLine(stroke,
+                    new Point(x, top + visual.Height - 1),
+                    new Point(x + 6, top + visual.Height - 1));
+            }
+
+            if (!line.IsBlockStart)
+            {
+                continue;
+            }
 
             var hot = line.BlockIndex == _hovered;
             var fill = hot ? Palette.Brush("ApplyArrowHover") : Palette.Brush("ApplyArrowFill");
