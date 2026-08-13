@@ -127,6 +127,15 @@ public sealed class ShellViewModel : ViewModelBase
             new CompareKind("Git", "作業ツリーと履歴", "IconGit", CompareKindId.Git),
         ];
 
+        // **起動画面に出すのは、パスからは決まらないものだけ。**
+        // テキストか表かノートブックかは、渡されたものを見れば分かる。
+        // 分かることを人に選ばせていたので、種類の一覧そのものをやめた。
+        // 残るのは「2 つでは足りない」もの（祖先が要る、写しが要る）と、
+        // 比較ではないもの（Git）。
+        SpecialKinds = [.. Kinds.Where(k => k.Id is CompareKindId.Merge
+                                                 or CompareKindId.Snapshot
+                                                 or CompareKindId.Git)];
+
         CloseTabCommand = new RelayCommand<CompareTab>(
             tab => { Close(tab); return Task.CompletedTask; }, tab => tab.CanClose);
         CloseOthersCommand = new RelayCommand<CompareTab>(
@@ -142,6 +151,9 @@ public sealed class ShellViewModel : ViewModelBase
     public Func<string, string, Task<string?>> PickSavePath { get; }
 
     public ObservableCollection<CompareKind> Kinds { get; }
+
+    /// <summary>起動画面に出す、パスからは決まらないもの。</summary>
+    public IReadOnlyList<CompareKind> SpecialKinds { get; }
 
     public HomeViewModel Home { get; }
     public CompareTab HomeTab { get; }

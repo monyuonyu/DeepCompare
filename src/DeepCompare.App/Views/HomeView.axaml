@@ -5,8 +5,13 @@
              x:DataType="vm:HomeViewModel">
 
   <!--
-    起動画面。Beyond Compare の Home view と同じ作りにする。
-    左に保存した比較の一覧、右に比較の種類を大きな絵で並べる。
+    起動画面。**比べるものを 2 つ指定する。それだけ。**
+
+    以前は「テキスト比較 / 表として比較 / ノートブック…」と種類を
+    大きな絵で並べていたが、渡されたものを見れば分かることを人に
+    選ばせていた（しかもフォルダーを入れたまま「テキスト比較」を
+    押せてしまった）。種類の一覧はやめ、パスから決まらないものだけ
+    下に小さく残す。
   -->
   <Grid ColumnDefinitions="280,*">
 
@@ -14,22 +19,21 @@
             BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,1,0">
       <DockPanel Margin="0">
 
-        <StackPanel DockPanel.Dock="Top" Margin="14,14,14,8" Spacing="2">
-          <TextBlock Text="保存した比較" Classes="title" />
-        </StackPanel>
+        <!--
+          **見出しの隣に「＋」を置く。** 下端に「名前（空なら自動）」の
+          欄と「いまの指定を保存」のボタンを並べていたが、何のことか
+          分からないという指摘のとおり。名前は左右のファイル名から作る。
+        -->
+        <Grid DockPanel.Dock="Top" Margin="14,12,10,8" ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Text="保存した比較" Classes="title"
+                     VerticalAlignment="Center" />
+          <Button Grid.Column="1" Classes="icon" Command="{Binding SaveSessionCommand}"
+                  ToolTip.Tip="いまの左右の指定を残す">
+            <Path Classes="icon" Data="{StaticResource IconPlus}" />
+          </Button>
+        </Grid>
 
-        <!-- 下端: いまの左右の指定に名前を付けて残す -->
-        <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource Divider}"
-                BorderThickness="0,1,0,0" Padding="12,10">
-          <StackPanel Spacing="6">
-            <TextBox Text="{Binding SessionName}" PlaceholderText="名前" />
-            <Button Content="いまの比較を保存" HorizontalAlignment="Stretch"
-                    ToolTip.Tip="左右の指定と、無視する差分の設定をまとめて残します"
-                    Command="{Binding SaveSessionCommand}" />
-          </StackPanel>
-        </Border>
-
-        <ScrollViewer Padding="8,0">
+        <ScrollViewer Padding="8,0,8,10">
           <StackPanel>
             <TextBlock Text="まだありません。" Classes="hint"
                        Margin="6,4" IsVisible="{Binding !HasSessions}" />
@@ -50,7 +54,7 @@
                               CommandParameter="{Binding}">
                         <Path Classes="icon" Data="{StaticResource IconOpen}" />
                       </Button>
-                      <Button Grid.Column="2" Classes="icon" ToolTip.Tip="この保存を消す"
+                      <Button Grid.Column="2" Classes="icon" ToolTip.Tip="これを消す"
                               Command="{Binding $parent[UserControl].((vm:HomeViewModel)DataContext).RemoveSessionCommand}"
                               CommandParameter="{Binding}">
                         <Path Classes="icon" Data="{StaticResource IconClose}" />
@@ -66,136 +70,148 @@
       </DockPanel>
     </Border>
 
-    <DockPanel Grid.Column="1" Margin="24,20">
+    <!--
+      **窓を小さくしても届くように、全体をスクロールさせる。**
+      以前は下に置いたものが窓の外へ出たまま、たどり着けなかった。
+    -->
+    <ScrollViewer Grid.Column="1">
+      <StackPanel Margin="24,20" Spacing="20">
 
+        <Border Classes="card">
+          <StackPanel Spacing="8">
 
-      <!-- 左右の指定。ここで入れておくと、種類を選んだ時点でその比較が始まる -->
-      <!--
-        左右の指定。**開くボタンは 1 つ。** ファイルとフォルダーで
-        アイコンを分けていたが、押す前にどちらか決めさせる理由は無い。
-      -->
-      <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,20">
-        <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <TextBlock Grid.Column="0" Text="左" VerticalAlignment="Center" Margin="0,0,10,0" />
+              <TextBox Grid.Column="1" Text="{Binding LeftPath}" Margin="0,0,4,0"
+                       PlaceholderText="ここに落とすか、右のボタンから選ぶ">
+                <!-- 手で打ったときは Enter で開く -->
+                <TextBox.KeyBindings>
+                  <KeyBinding Gesture="Enter" Command="{Binding OpenCommand}" />
+                </TextBox.KeyBindings>
+              </TextBox>
+              <Button Grid.Column="2" Classes="icon" ToolTip.Tip="開く">
+                <Path Classes="icon" Data="{StaticResource IconOpen}" />
+                <Button.Flyout>
+                  <MenuFlyout>
+                    <MenuItem Header="ファイル…" Command="{Binding BrowseLeftFileCommand}" />
+                    <MenuItem Header="フォルダー…" Command="{Binding BrowseLeftFolderCommand}" />
+                  </MenuFlyout>
+                </Button.Flyout>
+              </Button>
+            </Grid>
 
-          <Grid ColumnDefinitions="Auto,*,Auto">
-            <TextBlock Grid.Column="0" Text="左" VerticalAlignment="Center" Margin="0,0,10,0" />
-            <TextBox Grid.Column="1" Text="{Binding LeftPath}" Margin="0,0,4,0"
-                     PlaceholderText="ここに落とすか、右のボタンから選ぶ" />
-            <Button Grid.Column="2" Classes="icon" ToolTip.Tip="開く">
-              <Path Classes="icon" Data="{StaticResource IconOpen}" />
-              <Button.Flyout>
-                <MenuFlyout>
-                  <MenuItem Header="ファイル…" Command="{Binding BrowseLeftFileCommand}" />
-                  <MenuItem Header="フォルダー…" Command="{Binding BrowseLeftFolderCommand}" />
-                </MenuFlyout>
-              </Button.Flyout>
-            </Button>
-          </Grid>
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <TextBlock Grid.Column="0" Text="右" VerticalAlignment="Center" Margin="0,0,10,0" />
+              <TextBox Grid.Column="1" Text="{Binding RightPath}" Margin="0,0,4,0"
+                       PlaceholderText="ここに落とすか、右のボタンから選ぶ">
+                <TextBox.KeyBindings>
+                  <KeyBinding Gesture="Enter" Command="{Binding OpenCommand}" />
+                </TextBox.KeyBindings>
+              </TextBox>
+              <Button Grid.Column="2" Classes="icon" ToolTip.Tip="開く">
+                <Path Classes="icon" Data="{StaticResource IconOpen}" />
+                <Button.Flyout>
+                  <MenuFlyout>
+                    <MenuItem Header="ファイル…" Command="{Binding BrowseRightFileCommand}" />
+                    <MenuItem Header="フォルダー…" Command="{Binding BrowseRightFolderCommand}" />
+                  </MenuFlyout>
+                </Button.Flyout>
+              </Button>
+            </Grid>
 
-          <Grid ColumnDefinitions="Auto,*,Auto">
-            <TextBlock Grid.Column="0" Text="右" VerticalAlignment="Center" Margin="0,0,10,0" />
-            <TextBox Grid.Column="1" Text="{Binding RightPath}" Margin="0,0,4,0"
-                     PlaceholderText="ここに落とすか、右のボタンから選ぶ" />
-            <Button Grid.Column="2" Classes="icon" ToolTip.Tip="開く">
-              <Path Classes="icon" Data="{StaticResource IconOpen}" />
-              <Button.Flyout>
-                <MenuFlyout>
-                  <MenuItem Header="ファイル…" Command="{Binding BrowseRightFileCommand}" />
-                  <MenuItem Header="フォルダー…" Command="{Binding BrowseRightFolderCommand}" />
-                </MenuFlyout>
-              </Button.Flyout>
-            </Button>
-          </Grid>
+            <!--
+              リモート。**書き方の見本を並べるのをやめた。**
+              記号の順番を 1 つ間違えれば黙って普通のパスとして扱われ、
+              「繋がらない」としか分からなかった。埋めれば組み上がる。
+            -->
+            <Expander Header="リモートに繋ぐ" Padding="0" Margin="0,2,0,0"
+                      HorizontalAlignment="Stretch"
+                      HorizontalContentAlignment="Stretch">
+              <StackPanel Spacing="8" Margin="0,10,0,2" DataContext="{Binding Remote}">
 
-          <!--
-            リモート。**書き方の見本を並べるのをやめた。**
-            記号の順番を 1 つ間違えれば黙って普通のパスとして扱われ、
-            「繋がらない」としか分からなかった。埋めれば組み上がる。
-          -->
-          <Expander Header="リモートに繋ぐ" Padding="0" Margin="0,2,0,0"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Stretch">
-            <StackPanel Spacing="8" Margin="0,10,0,2" DataContext="{Binding Remote}">
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                      ColumnSpacing="10" RowSpacing="6">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="種類"
+                             VerticalAlignment="Center" />
+                  <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch"
+                            ItemsSource="{Binding Schemes}" SelectedItem="{Binding Scheme}"
+                            DisplayMemberBinding="{Binding Label}" />
 
-              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
-                    ColumnSpacing="10" RowSpacing="6">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="種類"
-                           VerticalAlignment="Center" />
-                <ComboBox Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch"
-                          ItemsSource="{Binding Schemes}" SelectedItem="{Binding Scheme}"
-                          DisplayMemberBinding="{Binding Label}" />
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding HostLabel}"
+                             VerticalAlignment="Center" />
+                  <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Host}"
+                           Watermark="example.com" />
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding HostLabel}"
-                           VerticalAlignment="Center" />
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Host}"
-                         Watermark="example.com" />
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding UserLabel}"
+                             VerticalAlignment="Center" />
+                  <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding User}" />
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding UserLabel}"
-                           VerticalAlignment="Center" />
-                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding User}" />
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding PasswordLabel}"
+                             VerticalAlignment="Center" />
+                  <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Password}"
+                           PasswordChar="•" Watermark="空にすると鍵や環境変数から探します" />
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding PasswordLabel}"
-                           VerticalAlignment="Center" />
-                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Password}"
-                         PasswordChar="•" Watermark="空にすると鍵や環境変数から探します" />
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="場所"
+                             VerticalAlignment="Center" />
+                  <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Path}"
+                           Watermark="/var/www" />
+                </Grid>
 
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="場所"
-                           VerticalAlignment="Center" />
-                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Path}"
-                         Watermark="/var/www" />
-              </Grid>
+                <TextBlock Classes="hint" Text="{Binding Scheme.Hint}" TextWrapping="Wrap" />
 
-              <TextBlock Classes="hint" Text="{Binding Scheme.Hint}" TextWrapping="Wrap" />
+                <!-- **組み上がったものを見せる。** 覚えたい人はこれで覚えられる -->
+                <SelectableTextBlock Text="{Binding Location}" Classes="hint"
+                                     FontFamily="{DynamicResource MonoFont}"
+                                     TextWrapping="Wrap"
+                                     IsVisible="{Binding CanUse}" />
 
-              <!-- **組み上がったものを見せる。** 覚えたい人はこれで覚えられる -->
-              <SelectableTextBlock Text="{Binding Location}" Classes="hint"
-                                   FontFamily="{DynamicResource MonoFont}"
-                                   TextWrapping="Wrap"
-                                   IsVisible="{Binding CanUse}" />
+                <TextBlock Text="{Binding Warning}" TextWrapping="Wrap"
+                           Foreground="{DynamicResource FgWarning}"
+                           IsVisible="{Binding HasWarning}" />
 
-              <TextBlock Text="{Binding Warning}" TextWrapping="Wrap"
-                         Foreground="{DynamicResource FgWarning}"
-                         IsVisible="{Binding HasWarning}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="左に入れる" IsEnabled="{Binding CanUse}"
+                          Command="{Binding $parent[UserControl].((vm:HomeViewModel)DataContext).UseRemoteLeftCommand}" />
+                  <Button Content="右に入れる" IsEnabled="{Binding CanUse}"
+                          Command="{Binding $parent[UserControl].((vm:HomeViewModel)DataContext).UseRemoteRightCommand}" />
+                </StackPanel>
 
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Content="左に入れる" IsEnabled="{Binding CanUse}"
-                        Command="{Binding $parent[UserControl].((vm:HomeViewModel)DataContext).UseRemoteLeftCommand}" />
-                <Button Content="右に入れる" IsEnabled="{Binding CanUse}"
-                        Command="{Binding $parent[UserControl].((vm:HomeViewModel)DataContext).UseRemoteRightCommand}" />
               </StackPanel>
+            </Expander>
 
-            </StackPanel>
-          </Expander>
+          </StackPanel>
+        </Border>
 
-        </StackPanel>
-      </Border>
+        <TextBlock Text="{Binding Message}"
+                   Foreground="{DynamicResource FgWarning}" TextWrapping="Wrap"
+                   IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
-      <TextBlock DockPanel.Dock="Bottom" Text="{Binding Message}"
-                 Foreground="{DynamicResource FgWarning}" TextWrapping="Wrap"
-                 IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <!--
+          パスからは決まらないもの。**3 つだけ。**
+          祖先が要るもの、写しが要るもの、比較ではないもの。
+        -->
+        <ItemsControl ItemsSource="{Binding Shell.SpecialKinds}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:CompareKind">
+              <Button Classes="quiet" Margin="0,0,8,8" Padding="10,7"
+                      ToolTip.Tip="{Binding Hint}"
+                      Command="{Binding $parent[UserControl].((vm:HomeViewModel)DataContext).StartKindCommand}"
+                      CommandParameter="{Binding}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Path Classes="icon" Data="{Binding Icon}" VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Label}" VerticalAlignment="Center" FontSize="12" />
+                </StackPanel>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
 
-      <!-- 比較の種類。BC と同じく大きな絵で選ぶ -->
-      <ItemsControl ItemsSource="{Binding Shell.Kinds}" VerticalAlignment="Top">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <WrapPanel Orientation="Horizontal" />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:CompareKind">
-            <Button Classes="tile" ToolTip.Tip="{Binding Hint}"
-                    Command="{Binding $parent[UserControl].((vm:HomeViewModel)DataContext).StartKindCommand}"
-                    CommandParameter="{Binding}">
-              <StackPanel Spacing="10" HorizontalAlignment="Center">
-                <Path Classes="icon" Data="{Binding Icon}" HorizontalAlignment="Center" />
-                <TextBlock Text="{Binding Label}" HorizontalAlignment="Center"
-                           TextAlignment="Center" TextWrapping="Wrap" />
-              </StackPanel>
-            </Button>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-
-    </DockPanel>
+      </StackPanel>
+    </ScrollViewer>
   </Grid>
 </UserControl>

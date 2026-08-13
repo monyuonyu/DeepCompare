@@ -5,22 +5,34 @@ using DeepCompare.Engine;
 namespace DeepCompare.App;
 
 /// <summary>表のセル 1 つ。</summary>
-public sealed class TableCellView(string text, bool changed)
+public sealed class TableCellView(string text, bool changed, double width)
 {
     public string Text { get; } = text;
 
     /// <summary>この列が変わったか。**列単位で塗る。**</summary>
     public bool Changed { get; } = changed;
 
+    /// <summary>
+    /// 列の幅。
+    ///
+    /// **左右と見出しで同じ値を使う。** 内容の長さに任せていたので
+    /// 縦の桁が揃わず、表というより行の羅列に見えていた。
+    /// </summary>
+    public double Width { get; } = width;
+
     public IBrush Background => Changed
         ? Palette.Brush("BgChanged")
         : Brushes.Transparent;
 }
 
+/// <summary>見出しのセル 1 つ。**本文と同じ幅で並べる。**</summary>
+public sealed record TableHeaderView(string Text, double Width);
+
 /// <summary>表の行 1 組。</summary>
 public sealed class TableRowView
 {
-    public TableRowView(TableRowComparison comparison, Table left, Table right)
+    public TableRowView(
+        TableRowComparison comparison, Table left, Table right, IReadOnlyList<double> widths)
     {
         Comparison = comparison;
         var changed = comparison.ChangedColumns.ToHashSet();
@@ -28,16 +40,34 @@ public sealed class TableRowView
         if (comparison.Left is { } l && l < left.Rows.Count)
         {
             LeftCells = [.. left.Rows[l].Cells.Select(
-                (cell, i) => new TableCellView(cell, changed.Contains(i)))];
+                (cell, i) => new TableCellView(cell, changed.Contains(i), Width(widths, i)))];
             LeftNumber = l + 1;
         }
+        else
+        {
+            // **無い側も、列のぶんだけ空の枠を置く。** 空にすると幅が 0 になり、
+            // 右のブロックが左へ詰まって、片側だけの行で桁が崩れる。
+            LeftCells = Empty(widths);
+        }
+
         if (comparison.Right is { } r && r < right.Rows.Count)
         {
             RightCells = [.. right.Rows[r].Cells.Select(
-                (cell, i) => new TableCellView(cell, changed.Contains(i)))];
+                (cell, i) => new TableCellView(cell, changed.Contains(i), Width(widths, i)))];
             RightNumber = r + 1;
         }
+        else
+        {
+            RightCells = Empty(widths);
+        }
     }
+
+    private static IReadOnlyList<TableCellView> Empty(IReadOnlyList<double> widths)
+        => [.. widths.Select(w => new TableCellView(string.Empty, false, w))];
+
+    /// <summary>列の幅。**知らない列は最小幅で出す**（列数が左右で違うことがある）。</summary>
+    private static double Width(IReadOnlyList<double> widths, int column)
+        => column < widths.Count ? widths[column] : 60;
 
     public TableRowComparison Comparison { get; }
 
@@ -106,7 +136,60 @@ public sealed class TableCompareViewModel : ViewModelBase
     public ObservableCollection<TableRowView> Rows { get; } = [];
 
     /// <summary>見出し。**左のものを使う。** 列が増減したら差分として出る。</summary>
-    public ObservableCollection<string> Header { get; } = [];
+    public ObservableCollection<TableHeaderView> Header { get; } = [];
+
+    /// <summary>
+    /// 列ごとの幅を決める。
+    ///
+    /// **中身の一番長いものに合わせる。** 等幅で出すので、文字数から
+    /// 見積もれる。全角は 2 文字ぶん取る。
+    ///
+    /// 上限を置く。**1 つの長い注記のために、他の列が画面の外へ
+    /// 押し出される**方が困る（切れた分は行を選べば下で読める）。
+    /// </summary>
+    private static IReadOnlyList<double> MeasureColumns(Table left, Table right)
+    {
+        const double perCharacter = 7.4;   // 等幅 12px のおおよその幅
+        const double padding = 14;
+        const double minimum = 44;
+        const double maximum = 320;
+
+        var counts = new List<int>();
+
+        void See(int column, string text)
+        {
+            while (counts.Count <= column)
+            {
+                counts.Add(0);
+            }
+            var width = 0;
+            foreach (var c in text)
+            {
+                // 全角はおよそ 2 文字ぶん。厳密な幅ではないが、
+                // **日本語の列が半分の幅で出て切れる**のは防げる。
+                width += c > 0x2E80 ? 2 : 1;
+            }
+            counts[column] = Math.Max(counts[column], width);
+        }
+
+        foreach (var table in new[] { left, right })
+        {
+            for (var i = 0; i < table.Header.Count; i++)
+            {
+                See(i, table.Header[i]);
+            }
+            foreach (var row in table.Rows)
+            {
+                for (var i = 0; i < row.Cells.Count; i++)
+                {
+                    See(i, row.Cells[i]);
+                }
+            }
+        }
+
+        return [.. counts.Select(c =>
+            Math.Clamp(c * perCharacter + padding, minimum, maximum))];
+    }
 
     public RelayCommand CompareCommand { get; }
     public RelayCommand OpenAsTextCommand { get; }
@@ -231,10 +314,15 @@ public sealed class TableCompareViewModel : ViewModelBase
                         Path.GetFileName(LeftPath), Path.GetFileName(RightPath));
             });
 
+            // **列の幅を先に決める。** 左右と見出しで同じ値を使う。
+            var widths = MeasureColumns(comparison.Left, comparison.Right);
+
             Header.Clear();
-            foreach (var name in comparison.Left.Header)
+            for (var i = 0; i < comparison.Left.Header.Count; i++)
             {
-                Header.Add(name);
+                Header.Add(new TableHeaderView(
+                    comparison.Left.Header[i],
+                    i < widths.Count ? widths[i] : 60));
             }
 
             Rows.Clear();
@@ -244,7 +332,7 @@ public sealed class TableCompareViewModel : ViewModelBase
                 {
                     continue;
                 }
-                Rows.Add(new TableRowView(row, comparison.Left, comparison.Right));
+                Rows.Add(new TableRowView(row, comparison.Left, comparison.Right, widths));
             }
 
             Summary = $"違う {comparison.Different}"

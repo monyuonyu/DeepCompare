@@ -35,6 +35,7 @@ public sealed class HomeViewModel : ViewModelBase
         BrowseRightFileCommand = new RelayCommand(() => PickAsync(isFolder: false, left: false));
         BrowseLeftFolderCommand = new RelayCommand(() => PickAsync(isFolder: true, left: true));
         BrowseRightFolderCommand = new RelayCommand(() => PickAsync(isFolder: true, left: false));
+        OpenCommand = new RelayCommand(() => { Open(); return Task.CompletedTask; });
         UseRemoteLeftCommand = new RelayCommand(
             () => { UseRemote(left: true); return Task.CompletedTask; });
         UseRemoteRightCommand = new RelayCommand(
@@ -201,6 +202,9 @@ public sealed class HomeViewModel : ViewModelBase
     /// 開くたびに前の入力が残っていると、右に左の主機が入る。
     /// </summary>
     public RemoteBuilderViewModel Remote { get; } = new();
+
+    /// <summary>手で打ったパスを開く（Enter）。</summary>
+    public ICommand OpenCommand { get; }
 
     public ICommand UseRemoteLeftCommand { get; }
     public ICommand UseRemoteRightCommand { get; }

@@ -57,82 +57,148 @@
       </Grid>
     </Border>
 
-    <!-- 見出し -->
-    <Border Grid.Row="3" Background="{DynamicResource PanelBg}" Padding="10,4"
-            IsVisible="{Binding Header.Count}">
-      <ItemsControl ItemsSource="{Binding Header}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <StackPanel Orientation="Horizontal" Spacing="10" />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
-            <TextBlock Text="{Binding}" FontSize="11" FontWeight="SemiBold"
-                       Foreground="{DynamicResource FgDim}" />
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-    </Border>
+    <!--
+      見出しと本文。**表計算ソフトのように見せる。**
+      以前は行ごとに角丸の札を積んでいたので、列の桁が揃わず
+      「表」に見えなかった。ここでは
 
-    <ScrollViewer Grid.Row="4">
-      <ItemsControl ItemsSource="{Binding Rows}" Margin="10">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="vm:TableRowView">
-            <Border Background="{Binding Background}" Margin="0,0,0,4" Padding="8,5"
-                    CornerRadius="{DynamicResource RadiusSmall}"
-                    BorderBrush="{DynamicResource Divider}" BorderThickness="1">
-              <Grid ColumnDefinitions="Auto,*,Auto,*">
+        * 列の幅を左右と見出しで揃える（VM が測る）
+        * セルに罫線を引く
+        * 行番号の列を左端に固定して、Excel と同じ並びにする
 
-                <TextBlock Grid.Column="0" Text="{Binding LeftLabel}" Classes="mono"
-                           FontSize="11" Width="36" TextAlignment="Right"
-                           Foreground="{DynamicResource FgDim}" Margin="0,0,8,0" />
+      横は 1 本のスクロールで左右を一緒に動かす。**別々に動くと、
+      同じ列を見比べるのに両方を合わせ直すことになる。**
+    -->
+    <ScrollViewer Grid.Row="3" Grid.RowSpan="2"
+                  HorizontalScrollBarVisibility="Auto"
+                  VerticalScrollBarVisibility="Auto">
+      <StackPanel Orientation="Vertical">
 
-                <!--
-                  **セル単位で塗る。** 行ごと塗ると、どの列が動いたのかを
-                  目で探すことになる。表は列が多いほどそれが効く。
-                -->
-                <ItemsControl Grid.Column="1" ItemsSource="{Binding LeftCells}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                      <StackPanel Orientation="Horizontal" Spacing="6" />
-                    </ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:TableCellView">
-                      <Border Background="{Binding Background}" Padding="4,1"
-                              CornerRadius="2">
-                        <TextBlock Text="{Binding Text}" Classes="mono" FontSize="12" />
-                      </Border>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+        <!-- 見出しの行。左右ぶんを横に並べる -->
+        <Border Background="{DynamicResource PanelBg}"
+                BorderBrush="{DynamicResource DividerStrong}" BorderThickness="0,0,0,1"
+                IsVisible="{Binding Header.Count}">
+          <StackPanel Orientation="Horizontal">
 
-                <TextBlock Grid.Column="2" Text="{Binding RightLabel}" Classes="mono"
-                           FontSize="11" Width="36" TextAlignment="Right"
-                           Foreground="{DynamicResource FgDim}" Margin="12,0,8,0" />
-
-                <ItemsControl Grid.Column="3" ItemsSource="{Binding RightCells}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                      <StackPanel Orientation="Horizontal" Spacing="6" />
-                    </ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:TableCellView">
-                      <Border Background="{Binding Background}" Padding="4,1"
-                              CornerRadius="2">
-                        <TextBlock Text="{Binding Text}" Classes="mono" FontSize="12" />
-                      </Border>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-              </Grid>
+            <!-- 行番号の桁（Excel の左端） -->
+            <Border Width="44" Padding="4,3"
+                    BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,1,0">
+              <TextBlock Text="行" FontSize="11" TextAlignment="Center"
+                         Foreground="{DynamicResource FgDim}" />
             </Border>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+
+            <ItemsControl ItemsSource="{Binding Header}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:TableHeaderView">
+                  <Border Width="{Binding Width}" Padding="5,3"
+                          BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,1,0">
+                    <TextBlock Text="{Binding Text}" FontSize="11" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="{Binding Text}" />
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- 左右の境目。**太くする。** どこで切り替わるかが一目で要る -->
+            <Border Width="3" Background="{DynamicResource DividerStrong}" />
+
+            <Border Width="44" Padding="4,3"
+                    BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,1,0">
+              <TextBlock Text="行" FontSize="11" TextAlignment="Center"
+                         Foreground="{DynamicResource FgDim}" />
+            </Border>
+
+            <ItemsControl ItemsSource="{Binding Header}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:TableHeaderView">
+                  <Border Width="{Binding Width}" Padding="5,3"
+                          BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,1,0">
+                    <TextBlock Text="{Binding Text}" FontSize="11" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="{Binding Text}" />
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+          </StackPanel>
+        </Border>
+
+        <ItemsControl ItemsSource="{Binding Rows}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:TableRowView">
+              <Border Background="{Binding Background}"
+                      BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
+                <StackPanel Orientation="Horizontal">
+
+                  <Border Width="44" Padding="4,2"
+                          BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,1,0">
+                    <TextBlock Text="{Binding LeftLabel}" Classes="mono" FontSize="11"
+                               TextAlignment="Right"
+                               Foreground="{DynamicResource FgDim}" />
+                  </Border>
+
+                  <!--
+                    **セル単位で塗る。** 行ごと塗ると、どの列が動いたのかを
+                    目で探すことになる。表は列が多いほどそれが効く。
+                  -->
+                  <ItemsControl ItemsSource="{Binding LeftCells}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:TableCellView">
+                        <Border Width="{Binding Width}" Background="{Binding Background}"
+                                Padding="5,2"
+                                BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,1,0">
+                          <TextBlock Text="{Binding Text}" Classes="mono" FontSize="12"
+                                     TextTrimming="CharacterEllipsis"
+                                     ToolTip.Tip="{Binding Text}" />
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+
+                  <Border Width="3" Background="{DynamicResource DividerStrong}" />
+
+                  <Border Width="44" Padding="4,2"
+                          BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,1,0">
+                    <TextBlock Text="{Binding RightLabel}" Classes="mono" FontSize="11"
+                               TextAlignment="Right"
+                               Foreground="{DynamicResource FgDim}" />
+                  </Border>
+
+                  <ItemsControl ItemsSource="{Binding RightCells}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:TableCellView">
+                        <Border Width="{Binding Width}" Background="{Binding Background}"
+                                Padding="5,2"
+                                BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,1,0">
+                          <TextBlock Text="{Binding Text}" Classes="mono" FontSize="12"
+                                     TextTrimming="CharacterEllipsis"
+                                     ToolTip.Tip="{Binding Text}" />
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+      </StackPanel>
     </ScrollViewer>
 
     <Border Grid.Row="5" Classes="statusbar">
