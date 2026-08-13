@@ -24,8 +24,9 @@ internal static class Program
           deepcompare --print-table 左 右
                                      CSV/TSV を列単位で比較する
           deepcompare --print-json 左 右
-                                     JSON を**構造として**比較する。キーの順序や
-                                     整形の違いは差分にしない。終了コードは
+                                     JSON / XML / TOML / YAML を**構造として**
+                                     比較する。キーの順序や整形の違いは差分に
+                                     しない。形式は拡張子から決める。終了コードは
                                      0 差異なし / 1 差異あり / 2 異常
           deepcompare --merge3 祖先 左 右
                                      3 方向マージ。競合は <<<<<<< で囲む。

@@ -490,8 +490,12 @@ internal static class Cli
                 ReportMoves = !args.Contains("--ignore-order"),
                 NumbersByValue = !args.Contains("--strict-numbers"),
             };
-            changes = StructuredCompare.CompareJson(
-                File.ReadAllText(leftPath), File.ReadAllText(rightPath), options);
+            // 形式は拡張子から決める。**左右で違っても構わない**
+            // （YAML と JSON を突き合わせることは実際にある）。
+            changes = StructuredCompare.Compare(
+                StructuredReaders.ParseFile(leftPath),
+                StructuredReaders.ParseFile(rightPath),
+                options);
         }
         catch (Exception error) when (error is StructuredParseException or IOException)
         {

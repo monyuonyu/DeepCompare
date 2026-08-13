@@ -199,8 +199,10 @@ public sealed class StructuredCompareViewModel : ViewModelBase
             var right = RightPath;
 
             // 読み取りと比較は作業スレッドへ。大きいファイルで画面が固まらないように。
-            var changes = await Task.Run(() => StructuredCompare.CompareJson(
-                File.ReadAllText(left), File.ReadAllText(right), options));
+            var changes = await Task.Run(() => StructuredCompare.Compare(
+                StructuredReaders.ParseFile(left),
+                StructuredReaders.ParseFile(right),
+                options));
 
             foreach (var change in changes)
             {
