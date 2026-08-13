@@ -24,7 +24,21 @@
                    Foreground="{DynamicResource Accent}" FontWeight="SemiBold" />
 
         <Border Classes="vsep" />
-        <TextBox Text="{Binding Path}" Width="420"
+        <Button Classes="icon" Command="{Binding FetchCommand}"
+                ToolTip.Tip="遠隔の状態を取ってくる（fetch）">
+          <Path Classes="icon" Data="{StaticResource IconSave}" />
+        </Button>
+        <Button Classes="icon" Command="{Binding PullCommand}"
+                ToolTip.Tip="遠隔の変更を取り込む（pull --ff-only）">
+          <Path Classes="icon" Data="{StaticResource IconStage}" />
+        </Button>
+        <Button Classes="icon" Command="{Binding PushCommand}"
+                ToolTip.Tip="こちらの変更を送る（push）">
+          <Path Classes="icon" Data="{StaticResource IconUnstage}" />
+        </Button>
+
+        <Border Classes="vsep" />
+        <TextBox Text="{Binding Path}" Width="330"
                  PlaceholderText="リポジトリの中のどこか"
                  ToolTip.Tip="{Binding Root}" />
         <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}"
@@ -38,6 +52,25 @@
       <DockPanel Grid.Column="0">
         <TextBlock DockPanel.Dock="Top" Text="作業ツリー" Classes="title" Margin="0,0,0,8"
                    ToolTip.Tip="行を開くと HEAD と作業ツリーを比べます。git の diff ではなく、こちらの比較エンジンに掛けるので、意味的な行の対応付けが効きます。" />
+
+        <!--
+          コミット。**索引に何も載っていなければ押せない。**
+          押しても git が断るだけなので、その前に分かる方がよい。
+        -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource PanelBg}"
+                BorderBrush="{DynamicResource Divider}" BorderThickness="1"
+                CornerRadius="{DynamicResource RadiusMedium}"
+                Padding="10,8" Margin="0,8,0,0">
+          <StackPanel Spacing="6">
+            <TextBox Text="{Binding CommitMessage}" AcceptsReturn="True" Height="56"
+                     PlaceholderText="このコミットで何をしたか" />
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <Button Content="コミット" Classes="accent" Command="{Binding CommitCommand}" />
+              <Button Content="直前を書き直す" Command="{Binding AmendCommand}"
+                      ToolTip.Tip="空のままなら、元の説明をそのまま使います" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
 
         <ScrollViewer>
           <ItemsControl ItemsSource="{Binding Files}">
@@ -83,6 +116,41 @@
       <GridSplitter Grid.Column="1" Background="{DynamicResource Divider}" Width="2" />
 
       <DockPanel Grid.Column="2">
+        <TextBlock DockPanel.Dock="Top" Text="枝" Classes="title" Margin="0,0,0,6" />
+        <Border DockPanel.Dock="Top" Margin="0,0,0,10">
+          <StackPanel Spacing="6">
+            <ItemsControl ItemsSource="{Binding Branches}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:GitBranchRow">
+                  <Button Classes="quiet" Margin="0,0,4,4"
+                          Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).SwitchBranchCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="この枝へ切り替える">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                      <Path Classes="icon" Data="{StaticResource IconGit}"
+                            Width="12" Height="12" VerticalAlignment="Center" />
+                      <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                      <TextBlock Text="{Binding TrackText}" FontSize="10"
+                                 Foreground="{DynamicResource FgWarning}"
+                                 IsVisible="{Binding HasTrack}" VerticalAlignment="Center" />
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBox Text="{Binding NewBranchName}" Width="200"
+                       PlaceholderText="新しい枝の名前" />
+              <Button Content="作って切り替える" Command="{Binding CreateBranchCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
         <TextBlock DockPanel.Dock="Top" Text="履歴" Classes="title" Margin="0,0,0,8"
                    ToolTip.Tip="左でファイルを選んでから行を開くと、そのコミットでの変化を出します。" />
 

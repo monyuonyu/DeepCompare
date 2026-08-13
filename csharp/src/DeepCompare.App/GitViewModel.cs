@@ -62,6 +62,26 @@ public sealed class GitFileRow(GitFileStatus status)
     };
 }
 
+/// <summary>枝 1 本の表示用。</summary>
+public sealed class GitBranchRow(GitBranch branch)
+{
+    public GitBranch Branch { get; } = branch;
+
+    public string Name => Branch.Name;
+    public bool IsCurrent => Branch.IsCurrent;
+
+    /// <summary>追跡先との進み遅れ。**どちらも 0 なら何も出さない。**</summary>
+    public string TrackText => (Branch.Ahead, Branch.Behind) switch
+    {
+        (0, 0) => string.Empty,
+        (var a, 0) => $"↑{a}",
+        (0, var b) => $"↓{b}",
+        var (a, b) => $"↑{a} ↓{b}",
+    };
+
+    public bool HasTrack => TrackText.Length > 0;
+}
+
 /// <summary>コミット 1 件の表示用。</summary>
 public sealed class GitCommitRow(GitCommit commit)
 {
@@ -106,6 +126,16 @@ public sealed class GitViewModel : ViewModelBase
             row => StageAsync(row, stage: true), row => row.CanStage);
         UnstageCommand = new RelayCommand<GitFileRow>(
             row => StageAsync(row, stage: false), row => row.CanUnstage);
+        CommitCommand = new RelayCommand(CommitAsync, () => CanCommit);
+        AmendCommand = new RelayCommand(() => CommitAsync(amend: true), () => Commits.Count > 0);
+        FetchCommand = new RelayCommand(() => RemoteAsync("取得", r => r.Fetch()));
+        PullCommand = new RelayCommand(() => RemoteAsync("取り込み", r => r.Pull()));
+        PushCommand = new RelayCommand(() => RemoteAsync("送信", r => r.Push()));
+        // いま居る枝へは切り替えられない（押しても何も起きない）。
+        SwitchBranchCommand = new RelayCommand<GitBranchRow>(
+            row => SwitchAsync(row.Name), row => !row.IsCurrent);
+        CreateBranchCommand = new RelayCommand(CreateBranchAsync,
+            () => NewBranchName.Trim().Length > 0);
         OpenCommitCommand = new RelayCommand<GitCommitRow>(
             row => { OpenCommit(row); return Task.CompletedTask; });
     }
@@ -118,6 +148,150 @@ public sealed class GitViewModel : ViewModelBase
     public RelayCommand<GitFileRow> StageCommand { get; }
     public RelayCommand<GitFileRow> UnstageCommand { get; }
     public RelayCommand<GitCommitRow> OpenCommitCommand { get; }
+    public RelayCommand CommitCommand { get; }
+    public RelayCommand AmendCommand { get; }
+    public RelayCommand FetchCommand { get; }
+    public RelayCommand PullCommand { get; }
+    public RelayCommand PushCommand { get; }
+    public RelayCommand<GitBranchRow> SwitchBranchCommand { get; }
+    public RelayCommand CreateBranchCommand { get; }
+
+    public ObservableCollection<GitBranchRow> Branches { get; } = [];
+
+    private string _commitMessage = string.Empty;
+
+    /// <summary>コミットの説明。</summary>
+    public string CommitMessage
+    {
+        get => _commitMessage;
+        set
+        {
+            if (Set(ref _commitMessage, value))
+            {
+                CommitCommand.Raise();
+            }
+        }
+    }
+
+    private string _newBranchName = string.Empty;
+    public string NewBranchName
+    {
+        get => _newBranchName;
+        set
+        {
+            if (Set(ref _newBranchName, value))
+            {
+                CreateBranchCommand.Raise();
+            }
+        }
+    }
+
+    /// <summary>
+    /// コミットできるか。
+    ///
+    /// **索引に何も載っていなければ押せない。** 押しても git が断るだけなので、
+    /// その前に分かる方がよい。
+    /// </summary>
+    public bool CanCommit => _hasStaged && CommitMessage.Trim().Length > 0;
+
+    private bool _hasStaged;
+
+    private async Task CommitAsync() => await CommitAsync(amend: false);
+
+    private async Task CommitAsync(bool amend)
+    {
+        if (_repository is not { } repository)
+        {
+            return;
+        }
+
+        var message = CommitMessage.Trim();
+        if (message.Length == 0 && amend)
+        {
+            // 書き直しで空なら、直前の説明をそのまま使う。
+            message = repository.LastMessage();
+        }
+
+        try
+        {
+            await Task.Run(() => repository.Commit(message, amend));
+            CommitMessage = string.Empty;
+            await RefreshAsync();
+            Message = amend ? "直前のコミットを書き直しました。" : "コミットしました。";
+        }
+        catch (GitException error)
+        {
+            Message = error.Message;
+        }
+    }
+
+    /// <summary>
+    /// 遠隔とのやりとり。
+    ///
+    /// **認証が要るので、待たずに失敗させる**（GIT_TERMINAL_PROMPT=0）。
+    /// 画面が固まったまま戻らないより、理由を出して終わる方がよい。
+    /// </summary>
+    private async Task RemoteAsync(string label, Func<GitRepository, string> action)
+    {
+        if (_repository is not { } repository)
+        {
+            return;
+        }
+        Busy = true;
+        Message = $"{label}中…";
+        try
+        {
+            var output = await Task.Run(() => action(repository));
+            await RefreshAsync();
+            Message = output.Length > 0 ? output : $"{label}が終わりました。";
+        }
+        catch (GitException error)
+        {
+            Message = error.Message;
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    private async Task SwitchAsync(string branch)
+    {
+        if (_repository is not { } repository)
+        {
+            return;
+        }
+        try
+        {
+            await Task.Run(() => repository.Switch(branch));
+            await RefreshAsync();
+        }
+        catch (GitException error)
+        {
+            // 作業ツリーが汚れていると git が止める。**その理由をそのまま出す。**
+            Message = error.Message;
+        }
+    }
+
+    private async Task CreateBranchAsync()
+    {
+        if (_repository is not { } repository)
+        {
+            return;
+        }
+        try
+        {
+            var name = NewBranchName.Trim();
+            await Task.Run(() => repository.CreateBranch(name));
+            NewBranchName = string.Empty;
+            await RefreshAsync();
+            Message = $"{name} を作って切り替えました。";
+        }
+        catch (GitException error)
+        {
+            Message = error.Message;
+        }
+    }
 
     private string _path;
     public string Path
@@ -203,10 +377,23 @@ public sealed class GitViewModel : ViewModelBase
             Root = repository.Root;
 
             // 状態・枝・履歴をまとめて 1 回の作業スレッドで取る。
-            var (files, branch, commits) = await Task.Run(() => (
+            var (files, branch, commits, branches, staged) = await Task.Run(() => (
                 repository.Status().Where(f => f.Index != GitStatusCode.Ignored).ToList(),
                 repository.CurrentBranch(),
-                repository.Log(100)));
+                repository.Log(100),
+                repository.Branches(),
+                repository.HasStagedChanges()));
+
+            _hasStaged = staged;
+            OnPropertyChanged(nameof(CanCommit));
+            CommitCommand.Raise();
+            AmendCommand.Raise();
+
+            Branches.Clear();
+            foreach (var b in branches)
+            {
+                Branches.Add(new GitBranchRow(b));
+            }
 
             Branch = branch ?? "（切り離された HEAD）";
 

@@ -438,6 +438,68 @@ public sealed class GitRepository
         }
     }
 
+    /// <summary>
+    /// コミットを作る。
+    ///
+    /// **索引に載っているものだけを対象にする**（`git commit` と同じ）。
+    /// `-a` に当たる動きは持たない。何が入るかは stage した内容で決まる、
+    /// という git の約束をそのまま保つ方が、後で驚かない。
+    /// </summary>
+    public void Commit(string message, bool amend = false)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            throw new GitException("コミットの説明が空です。");
+        }
+
+        // 説明は引数で渡す。一時ファイルを作ると後始末が要る。
+        string[] arguments = amend
+            ? ["commit", "--amend", "-m", message]
+            : ["commit", "-m", message];
+        Run(arguments);
+    }
+
+    /// <summary>直前のコミットの説明。書き直すときの初期値に使う。</summary>
+    public string LastMessage()
+        => Run(["log", "-1", "--pretty=%B"], allowFailure: true).StandardOutput.TrimEnd();
+
+    /// <summary>枝を切り替える。作業ツリーが汚れていれば git 側が止める。</summary>
+    public void Switch(string branch) => Run(["switch", branch]);
+
+    /// <summary>枝を作って切り替える。</summary>
+    public void CreateBranch(string name, string? from = null)
+    {
+        if (from is { Length: > 0 })
+        {
+            Run(["switch", "-c", name, from]);
+        }
+        else
+        {
+            Run(["switch", "-c", name]);
+        }
+    }
+
+    /// <summary>枝を消す。**まだ取り込まれていない枝は git が止める。**</summary>
+    public void DeleteBranch(string name, bool force = false)
+        => Run(["branch", force ? "-D" : "-d", name]);
+
+    /// <summary>
+    /// 取ってくる・送る。
+    ///
+    /// **認証が要る操作なので、待たずに失敗させる。**
+    /// GIT_TERMINAL_PROMPT=0 を渡してあるので、資格情報が無ければその場で
+    /// 終わる。画面が固まったまま戻らないより、理由を出して終わる方がよい。
+    /// </summary>
+    public string Fetch() => Run(["fetch", "--prune"]).StandardError.Trim();
+
+    public string Pull() => Run(["pull", "--ff-only"]).StandardError.Trim();
+
+    public string Push() => Run(["push"]).StandardError.Trim();
+
+    /// <summary>索引に載っているものがあるか。コミットできるかの判断に使う。</summary>
+    public bool HasStagedChanges()
+        => RunRaw(["diff", "--cached", "--quiet"]).ExitCode != 0;
+
     // --- 実行 ---
 
     private GitResult Run(string[] arguments, bool allowFailure = false)

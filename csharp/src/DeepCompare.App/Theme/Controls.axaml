@@ -55,6 +55,16 @@
     <Setter Property="BorderBrush" Value="{DynamicResource AccentHover}" />
     <Setter Property="TextBlock.Foreground" Value="{DynamicResource AccentFg}" />
   </Style>
+  <!--
+    **押せないときの見た目を必ず書く。**
+    既定の無効化は背景を白にするが、accent の文字色（白）はそのまま残るので、
+    白地に白文字で**ボタンが空に見えた。** 実際に画面で見つけた。
+  -->
+  <Style Selector="Button.accent:disabled /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ControlBg}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Divider}" />
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource FgDisabled}" />
+  </Style>
 
   <!-- 一覧の行に並ぶ小さな操作。枠を持たず、指したときだけ面が出る -->
   <Style Selector="Button.quiet">
@@ -71,6 +81,11 @@
   <Style Selector="Button.quiet:pointerover /template/ ContentPresenter">
     <Setter Property="Background" Value="{DynamicResource ControlBgHover}" />
     <Setter Property="TextBlock.Foreground" Value="{DynamicResource FgNormal}" />
+  </Style>
+
+  <!-- いま居る枝。**押せる見た目のままだと、どれが現在か分からない** -->
+  <Style Selector="Button.quiet:disabled /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource NavSelectedBg}" />
   </Style>
 
   <!-- 入力欄 -->

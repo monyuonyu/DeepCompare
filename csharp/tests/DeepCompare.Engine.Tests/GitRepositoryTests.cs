@@ -479,3 +479,170 @@ public sealed class GitRepositoryTests : IDisposable
         Assert.Contains("あちらの 5", lines);
     }
 }
+
+/// <summary>
+/// git を書き換える操作。**本物の git に対して試す。**
+/// </summary>
+public sealed class GitWriteTests : IDisposable
+{
+    private readonly string _root;
+
+    public GitWriteTests()
+    {
+        if (GitRepository.Version() is null)
+        {
+            throw new InvalidOperationException("この一式には git が要ります。");
+        }
+        _root = Path.Combine(Path.GetTempPath(), "dc-gitw-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(_root);
+        Git("init", "--initial-branch=main");
+        Git("config", "user.email", "t@example.com");
+        Git("config", "user.name", "試験");
+        Git("config", "commit.gpgsign", "false");
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_root, recursive: true); } catch (IOException) { }
+    }
+
+    private void Git(params string[] arguments)
+    {
+        var info = new System.Diagnostics.ProcessStartInfo("git")
+        {
+            WorkingDirectory = _root,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        foreach (var argument in arguments)
+        {
+            info.ArgumentList.Add(argument);
+        }
+        using var process = System.Diagnostics.Process.Start(info)!;
+        var error = process.StandardError.ReadToEnd();
+        process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"git {string.Join(' ', arguments)}: {error}");
+        }
+    }
+
+    private void Write(string name, string content)
+        => File.WriteAllText(Path.Combine(_root, name), content, new UTF8Encoding(false));
+
+    private GitRepository Open() => GitRepository.Discover(_root)!;
+
+    [Fact]
+    public void 索引に載せてからコミットする()
+    {
+        Write("a.txt", "1\n");
+        var repository = Open();
+        repository.Stage("a.txt");
+
+        Assert.True(repository.HasStagedChanges());
+        repository.Commit("最初のコミット");
+
+        var commit = Assert.Single(repository.Log());
+        Assert.Equal("最初のコミット", commit.Subject);
+        Assert.False(repository.HasStagedChanges());
+    }
+
+    [Fact]
+    public void 載せていないものはコミットに入らない()
+    {
+        // **索引に載っているものだけが対象**（git の約束をそのまま保つ）。
+        Write("staged.txt", "1\n");
+        Write("loose.txt", "2\n");
+        var repository = Open();
+        repository.Stage("staged.txt");
+        repository.Commit("片方だけ");
+
+        var status = repository.Status();
+        Assert.Contains(status, s => s.Path == "loose.txt" && s.Index == GitStatusCode.Untracked);
+    }
+
+    [Fact]
+    public void 説明が空ならコミットしない()
+    {
+        Write("a.txt", "1\n");
+        var repository = Open();
+        repository.Stage("a.txt");
+
+        Assert.Throws<GitException>(() => repository.Commit("   "));
+    }
+
+    [Fact]
+    public void 直前のコミットを書き直せる()
+    {
+        Write("a.txt", "1\n");
+        var repository = Open();
+        repository.Stage("a.txt");
+        repository.Commit("まちがい");
+
+        repository.Commit("なおした", amend: true);
+
+        var commit = Assert.Single(repository.Log());
+        Assert.Equal("なおした", commit.Subject);
+    }
+
+    [Fact]
+    public void 直前の説明を読める()
+    {
+        Write("a.txt", "1\n");
+        var repository = Open();
+        repository.Stage("a.txt");
+        repository.Commit("題\n\n本文");
+
+        Assert.Contains("本文", repository.LastMessage());
+    }
+
+    [Fact]
+    public void 枝を作って切り替える()
+    {
+        Write("a.txt", "1\n");
+        var repository = Open();
+        repository.Stage("a.txt");
+        repository.Commit("最初");
+
+        repository.CreateBranch("あたらしい枝");
+
+        Assert.Equal("あたらしい枝", repository.CurrentBranch());
+        Assert.Contains(repository.Branches(), b => b.Name == "あたらしい枝" && b.IsCurrent);
+    }
+
+    [Fact]
+    public void 枝を切り替えて戻れる()
+    {
+        Write("a.txt", "1\n");
+        var repository = Open();
+        repository.Stage("a.txt");
+        repository.Commit("最初");
+        repository.CreateBranch("わき");
+
+        repository.Switch("main");
+
+        Assert.Equal("main", repository.CurrentBranch());
+    }
+
+    [Fact]
+    public void 取り込んでいない枝は消せない()
+    {
+        // **git 側の歯止めをそのまま活かす。** 自前で判断すると、git の
+        // 規則と食い違ったときにどちらが正しいか分からなくなる。
+        Write("a.txt", "1\n");
+        var repository = Open();
+        repository.Stage("a.txt");
+        repository.Commit("最初");
+        repository.CreateBranch("わき");
+        Write("b.txt", "2\n");
+        repository.Stage("b.txt");
+        repository.Commit("わきでの作業");
+        repository.Switch("main");
+
+        Assert.Throws<GitException>(() => repository.DeleteBranch("わき"));
+        repository.DeleteBranch("わき", force: true);   // 強く言えば消せる
+        Assert.DoesNotContain(repository.Branches(), b => b.Name == "わき");
+    }
+}
