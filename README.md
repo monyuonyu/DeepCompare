@@ -204,6 +204,46 @@ MSVC を用意できない場合は、非 AOT の単一ファイルで代替で�
     python3 -m venv .venv-ref && .venv-ref/bin/pip install onnxruntime numpy tokenizers
     .venv-ref/bin/python tools/reference_embeddings.py
 
+## LLM 支援（任意・既定で無効）
+
+git の状態を平易な言葉で説明し、次にできることを挙げる。コミットメッセージの
+草案も書く。**接続先を設定するまで機能そのものが現れない。**
+
+**外部 API ではなくローカルの LLM を第一の経路にしている。** 業務コードを扱う
+道具なので、中身が機械の外に出ないことは譲れない。接続先は OpenAI 互換の
+エンドポイント（Ollama / LM Studio / llama.cpp）を URL で指定する。
+
+    export DEEPCOMPARE_ASSIST_ENDPOINT=http://localhost:11434/v1
+    export DEEPCOMPARE_ASSIST_MODEL=qwen2.5:7b
+
+    deepcompare --assist-probe            繋がるかを確かめる
+    deepcompare --assist-status .         いまの状態を説明し、次の一手を挙げる
+    deepcompare --assist-commit . --staged コミットメッセージの草案
+
+GUI では Git 画面に「いまの状態を説明」「草案をもらう」が出る。
+
+**LLM に git を実行させない。** 提案として返せるのは決まった操作の一覧
+（commit / pull / push / stash / …）からの選択だけで、実際に走るのはアプリ側の
+決め打ちのコードパス。リポジトリの中身に「すべて削除せよ」と書いてあっても
+命令にならないのは、信用しているからではなく**通す経路が無いから**。
+force push・reset --hard・リベースは一覧にすら入れていない。
+
+衝突の**解決案**だけは既定で出さない。説明や分類と違い、意味を取り違えると
+害になる生成で、小さいモデルはもっともらしく間違える（ビルドが通るぶんだけ
+発見が遅れる）。`--assist-allow-resolution` で明示的に許すまで通信もしない。
+
+鍵は設定ファイルに置かない（平文で残り、バックアップにも同期にも乗る）。
+外部 API を使うなら `DEEPCOMPARE_ASSIST_KEY` に入れる。
+
+**どのくらいのモデルが要るか**（この機体で実測）:
+
+| モデル | 結果 |
+|---|---|
+| Qwen2.5 1.5B（15.9 トークン/秒） | 形は守るが中身が届かない。説明が「以下の通りです」で終わり、提案の理由も不正確 |
+
+小さいモデルは、形（JSON Schema）で縛ると**文法には沿ったまま同じ一文を
+延々と書き続ける**ことがある。長さの上限と繰り返しの抑制を必ず入れている。
+
 ## 画面を開かずに使う
 
 遠隔での検証や CI で、別環境の出力と機械的に突き合わせるために用意した。
