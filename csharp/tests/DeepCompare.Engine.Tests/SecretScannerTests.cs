@@ -3,6 +3,10 @@ using DeepCompare.Engine;
 
 namespace DeepCompare.Engine.Tests;
 
+// deepcompare:allow-file
+//   このファイルには本物と同じ形の偽の値が並ぶ。1 行ずつ印を付けるのは
+//   現実的でないので、ファイルの頭で「ここは意図的」と言っておく。
+
 /// <summary>
 /// 秘密の混入検出。
 ///
@@ -62,6 +66,58 @@ public sealed class SecretScannerTests
         var finding = Assert.Single(Scan("api_key = \"a1b2c3d4e5f6g7h8\""));
 
         Assert.Equal(SecretConfidence.Medium, finding.Confidence);
+    }
+
+    [Theory]
+    [InlineData("const k = \"AKIAIOSFODNN7EXAMPLE\"; // deepcompare:allow")]
+    [InlineData("const k = \"AKIAIOSFODNN7EXAMPLE\"; // gitleaks:allow")]
+    [InlineData("k = \"AKIAIOSFODNN7EXAMPLE\"  # nosec")]
+    public void 印を付けた行は調べない(string line)
+    {
+        // **意図して書いた値を黙らせる手段が要る。** 試験や説明書には本物と
+        // 同じ形の値を書くことがあり、そこで毎回騒がれると道具ごと切られる。
+        // 他の道具と同じ綴りも受けて、印の付け方を覚え直させない。
+        Assert.Empty(Scan(line));
+    }
+
+    [Fact]
+    public void ファイルの頭に印があれば全体を調べない()
+    {
+        // 先頭の数行だけを見る。**全体を見ると、途中の 1 行の印でファイルごと
+        // 黙ることになり、意図しない見逃しが起きる。**
+        Assert.Empty(SecretScanner.Scan([
+            "// deepcompare:allow-file",
+            "const k = \"AKIAIOSFODNN7EXAMPLE\";",
+        ]));
+
+        // 遠くにある印はファイル全体には効かない（その行だけ）。
+        var far = new List<string> { "const k = \"AKIAIOSFODNN7EXAMPLE\";" };
+        for (var i = 0; i < 10; i++)
+        {
+            far.Add("// 埋め草");
+        }
+        far.Add("// deepcompare:allow-file");
+        Assert.NotEmpty(SecretScanner.Scan(far));
+    }
+
+    [Fact]
+    public void 説明のために書いた参照の例を拾わない()
+    {
+        // **この道具を自分のコードに掛けて見つけた誤検出。**
+        // 「参照は拾わない」と説明しているコメント自体が「ほぼ確実」で
+        // 引っかかっていた。値の形まで縛って直した。
+        Assert.Empty(Scan(
+            "/// <c>password = os.environ[\"X\"]</c> のような参照まで拾ってしまう",
+            "# 例: password = get_secret(\"name\")",
+            "// password = config[\"db\"][\"pass\"]"));
+    }
+
+    [Fact]
+    public void 正規表現そのものを書いた行を拾わない()
+    {
+        Assert.Empty(Scan(
+            "new Regex(@\"(?i)password\\s*=\\s*[^;]{6,}\")",
+            "PASSWORD_PATTERN = r\"password=\\w+\""));
     }
 
     [Fact]

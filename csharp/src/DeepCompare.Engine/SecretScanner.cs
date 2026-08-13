@@ -69,7 +69,12 @@ public static class SecretScanner
         ("npm のトークン", new Regex(@"\bnpm_[A-Za-z0-9]{36}\b")),
         ("秘密鍵", new Regex(@"-----BEGIN\s+(?:RSA|DSA|EC|OPENSSH|PGP)?\s*PRIVATE KEY")),
         ("JSON Web Token", new Regex(@"\beyJ[A-Za-z0-9_\-]{10,}\.eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}")),
-        ("接続文字列のパスワード", new Regex(@"(?i)\b(?:password|pwd)\s*=\s*[^;\s""']{6,}")),
+        // **値の形まで縛る。** 緩いままだと `password = os.environ["X"]` のような
+        // 参照や、正規表現そのものを書いた行に当たる。実際、この道具を自分の
+        // コードに掛けたら**この説明文が「ほぼ確実」で引っかかった。**
+        // 接続文字列の値は `;` か行末で終わり、括弧や記号を含まない。
+        ("接続文字列のパスワード", new Regex(
+            @"(?i)\b(?:password|pwd)\s*=\s*(?<value>[^;\s""'<>\[\](){}$\\|]{6,})\s*(?:;|$)")),
         ("URL に埋めた資格情報", new Regex(@"[a-z][a-z0-9+.\-]*://[^/\s:@]+:[^/\s:@]+@")),
     ];
 
@@ -106,14 +111,52 @@ public static class SecretScanner
     private const double EntropyThreshold = 4.2;
     private const int MinimumEntropyLength = 24;
 
+    /// <summary>
+    /// その行を調べない印。
+    ///
+    /// **意図して書いた値を黙らせる手段が要る。** 試験や説明書には本物と
+    /// 同じ形の値を書くことがあり、そこで毎回騒がれると、道具ごと切られる。
+    ///
+    /// 他の道具と同じ綴りも受ける（gitleaks / nosec）。**印の付け方を
+    /// 覚え直させない**方が、実際に使ってもらえる。
+    /// </summary>
+    private static readonly Regex AllowMark = new(
+        @"(?i)(?:deepcompare|gitleaks|secret)[:\-]?allow|\bnosec\b|\bnosecret\b");
+
+    /// <summary>
+    /// そのファイル全体を調べないか。**先頭の数行に印があれば飛ばす。**
+    ///
+    /// 試験や説明書のように、本物と同じ形の値が何十個も並ぶファイルがある。
+    /// 1 行ずつ印を付けるのは現実的でないし、付け忘れた行だけ騒がれる。
+    /// ファイルの頭で「ここは意図的」と言えるようにする。
+    /// </summary>
+    private static bool FileIsAllowed(IReadOnlyList<string> lines)
+    {
+        // 先頭の数行だけ見る。**全体を見ると、途中の 1 行の印でファイルごと
+        // 黙ることになり、意図しない見逃しが起きる。**
+        var head = Math.Min(8, lines.Count);
+        for (var i = 0; i < head; i++)
+        {
+            if (lines[i].Contains("deepcompare:allow-file", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static IReadOnlyList<SecretFinding> Scan(IReadOnlyList<string> lines)
     {
         var findings = new List<SecretFinding>();
+        if (FileIsAllowed(lines))
+        {
+            return findings;
+        }
 
         for (var i = 0; i < lines.Count; i++)
         {
             var line = lines[i];
-            if (line.Length == 0)
+            if (line.Length == 0 || AllowMark.IsMatch(line))
             {
                 continue;
             }
@@ -124,6 +167,14 @@ public static class SecretScanner
             {
                 foreach (Match match in pattern.Matches(line))
                 {
+                    // 値を取れる形なら、それが置き換え用でないかも見る。
+                    // 形が決まっているものでも、説明のために書かれることはある。
+                    var captured = match.Groups["value"];
+                    if (captured.Success && Placeholder.IsMatch(captured.Value.Trim()))
+                    {
+                        continue;
+                    }
+
                     findings.Add(new SecretFinding(
                         kind, SecretConfidence.High, i + 1, match.Index + 1,
                         match.Length, Mask(match.Value)));
