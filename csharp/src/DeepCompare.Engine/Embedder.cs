@@ -17,9 +17,9 @@ public sealed class Embedder
     private const int MaxTokens = 512;
 
     private readonly Bert _bert;
-    private readonly WordPieceTokenizer _tokenizer;
+    private readonly ITokenizer _tokenizer;
 
-    private Embedder(Bert bert, WordPieceTokenizer tokenizer)
+    private Embedder(Bert bert, ITokenizer tokenizer)
     {
         _bert = bert;
         _tokenizer = tokenizer;
@@ -97,8 +97,35 @@ public sealed class Embedder
                 path);
         }
 
-        using var vocab = OpenResource(typeof(Embedder).Assembly, "vocab.txt");
+        using var vocab = OpenVocabFor(path);
         return Create(File.ReadAllBytes(path), vocab);
+    }
+
+    /// <summary>モデルに対応する語彙ファイルの拡張子。</summary>
+    public const string VocabExtension = ".vocab";
+
+    /// <summary>
+    /// そのモデルの語彙ファイルの場所。<c>minilm.dcm</c> なら <c>minilm.vocab</c>。
+    ///
+    /// **名前で対応させる。** 語彙と重みは必ず対で使う物で、片方だけ差し替えると
+    /// 番号は付くのにモデルが学習した番号とは別物になり、**エラーにならないまま
+    /// 無意味な結果**が出る。同じ名前にしておけば、置き忘れに気づける。
+    /// </summary>
+    public static string VocabPathFor(string modelPath)
+        => Path.ChangeExtension(modelPath, VocabExtension);
+
+    /// <summary>
+    /// 語彙を開く。隣に無ければ、exe に埋め込んである英語モデル用の物を使う。
+    ///
+    /// **埋め込みの方を残す。** 既定の minilm.dcm は語彙を別ファイルに持たない
+    /// 形で配ってきたので、これを消すと**既存の置き方が壊れる**。
+    /// </summary>
+    private static Stream OpenVocabFor(string modelPath)
+    {
+        var beside = VocabPathFor(modelPath);
+        return File.Exists(beside)
+            ? File.OpenRead(beside)
+            : OpenResource(typeof(Embedder).Assembly, "vocab.txt");
     }
 
     /// <summary>ファイルから組み立てる。試験や、重みを差し替えて試すときに使う。</summary>
@@ -109,7 +136,22 @@ public sealed class Embedder
     }
 
     private static Embedder Create(byte[] weights, Stream vocab)
-        => new(new Bert(DcmWeights.Load(weights)), WordPieceTokenizer.FromVocab(vocab));
+    {
+        var tensors = DcmWeights.Load(weights);
+        var tokenizer = TokenizerLoader.Load(vocab);
+
+        // **語彙と重みが噛み合っているかを、使う前に確かめる。**
+        // 合っていないと、番号が語彙表の外を指して例外になるか、
+        // 範囲内なら黙って別の語の埋め込みを引く。後者は気づけない。
+        if (tensors.TryGetValue("embeddings.word_embeddings.weight", out var wordEmbeddings)
+            && wordEmbeddings.Rows != tokenizer.Count)
+        {
+            throw new InvalidDataException(
+                $"語彙 {tokenizer.Count:N0} 語に対して、モデルは {wordEmbeddings.Rows:N0} 語を"
+                + $" 期待しています。モデルと語彙（{VocabExtension}）を対で置いてください。");
+        }
+        return new Embedder(new Bert(tensors), tokenizer);
+    }
 
     private static Stream OpenResource(Assembly assembly, string name)
         => assembly.GetManifestResourceStream(name)

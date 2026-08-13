@@ -19,7 +19,7 @@ namespace DeepCompare.Engine;
 /// 注意: この正規化は非可逆で、日本語の濁点も落ちる（「だ」→「た」）。実測で確認した
 /// モデル本来の挙動であり、一致させるためには再現する必要がある。
 /// </summary>
-public sealed class WordPieceTokenizer
+public sealed class WordPieceTokenizer : ITokenizer
 {
     private const string ContinuationPrefix = "##";
     private const int MaxCharsPerWord = 100;
@@ -58,6 +58,8 @@ public sealed class WordPieceTokenizer
         }
         return new WordPieceTokenizer(vocab);
     }
+
+    public int Count => _vocab.Count;
 
     /// <summary>[CLS] と [SEP] を付けた ID 列を返す。</summary>
     public List<int> Encode(string text, int maxTokens)

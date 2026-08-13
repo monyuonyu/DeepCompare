@@ -19,7 +19,7 @@ internal static class Cli
         "--merge", "--block", "--report", "--context",
         "--key", "--ignore-column", "--delimiter",
         "--array-key", "--ignore-path",
-        "--limit", "--rev", "--path", "--secret-level", "--model",
+        "--limit", "--rev", "--path", "--secret-level", "--model", "--vocab",
         "--link", "--unlink",
     ];
 
@@ -114,6 +114,35 @@ internal static class Cli
                 return 2;
             }
             return RunSecrets(files, args, output);
+        }
+        if (args.Contains("--tokenize"))
+        {
+            // **参照実装と突き合わせるための出口。** トークナイザーは
+            // 「合っているか」しか分からないので、外と比べられる形が要る。
+            var files = Positional(args);
+            var vocabPath = ValueOf(args, "--vocab");
+            if (files.Length < 1 || vocabPath is null)
+            {
+                Console.Error.WriteLine("--tokenize には調べるファイルと --vocab が必要です");
+                return 2;
+            }
+            try
+            {
+                using var vocab = File.OpenRead(vocabPath);
+                var tokenizer = UnigramTokenizer.FromVocab(vocab);
+                var text = new StringBuilder();
+                foreach (var line in File.ReadLines(files[0]))
+                {
+                    text.AppendLine(string.Join(' ', tokenizer.Tokenize(line)));
+                }
+                Emit(text.ToString(), output);
+                return 0;
+            }
+            catch (Exception error) when (error is IOException or InvalidDataException)
+            {
+                Console.Error.WriteLine(error.Message);
+                return 2;
+            }
         }
         if (args.Contains("--print-office"))
         {
