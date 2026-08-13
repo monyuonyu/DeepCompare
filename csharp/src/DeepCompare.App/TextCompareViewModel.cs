@@ -724,6 +724,9 @@ public sealed class TextCompareViewModel : ViewModelBase
                 var row = _allRows[block.RowStart + k];
                 row.BlockIndex = i;
                 row.IsBlockStart = k == 0;
+                // 矢印は**書き込める側へだけ**出す。
+                row.CanApplyToRight = k == 0 && !RightReadOnly;
+                row.CanApplyToLeft = k == 0 && !LeftReadOnly;
             }
         }
 

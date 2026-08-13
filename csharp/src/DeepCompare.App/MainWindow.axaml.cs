@@ -77,6 +77,12 @@ public partial class MainWindow : Window
                 {
                     _shell.ShowImage(left, right);
                 }
+                // ノートブックと Office は**本文を取り出して**テキスト比較へ。
+                // 中身をそのまま行で比べても読めない（JSON か zip + XML）。
+                else if (ShellViewModel.CanExtractText(left) && ShellViewModel.CanExtractText(right))
+                {
+                    _shell.ShowExtractedText(left, right);
+                }
                 else
                 {
                     _shell.ShowText(left, right);

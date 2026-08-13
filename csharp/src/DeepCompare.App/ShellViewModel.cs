@@ -328,7 +328,6 @@ public sealed class ShellViewModel : ViewModelBase
             leftReadOnly: false, rightReadOnly: true);
     }
 
-    /// <summary>バイト列として比べる。テキストとして読めないファイル向け。</summary>
     /// <summary>写しの画面。フォルダーは空でも開ける（画面で指定できる）。</summary>
     public void ShowSnapshot(string folder, string snapshotFile = "")
     {
@@ -348,6 +347,54 @@ public sealed class ShellViewModel : ViewModelBase
             model.CompareCommand.Execute(null);
         }
     }
+
+    /// <summary>
+    /// ノートブックや Office 文書の**本文だけ**を取り出して、テキスト比較で見る。
+    ///
+    /// **新しい画面を作らない。** 本文さえ取り出せれば、意味的な行の対応付けも
+    /// 折り畳みも検索も、既存の画面のものがそのまま効く。
+    /// 取り出したものなので**両側とも読み取り専用**（書き戻せない）。
+    /// </summary>
+    public void ShowExtractedText(string left, string right)
+    {
+        ShowTextWith(left, right, ExtractText, leftReadOnly: true, rightReadOnly: true);
+    }
+
+    /// <summary>その形式から読める本文を取り出す。読めない形式ならそのまま返す。</summary>
+    public static byte[] ExtractText(string path)
+    {
+        if (Notebook.LooksLikeNotebook(path))
+        {
+            var document = Notebook.Read(File.ReadAllText(path));
+            var text = new System.Text.StringBuilder();
+            foreach (var cell in document.Cells)
+            {
+                // どの種類のセルかを頭に付ける。**本文だけ並べると、
+                // markdown とコードの境目が分からない。**
+                text.Append("# --- ").Append(cell.Kind switch
+                {
+                    CellKind.Code => "コード",
+                    CellKind.Markdown => "Markdown",
+                    _ => "生",
+                }).Append(" ---\n");
+                text.Append(cell.Source.TrimEnd('\n')).Append("\n\n");
+            }
+            return new System.Text.UTF8Encoding(false).GetBytes(text.ToString());
+        }
+
+        if (OfficeDocument.LooksLikeOffice(path))
+        {
+            var content = OfficeDocument.Read(path);
+            return new System.Text.UTF8Encoding(false)
+                .GetBytes(string.Join('\n', content.ToLines()) + "\n");
+        }
+
+        return File.ReadAllBytes(path);
+    }
+
+    /// <summary>本文を取り出して見るべき形式か。</summary>
+    public static bool CanExtractText(string path)
+        => Notebook.LooksLikeNotebook(path) || OfficeDocument.LooksLikeOffice(path);
 
     public void ShowVersionInfo(string left, string right)
     {
@@ -371,6 +418,7 @@ public sealed class ShellViewModel : ViewModelBase
         }
     }
 
+    /// <summary>バイト列として比べる。テキストとして読めないファイル向け。</summary>
     public void ShowBinary(string left, string right)
     {
         var model = new BinaryCompareViewModel(this) { LeftPath = left, RightPath = right };

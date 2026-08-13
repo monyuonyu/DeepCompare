@@ -497,7 +497,7 @@
                           HorizontalAlignment="Left" Margin="10,9,0,0"
                           Background="{DynamicResource ApplyArrow}"
                           IsVisible="{Binding BlockFoot}" />
-                  <Button Classes="apply" IsVisible="{Binding IsBlockStart}"
+                  <Button Classes="apply" IsVisible="{Binding CanApplyToRight}"
                           ToolTip.Tip="この塊を左から右へ写す"
                           Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyToRightCommand}"
                           CommandParameter="{Binding}">
@@ -542,7 +542,7 @@
                           HorizontalAlignment="Left" Margin="10,9,0,0"
                           Background="{DynamicResource ApplyArrow}"
                           IsVisible="{Binding BlockFoot}" />
-                  <Button Classes="apply" IsVisible="{Binding IsBlockStart}"
+                  <Button Classes="apply" IsVisible="{Binding CanApplyToLeft}"
                           ToolTip.Tip="この塊を右から左へ写す"
                           Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyToLeftCommand}"
                           CommandParameter="{Binding}">

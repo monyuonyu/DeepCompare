@@ -59,6 +59,16 @@ public sealed class RowView : ViewModelBase
     /// <summary>塊の先頭行か。コピーボタンはここにだけ出す。</summary>
     public bool IsBlockStart { get; set; }
 
+    /// <summary>
+    /// 反映の矢印を出すか。**書き込めない側へは出さない。**
+    ///
+    /// 出しておくと、押せる見た目なのに何も起きない（あるいは書き戻せない
+    /// 相手に書こうとする）。git のある時点の中身や、ノートブック・Office から
+    /// 取り出した本文がこれに当たる。
+    /// </summary>
+    public bool CanApplyToRight { get; set; }
+    public bool CanApplyToLeft { get; set; }
+
     private bool _isEditing;
 
     /// <summary>
