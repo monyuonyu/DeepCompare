@@ -402,7 +402,16 @@ public sealed class VersionInfoTests
         // 置き、各言語を `<場所>\<言語>\<名前>.mui` に分ける。notepad.exe を
         // 読むと "Notepad" だが、Windows 自身は「メモ帳」と言う。
         var root = Path.Combine(Path.GetTempPath(), "dc-mui-" + Guid.NewGuid().ToString("N")[..8]);
-        var language = Path.Combine(root, System.Globalization.CultureInfo.CurrentUICulture.Name);
+
+        // **言語を固定する。** 実装は CurrentUICulture を見るので、走らせる
+        // 環境の言語のままだと、CI（英語）では作ったフォルダーと探す場所が
+        // 食い違って落ちる。インバリアントだと名前が空になり、
+        // Path.Combine が root をそのまま返すのでフォルダーすらできない。
+        var original = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture =
+            new System.Globalization.CultureInfo("ja-JP");
+
+        var language = Path.Combine(root, "ja-JP");
         Directory.CreateDirectory(language);
         try
         {
@@ -425,6 +434,7 @@ public sealed class VersionInfoTests
         }
         finally
         {
+            System.Globalization.CultureInfo.CurrentUICulture = original;
             Directory.Delete(root, recursive: true);
         }
     }

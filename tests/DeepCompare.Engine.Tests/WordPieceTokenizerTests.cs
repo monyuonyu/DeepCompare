@@ -14,12 +14,15 @@ public class WordPieceTokenizerTests
 {
     private static WordPieceTokenizer Create()
     {
+        // **リポジトリに入っている資材を使う。** 以前は assets/src/vocab.txt を
+        // 見ていたが、あれはモデルの元データで .gitignore の対象なので、
+        // 手元にしか無い。CI では「ファイルが無い」で全部落ちていた。
         var dir = AppContext.BaseDirectory;
         while (dir is not null && !File.Exists(Path.Combine(dir, "README.md")))
         {
             dir = Path.GetDirectoryName(dir);
         }
-        var vocab = Path.Combine(dir!, "assets", "src", "vocab.txt");
+        var vocab = Path.Combine(dir!, "src", "DeepCompare.Engine", "Assets", "vocab.txt");
         return WordPieceTokenizer.FromVocab(File.OpenRead(vocab));
     }
 
