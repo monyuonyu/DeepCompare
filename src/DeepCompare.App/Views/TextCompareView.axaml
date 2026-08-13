@@ -23,6 +23,12 @@
       効く先は最後に押した側（左右）。
     -->
     <KeyBinding Gesture="Ctrl+G" Command="{Binding OpenGoToCommand}" />
+    <!--
+      自分が直した場所へ飛ぶ。**差分の移動とは別の鍵にする。**
+      差分は「相手と違う所」、こちらは「自分が触った所」。
+    -->
+    <KeyBinding Gesture="Ctrl+Alt+Down" Command="{Binding NextEditCommand}" />
+    <KeyBinding Gesture="Ctrl+Alt+Up" Command="{Binding PreviousEditCommand}" />
     <KeyBinding Gesture="Delete" Command="{Binding DeleteSelectedCommand}" />
     <KeyBinding Gesture="Back" Command="{Binding DeleteSelectedCommand}" />
     <KeyBinding Gesture="Ctrl+V" Command="{Binding PasteOverSelectionCommand}" />

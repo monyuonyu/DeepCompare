@@ -178,6 +178,10 @@ public sealed class TextCompareViewModel : ViewModelBase
         OpenGoToCommand = new RelayCommand(
             () => { IsGoToOpen = true; return Task.CompletedTask; });
         GoToCommand = new RelayCommand(() => { GoTo(); return Task.CompletedTask; });
+        NextEditCommand = new RelayCommand(
+            () => { MoveToEdit(forward: true); return Task.CompletedTask; });
+        PreviousEditCommand = new RelayCommand(
+            () => { MoveToEdit(forward: false); return Task.CompletedTask; });
         NextDifferenceCommand = new RelayCommand(
             () => { MoveToDifference(forward: true); return Task.CompletedTask; },
             () => HasDifferences);
@@ -837,6 +841,46 @@ public sealed class TextCompareViewModel : ViewModelBase
 
         // **見つからない理由を言う。** 絞り込みで隠れているだけのことがある。
         SearchStatus = $"{wanted} 行目は見つかりません（絞り込みで隠れているかもしれません）。";
+    }
+
+    public RelayCommand NextEditCommand { get; private set; } = null!;
+    public RelayCommand PreviousEditCommand { get; private set; } = null!;
+
+    /// <summary>
+    /// 自分が直した場所へ飛ぶ（BC の Next/Previous Edit）。
+    ///
+    /// **差分の移動とは別。** 差分は「相手と違う所」、こちらは
+    /// 「自分が触った所」。直したつもりの場所を見返すのに要る。
+    /// </summary>
+    private void MoveToEdit(bool forward)
+    {
+        if (_leftDocument is null || _rightDocument is null)
+        {
+            return;
+        }
+
+        // 揃えた本文での行番号に直してから並べる。
+        var marks = new SortedSet<int>();
+        for (var i = 0; i < AlignedLeft.Lines.Count; i++)
+        {
+            if (AlignedLeft.Lines[i].IsEdited || AlignedRight.Lines[i].IsEdited)
+            {
+                marks.Add(i);
+            }
+        }
+        if (marks.Count == 0)
+        {
+            SearchStatus = "まだ直した所はありません。";
+            return;
+        }
+
+        var at = SelectedRowIndex;
+        var next = forward
+            ? marks.FirstOrDefault(m => m > at, marks.Min)
+            : marks.LastOrDefault(m => m < at, marks.Max);
+
+        SelectedRowIndex = next;
+        SearchStatus = string.Empty;
     }
 
     public RelayCommand NextDifferenceCommand { get; }
