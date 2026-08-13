@@ -53,6 +53,13 @@ internal static class Program
                                      決められない箇所が残ったら中身を出して止まる。
                                      --take-ours / --take-theirs でその側に寄せる。
                                      0 解決 / 1 競合が残る / 2 異常
+          deepcompare --print-office 文書 [文書]
+                                     .docx / .xlsx / .pptx の**本文**を出す。
+                                     2 つ渡せば比べる。実体は zip + XML なので、
+                                     中身をそのまま比べると書式や ID の
+                                     書き換えで無関係な差分が大量に出る
+                                     （開いて保存し直すだけでも動く）。
+                                     0 差異なし / 1 差異あり / 2 異常
           deepcompare --print-notebook 左.ipynb 右.ipynb
                                      ノートブックを**セル単位で**比べる。
                                      行で比べると、実行しただけで出力の

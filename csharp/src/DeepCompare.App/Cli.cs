@@ -114,6 +114,17 @@ internal static class Cli
             }
             return RunSecrets(files, args, output);
         }
+        if (args.Contains("--print-office"))
+        {
+            var files = Positional(args);
+            if (files.Length < 1)
+            {
+                Console.Error.WriteLine("--print-office には Office 文書が 1 つか 2 つ必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return RunOfficeCompare(files, args, output);
+        }
         if (args.Contains("--print-notebook"))
         {
             var files = Positional(args);
@@ -689,6 +700,80 @@ internal static class Cli
             return comparison.Rows.Any(r => !r.IsUnchanged) ? 1 : 0;
         }
         catch (Exception error) when (error is GitException or IOException)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+    }
+
+    /// <summary>
+    /// Office 文書の**本文**を比べる。
+    ///
+    /// 1 つなら取り出した本文を出す（何を見ているかを確かめられる）。
+    /// 終了コードは 0 差異なし / 1 差異あり / 2 異常。
+    /// </summary>
+    private static int RunOfficeCompare(string[] files, string[] args, string? output)
+    {
+        try
+        {
+            var left = OfficeDocument.Read(files[0]);
+            if (files.Length < 2)
+            {
+                Emit(OfficeDocument.Format(left), output);
+                return 0;
+            }
+
+            var right = OfficeDocument.Read(files[1]);
+
+            // **本文を行として比べる。** 位置（段落番号やセル番地）を頭に付けて
+            // あるので、どこが変わったかがそのまま出る。
+            var leftLines = left.ToLines();
+            var rightLines = right.ToLines();
+
+            var text = new StringBuilder();
+            text.AppendLine($"left  {files[0]}");
+            text.AppendLine($"right {files[1]}");
+            text.AppendLine("---");
+
+            var differences = 0;
+            foreach (var op in Myers.Compute(leftLines, rightLines))
+            {
+                switch (op.Kind)
+                {
+                    case DiffKind.Equal:
+                        if (args.Contains("--all"))
+                        {
+                            for (var i = 0; i < op.OldLength; i++)
+                            {
+                                text.AppendLine($"  {leftLines[op.OldStart + i]}");
+                            }
+                        }
+                        break;
+                    case DiffKind.Replace:
+                    case DiffKind.Delete:
+                        for (var i = 0; i < op.OldLength; i++)
+                        {
+                            text.AppendLine($"- {leftLines[op.OldStart + i]}");
+                            differences++;
+                        }
+                        goto case DiffKind.Insert;
+                    case DiffKind.Insert:
+                        for (var i = 0; i < op.NewLength; i++)
+                        {
+                            text.AppendLine($"+ {rightLines[op.NewStart + i]}");
+                            differences++;
+                        }
+                        break;
+                }
+            }
+
+            text.AppendLine("---");
+            text.AppendLine(differences == 0 ? "本文は同じです。" : $"{differences} 箇所が違います。");
+            Emit(text.ToString(), output);
+            return differences > 0 ? 1 : 0;
+        }
+        catch (Exception error) when (error is IOException or NotSupportedException
+                                        or InvalidDataException or System.Xml.XmlException)
         {
             Console.Error.WriteLine(error.Message);
             return 2;
