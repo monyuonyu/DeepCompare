@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:DeepCompare.App"
+             xmlns:views="clr-namespace:DeepCompare.App.Views"
+             x:Class="DeepCompare.App.Views.DiffEditorView">
+
+  <!--
+    左右のエディタ。
+
+    **縦は同じだけ動き、横はそれぞれ動く。** 同じ行を見比べるのが目的なので
+    縦は揃っていないと意味が無い。一方、横は片方だけ長い行があるので、
+    まとめて動かすと読みたい側が動かせない（Beyond Compare も同じ）。
+
+    中央の境目は掴んで動かせる。左右で見たい量は場面によって変わる。
+  -->
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*" MinWidth="80" />
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="*" MinWidth="80" />
+    </Grid.ColumnDefinitions>
+
+    <views:DiffEditorPane x:Name="LeftPane" Grid.Column="0" />
+
+    <GridSplitter Grid.Column="1" Width="4" MinWidth="4"
+                  Background="{DynamicResource DividerStrong}"
+                  ResizeDirection="Columns" />
+
+    <views:DiffEditorPane x:Name="RightPane" Grid.Column="2" />
+  </Grid>
+</UserControl>

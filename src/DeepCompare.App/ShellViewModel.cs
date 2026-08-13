@@ -160,6 +160,21 @@ public sealed class ShellViewModel : ViewModelBase
     /// </summary>
     public double SystemChromeWidth => OperatingSystem.IsWindows() ? 140 : 0;
 
+    private bool _useEditorPane = true;
+
+    /// <summary>
+    /// 本文をエディタ部品で描くか。
+    ///
+    /// **差し替えの途中なので、両方を持って切り替えられるようにする。**
+    /// 新しい側で不具合が出ても、設定ひとつで戻せる。落ち着いたら
+    /// 古い方（行を並べたリスト）を消す。
+    /// </summary>
+    public bool UseEditorPane
+    {
+        get => _useEditorPane;
+        set => Set(ref _useEditorPane, value);
+    }
+
     /// <summary>起動画面に出す、パスからは決まらないもの。</summary>
     public IReadOnlyList<CompareKind> SpecialKinds { get; }
 

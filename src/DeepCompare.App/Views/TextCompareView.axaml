@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:DeepCompare.App"
+             xmlns:views="clr-namespace:DeepCompare.App.Views"
              x:Class="DeepCompare.App.Views.TextCompareView"
              x:DataType="vm:TextCompareViewModel">
 
@@ -630,8 +631,17 @@
         実体化する。旧 PyQt6 実装は行ごとにウィジェットを作っていたため数千行で
         操作不能になった。
       -->
+      <!--
+        **本文の描き方を差し替えている途中。**
+        エディタ部品（下）と、行を並べたリスト（この下）の 2 つを持ち、
+        設定で切り替える。リストは文字単位の選択も行をまたぐ選択も
+        作り込めなかったので、いずれ落とす。
+      -->
+      <views:DiffEditorView x:Name="Editors"
+                            IsVisible="{Binding Shell.UseEditorPane}" />
+
       <ListBox ItemsSource="{Binding VisibleRows}"
-               IsVisible="{Binding !ShowPlaceholder}"
+               IsVisible="{Binding !Shell.UseEditorPane}"
                SelectedIndex="{Binding SelectedRowIndex}"
                AutoScrollToSelectedItem="True"
                x:Name="RowList"

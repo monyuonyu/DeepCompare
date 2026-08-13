@@ -18,6 +18,19 @@ public sealed class TextCompareViewModel : ViewModelBase
     /// <summary>自分が乗っているタブ。見出しを比較の中身に合わせて書き換える。</summary>
     public CompareTab? Tab { get; set; }
     private Comparison? _comparison;
+
+    /// <summary>
+    /// エディタへ流す、行数を揃えた本文。
+    ///
+    /// **本文の描き方を差し替えている途中。** いまは行を並べたリストで
+    /// 描いているが、文字単位の選択も行をまたぐ選択も作り込めないため、
+    /// エディタ部品へ移す。両方を同時に持ち、切り替えられるようにする。
+    /// </summary>
+    public AlignedDocument AlignedLeft { get; private set; } = AlignedDocument.Empty;
+    public AlignedDocument AlignedRight { get; private set; } = AlignedDocument.Empty;
+
+    /// <summary>揃えた本文が入れ替わったときに上がる。</summary>
+    public event EventHandler? AlignedChanged;
     private List<RowView> _allRows = [];
     private int _compareGeneration;
 
@@ -1411,6 +1424,12 @@ public sealed class TextCompareViewModel : ViewModelBase
         bool refining, bool keepStatus = false)
     {
         _comparison = comparison;
+
+        // エディタ側へ流す形も作っておく。**行数を揃えた本文。**
+        (AlignedLeft, AlignedRight) = AlignedDocument.Build(
+            comparison.Rows, left.Lines, right.Lines,
+            _leftDocument?.EditedLines, _rightDocument?.EditedLines);
+        AlignedChanged?.Invoke(this, EventArgs.Empty);
         _blocks = Merge.Blocks(comparison);
 
         // 色分けの状態は行をまたぐ（ブロックコメント）ので、左右それぞれ順に持ち回る。

@@ -14,7 +14,10 @@ public partial class TextCompareView : UserControl
 
     public TextCompareView()
     {
-        AvaloniaXamlLoader.Load(this);
+        // **生成される初期化を呼ぶ。** AvaloniaXamlLoader.Load を直に呼ぶと
+        // x:Name のフィールドが埋まらない。この画面はこれまで x:Name を
+        // 使っていなかったので表に出ていなかった。
+        InitializeComponent();
 
         // 選んだ行を ViewModel へ渡す。**ListBox の SelectedItems は
         // 画面側にしかない。** ViewModel から画面に触らせず、ここで写す。
@@ -49,6 +52,17 @@ public partial class TextCompareView : UserControl
         }));
 
         // 書き込み先は表示側にしかない。ViewModel から画面に触らせず、ここで差し込む。
+        // **エディタ側へ中身を流す。** 比較が終わるたびに入れ直す。
+        DataContextChanged += (_, _) =>
+        {
+            if (DataContext is TextCompareViewModel model)
+            {
+                model.AlignedChanged -= OnAlignedChanged;
+                model.AlignedChanged += OnAlignedChanged;
+                OnAlignedChanged(model, EventArgs.Empty);
+            }
+        };
+
         DataContextChanged += (_, _) =>
         {
             if (DataContext is TextCompareViewModel model)
@@ -129,6 +143,23 @@ public partial class TextCompareView : UserControl
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// 揃えた本文をエディタへ流す。
+    ///
+    /// **読み取り専用かどうかもここで渡す。** 片側が git の履歴や
+    /// クリップボードなら、そちらは打てない。
+    /// </summary>
+    private void OnAlignedChanged(object? sender, EventArgs e)
+    {
+        if (DataContext is not TextCompareViewModel model)
+        {
+            return;
+        }
+        Editors.Fill(
+            model.AlignedLeft, model.AlignedRight,
+            model.LeftReadOnly, model.RightReadOnly);
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)

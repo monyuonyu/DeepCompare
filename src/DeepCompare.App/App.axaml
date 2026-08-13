@@ -6,6 +6,11 @@
   <Application.Styles>
     <FluentTheme />
     <!-- FluentTheme の上に重ねる。読み込む順序が効くので、必ず後に置く。 -->
+    <!--
+      エディタ部品の見た目。**これを入れないと何も描かれない**
+      （枠だけ出て中身が真っ白になる）。
+    -->
+    <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
     <StyleInclude Source="avares://deepcompare/Theme/Controls.axaml" />
   </Application.Styles>
 

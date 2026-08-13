@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ae="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+             x:Class="DeepCompare.App.Views.DiffEditorPane">
+
+  <!--
+    片側ぶんのエディタ。
+    **左右で同じものを 2 つ並べる。** テンプレートを複製すると、
+    以降どちらか片方だけ直す事故が必ず起きる。
+
+    行番号はエディタの既定を使わない（詰め物の空行があるので、
+    そのまま数えると元のファイルの番号とずれる）。自前の余白を
+    コード側から差し込む。
+  -->
+  <ae:TextEditor x:Name="Editor"
+                 ShowLineNumbers="False"
+                 WordWrap="False"
+                 HorizontalScrollBarVisibility="Auto"
+                 VerticalScrollBarVisibility="Auto"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 FontFamily="{DynamicResource MonoFont}"
+                 FontSize="13" />
+</UserControl>

@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Media;
 
 namespace DeepCompare.App;
 
@@ -265,5 +266,13 @@ internal static class Program
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
+            // **既定のフォントを名指しする。**
+            // エディタ部品は「$Default」という名前で既定のフォントを引く。
+            // 名前を決めていないと解決に失敗し、部品の生成ごと落ちる
+            // （画面が丸ごと空になり、しかも例外は表に出ない）。
+            .With(new FontManagerOptions
+            {
+                DefaultFamilyName = "avares://Avalonia.Fonts.Inter/Assets#Inter",
+            })
             .LogToTrace();
 }
