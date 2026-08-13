@@ -114,6 +114,45 @@ internal static class Cli
             }
             return RunSecrets(files, args, output);
         }
+        if (args.Contains("--print-notebook"))
+        {
+            var files = Positional(args);
+            if (files.Length < 2)
+            {
+                Console.Error.WriteLine("--print-notebook には比較する 2 つの .ipynb が必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return RunNotebookCompare(files[0], files[1], args, output);
+        }
+        if (args.Contains("--strip-notebook"))
+        {
+            var files = Positional(args);
+            if (files.Length < 1)
+            {
+                Console.Error.WriteLine("--strip-notebook には .ipynb が必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            try
+            {
+                var stripped = Notebook.Strip(File.ReadAllText(files[0]));
+                if (args.Contains("--in-place"))
+                {
+                    File.WriteAllText(files[0], stripped);
+                    Console.Error.WriteLine($"{files[0]} から実行の跡を落としました。");
+                    return 0;
+                }
+                Emit(stripped, output);
+                return 0;
+            }
+            catch (Exception error) when (error is IOException or StructuredParseException
+                                            or InvalidDataException)
+            {
+                Console.Error.WriteLine(error.Message);
+                return 2;
+            }
+        }
         if (args.Contains("--print-version-info"))
         {
             var files = Positional(args);
@@ -650,6 +689,46 @@ internal static class Cli
             return comparison.Rows.Any(r => !r.IsUnchanged) ? 1 : 0;
         }
         catch (Exception error) when (error is GitException or IOException)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+    }
+
+    /// <summary>
+    /// ノートブックをセル単位で比べる。
+    ///
+    /// 終了コードは 0 本文に変化なし / 1 本文が変わった / 2 異常。
+    /// **出力だけの違いは 0 を返す。** 実行しただけで CI が赤くなるのを避ける。
+    /// </summary>
+    private static int RunNotebookCompare(
+        string leftPath, string rightPath, string[] args, string? output)
+    {
+        try
+        {
+            var options = new NotebookCompareOptions
+            {
+                CompareOutputs = args.Contains("--with-outputs"),
+                CompareExecutionCount = args.Contains("--with-execution-count"),
+            };
+
+            var comparison = Notebook.Compare(
+                Notebook.Read(File.ReadAllText(leftPath)),
+                Notebook.Read(File.ReadAllText(rightPath)),
+                options);
+
+            var text = new StringBuilder();
+            text.AppendLine($"left  {leftPath}");
+            text.AppendLine($"right {rightPath}");
+            text.AppendLine("legend ~ 本文が変わった / + 増えた / - 消えた / o 出力だけ / ! メタデータ");
+            text.AppendLine("---");
+            text.Append(Notebook.Format(comparison, args.Contains("--all")));
+            Emit(text.ToString(), output);
+
+            return comparison.HasSourceChanges ? 1 : 0;
+        }
+        catch (Exception error) when (error is IOException or StructuredParseException
+                                        or UnauthorizedAccessException)
         {
             Console.Error.WriteLine(error.Message);
             return 2;

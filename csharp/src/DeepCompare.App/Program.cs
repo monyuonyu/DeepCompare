@@ -53,6 +53,18 @@ internal static class Program
                                      決められない箇所が残ったら中身を出して止まる。
                                      --take-ours / --take-theirs でその側に寄せる。
                                      0 解決 / 1 競合が残る / 2 異常
+          deepcompare --print-notebook 左.ipynb 右.ipynb
+                                     ノートブックを**セル単位で**比べる。
+                                     行で比べると、実行しただけで出力の
+                                     base64 が数千行動き、直した 1 行が
+                                     その中に埋もれる。既定では出力と実行回数を
+                                     見ない。--with-outputs / --with-execution-count
+                                     で見る。--all で変化のないセルも出す。
+                                     0 本文に変化なし / 1 変わった / 2 異常
+          deepcompare --strip-notebook <ファイル.ipynb>
+                                     出力と実行回数を落とす（nbstripout 相当）。
+                                     git に入れる前に通しておけば、実行しただけで
+                                     差分が出ることがなくなる。--in-place で上書き
           deepcompare --print-version-info 実行ファイル [実行ファイル]
                                      Windows の実行ファイル（PE）の版・会社名・
                                      説明などを出す。2 つ渡せば比べる。
