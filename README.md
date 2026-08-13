@@ -10,6 +10,9 @@
 `save_*` と `merge_*` の順序が入れ替わっていることも、消えた／増えたではなく
 **移動**として扱われている。
 
+どのくらい似ていれば同じ行と見るかは、画面から調整できる。
+自動の判断を外したいときは、右クリックで手動で繋げる。
+
 こういうものを比べられる:
 
 | | |
@@ -33,6 +36,24 @@
 
 # 使う
 
+## 入手する
+
+[リリースページ](https://github.com/monyuonyu/DeepCompare/releases)から
+自分の環境のものを落とす。
+
+| | |
+|---|---|
+| Windows | `deepcompare-windows-x64.zip` |
+| Linux | `deepcompare-linux-x64.tar.gz` |
+
+展開して `deepcompare`（Windows は `deepcompare.exe`）を実行するだけ。
+**インストールは要らない。** .NET も Python も入れなくてよい。
+
+落とすのは 40MB ほど、展開すると 68MB。半分は `minilm.dcm`（意味的な
+対応付けの中身）で、**実行ファイルと同じ場所に置いたままにする。**
+
+---
+
 ## 画面
 
 ### 起動画面
@@ -43,13 +64,10 @@
 
 ### フォルダー比較
 
-再帰的に走査し、差異のあるファイルを一覧にする。行を開くとテキスト比較へ移る。
-
 ![フォルダー比較](docs/images/folder.png)
 
-**差異を含むフォルダーだけが開く。** 差異の無い `tests/` は閉じたまま。
-絞り込んでいるのに畳まれていると、探しているものに辿り着くまで
-フォルダーを 1 つずつ開くことになる。
+**差異を含むフォルダーだけが開く**（差異の無い `tests/` は閉じたまま）。
+行を開くとテキスト比較へ移る。
 
 ### 表として比較（CSV / TSV）
 
@@ -59,24 +77,22 @@
 （左の 1 行目と右の 2 行目）。変わったセルだけが青い。`updated` は
 「見ない列」に入れてあるので、日付が全行で動いていても差分にならない。
 
-行を上から突き合わせる作りだと、1 行挿入されただけで以降が全部ずれる。
+キー列と見ない列は画面の入力欄で指定する（起動の引数でも渡せる）。
 
 ### 構造として比較（JSON / XML / TOML / YAML）
 
 ![構造比較](docs/images/structured.png)
 
-キーの順序が違っても差分にしない。**型の変化は `!` で明示する**
-（`8080` → `"8080"` は目で見て気づけない差の筆頭）。
+**型の変化は `!` で明示する**（`8080` → `"8080"` は目で見て気づけない差の筆頭）。
 
 ### ノートブック（.ipynb）
 
 ![ノートブック比較](docs/images/notebook.png)
 
-セル単位で比べ、**既定では出力と実行回数を見ない**。実行しただけで
-出力の base64 が数千行動き、直した 1 行がその中に埋もれるため。
-出力は「あるか」だけを示す。
+**既定では出力と実行回数を見ない。** 実行しただけで出力が数千行動き、
+直した 1 行がその中に埋もれるため。見たいときは「出力も比べる」を入れる。
 
-### キーボード
+## キーボードで操る
 
 | キー | すること |
 |---|---|
@@ -95,13 +111,9 @@
 作業ツリーと履歴。**変更の塊ごとにコミットへ含められる。** 差分の見え方は
 テキスト比較と同じなので、変数名を変えた行も並んで見える。
 
-## 入手する
+コミット・枝の作成と切り替え・取得・送信・打ち消し、衝突の解決までできる。
 
-いまは**リリースを配っていない**（作りかけのものを配ると、後で
-形が変わったときに困る）。動かすには自分でビルドする — .NET 10 SDK
-だけで足りる。手順は[後半](#作る)にある。
-
-## 日本語を比べるなら
+## 日本語を比べるなら、モデルを差し替える
 
 **既定のモデルは英語向けで、日本語ではうまく対応付けられない。**
 濁点が落ちるので「バグ」と「ハク」を同じ行と見る。日本語が半分を超える
@@ -129,7 +141,7 @@ GUI なら設定から選べる。CLI なら `--model multilingual.dcm`。
 
 ---
 
-## 画面を開かずに使う
+## 画面を開かずに使う（CI・遠隔）
 
 遠隔での検証や CI で、別環境の出力と機械的に突き合わせるために用意した。
 
@@ -139,7 +151,7 @@ GUI なら設定から選べる。CLI なら `--model multilingual.dcm`。
 `-o` があるのは Windows の都合で、GUI サブシステムの exe には標準出力が繋がらないため
 コンソールから実行しても何も見えない。
 
-## LLM 支援（任意・既定で無効）
+## LLM に助けてもらう（任意）
 
 git の状態を平易な言葉で説明し、次にできることを挙げる。コミットメッセージの
 草案も書く。**接続先を設定するまで機能そのものが現れない。**
@@ -211,24 +223,26 @@ force push・reset --hard・リベースは一覧にすら入れていない。
     dotnet build src/DeepCompare.App/DeepCompare.App.csproj
     ./tools/cli-smoke.sh src/DeepCompare.App/bin/Debug/net10.0/deepcompare
 
-### 発行
+### リリースを出す
 
-ネイティブ実行ファイル（NativeAOT）:
+**タグを打つと CI が作って Release へ添える。** 手元で発行する必要は無い。
 
-    dotnet publish src/DeepCompare.App/DeepCompare.App.csproj -c Release -r linux-x64 -o out
-    dotnet publish src/DeepCompare.App/DeepCompare.App.csproj -c Release -r win-x64 -o out
+    git tag -a v0.1.0 -m "..."
+    git push origin v0.1.0
+
+Windows と Linux の両方を作り、**試験を通してから**添える
+（[.github/workflows/release.yml](.github/workflows/release.yml)）。
+タグを打つ前に試したいときは、Actions から `release` を手で走らせる
+（下書きとして作られる）。
+
+手元で発行するなら:
+
+    dotnet publish src/DeepCompare.App/DeepCompare.App.csproj -c Release -r linux-x64 -p:PublishAot=true -o out
 
 Linux では `clang` と `zlib1g-dev`、Windows では MSVC（Visual Studio Build Tools の
-C++ ワークロード）がリンクに要る。Skia と HarfBuzz はネイティブライブラリなので、
-実行ファイルの隣に置かれる。
+C++ ワークロード）がリンクに要る。
 
-MSVC を用意できない場合は、非 AOT の単一ファイルで代替できる。こちらは Linux からでも作れる:
-
-    dotnet publish src/DeepCompare.App/DeepCompare.App.csproj -c Release -r win-x64 \
-        --self-contained true -p:PublishAot=false -p:PublishSingleFile=true \
-        -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
-
-### モデルアセットの再生成
+### モデルを作り直す
 
 `assets/minilm.dcm` は追跡しているので通常は不要。作り直す場合:
 

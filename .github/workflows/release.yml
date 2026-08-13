@@ -1,0 +1,133 @@
+name: release
+
+# **タグを打ったときだけ動く。** 普段の push でリリースが増えると、
+# どれが配ってよいものか分からなくなる。
+on:
+  push:
+    tags: ['v*']
+  # 手で試せるようにしておく（タグを打つ前に通るか確かめられる）。
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '試すタグ（省略すると下書きだけ作る）'
+        required: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  # **配る前に試験を通す。** 壊れたものを Release に置くと、
+  # 気づいたときには誰かが落としている。
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet test tests/DeepCompare.Engine.Tests/DeepCompare.Engine.Tests.csproj
+      - run: dotnet test tests/DeepCompare.Assist.Tests/DeepCompare.Assist.Tests.csproj
+      - name: CLI の終了コード
+        run: |
+          dotnet build src/DeepCompare.App/DeepCompare.App.csproj -c Debug
+          ./tools/cli-smoke.sh src/DeepCompare.App/bin/Debug/net10.0/deepcompare
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+            name: deepcompare-linux-x64
+          - os: windows-latest
+            rid: win-x64
+            name: deepcompare-windows-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # NativeAOT のリンクに要るもの。Windows ランナーには MSVC が既に入っている。
+      - name: Linux の依存を導入
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: 発行
+        run: >
+          dotnet publish src/DeepCompare.App/DeepCompare.App.csproj
+          -c Release -r ${{ matrix.rid }} -p:PublishAot=true -o out
+
+      # **配布物に混ぜない。** pdb と dbg は原因を追うためのもので、
+      # 使う人には要らない（そのぶん落とす量が増える）。
+      - name: 記号ファイルを外す
+        shell: bash
+        run: rm -f out/*.pdb out/*.dbg
+
+      # **モデルを添える。** これが無いと意味的な比較が動かない。
+      # csproj の Content で既に out/ へ入っているが、念のため確かめる。
+      - name: 中身を確かめる
+        shell: bash
+        run: |
+          ls -l out/
+          test -f out/minilm.dcm || { echo "モデルが入っていない"; exit 1; }
+          test -f out/deepcompare -o -f out/deepcompare.exe || { echo "実行ファイルが無い"; exit 1; }
+
+      - name: まとめる
+        shell: bash
+        run: |
+          cd out
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a -tzip "../${{ matrix.name }}.zip" ./*
+          else
+            tar czf "../${{ matrix.name }}.tar.gz" ./*
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            ${{ matrix.name }}.zip
+            ${{ matrix.name }}.tar.gz
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # Release を作るのに要る。**必要な分だけ与える。**
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: 配るものを並べる
+        run: ls -lR dist
+
+      - name: Release を作る
+        uses: softprops/action-gh-release@v2
+        with:
+          # **手で試したときは下書きにする。** タグから来たときだけ公開。
+          draft: ${{ github.event_name == 'workflow_dispatch' }}
+          generate_release_notes: true
+          files: dist/*
+          body: |
+            ## 入れ方
+
+            落として展開し、`deepcompare`（Windows は `deepcompare.exe`）を実行する。
+            **インストールは要らない。** 展開した中の `minilm.dcm` は
+            実行ファイルと同じ場所に置いたままにする。
+
+            日本語を扱うなら、多言語モデルを別に置く（README を参照）。
+
+            ## 動作を確かめた環境
+
+            - Windows 11 24H2 (x64)
+            - Ubuntu 24.04 (x64)
