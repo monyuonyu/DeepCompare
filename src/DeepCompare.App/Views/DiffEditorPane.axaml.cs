@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using AvaloniaEdit;
 using AvaloniaEdit.Editing;
+using AvaloniaEdit.Folding;
 
 namespace DeepCompare.App.Views;
 
@@ -22,6 +23,27 @@ public partial class DiffEditorPane : UserControl
 
     private AlignedDocument _document = AlignedDocument.Empty;
     private bool _filling;
+    private FoldingManager? _folding;
+
+    /// <summary>
+    /// 一致行を既定で畳むか。
+    /// **「違う行だけ出す」に繋ぐ。** 別々に持つと、押したのに畳まれない。
+    /// </summary>
+    private bool _foldByDefault;
+
+    /// <summary>畳む／開くをまとめて切り替える。</summary>
+    public void SetFolded(bool folded)
+    {
+        _foldByDefault = folded;
+        if (_folding is null)
+        {
+            return;
+        }
+        foreach (var section in _folding.AllFoldings)
+        {
+            section.IsFolded = folded;
+        }
+    }
 
     public DiffEditorPane()
     {
@@ -36,12 +58,19 @@ public partial class DiffEditorPane : UserControl
         ArrowColumn.Attach(Editor.TextArea.TextView);
         Arrows.Content = ArrowColumn;
 
+        // 折りたたみ。**差分から離れた一致行の連なりだけを畳む。**
+        _folding = FoldingManager.Install(Editor.TextArea);
+
         // いる行を外へ伝える。**下の帯と地図がこれで追う。**
         Editor.TextArea.Caret.PositionChanged += (_, _) =>
             CaretLineChanged?.Invoke(this, Editor.TextArea.Caret.Line - 1);
 
         // 見えている範囲。地図の枠がこれで動く。
+        //
+        // **行が組まれたときにも知らせる。** スクロールしたときだけだと、
+        // 開いた直後は初期値（全体）のままで、少し動かすまで枠が縮まらない。
         Editor.TextArea.TextView.ScrollOffsetChanged += (_, _) => RaiseViewport();
+        Editor.TextArea.TextView.VisualLinesChanged += (_, _) => RaiseViewport();
 
         // **打った内容を外へ伝える。** 詰め物を除いた形で渡す。
         Editor.TextChanged += (_, _) =>
@@ -66,6 +95,69 @@ public partial class DiffEditorPane : UserControl
     public event EventHandler<(double Start, double Size)>? ViewportChanged;
 
     /// <summary>
+    /// 折りたたみを組み直す。
+    ///
+    /// **差分の周りは畳まない。** 前後 3 行を残す。畳んだ場所は
+    /// 「N 行」と出るので、隠したことは黙っていない。
+    /// 短い連なりは畳まない（開け閉めの手間の方が大きい）。
+    /// </summary>
+    private void UpdateFoldings()
+    {
+        if (_folding is null || Editor.Document is null)
+        {
+            return;
+        }
+
+        const int context = 3;
+        const int least = 6;
+
+        var lines = _document.Lines;
+        var keep = new bool[lines.Count];
+        for (var i = 0; i < lines.Count; i++)
+        {
+            if (lines[i].BlockIndex < 0)
+            {
+                continue;
+            }
+            for (var k = Math.Max(0, i - context); k <= Math.Min(lines.Count - 1, i + context); k++)
+            {
+                keep[k] = true;
+            }
+        }
+
+        var foldings = new List<NewFolding>();
+        var start = -1;
+        for (var i = 0; i <= lines.Count; i++)
+        {
+            var plain = i < lines.Count && !keep[i];
+            if (plain && start < 0)
+            {
+                start = i;
+            }
+            else if (!plain && start >= 0)
+            {
+                var count = i - start;
+                if (count >= least)
+                {
+                    var from = Editor.Document.GetLineByNumber(start + 1).Offset;
+                    var to = Editor.Document.GetLineByNumber(i).EndOffset;
+                    // **既定では開いておく。** いきなり畳まれていると、
+                    // 何が隠れているのか分からないまま読み始めることになる。
+                    // 畳みたい人は印を押す（まとめて畳むのは下のボタン）。
+                    foldings.Add(new NewFolding(from, to)
+                    {
+                        Name = $"… {count} 行",
+                        DefaultClosed = _foldByDefault,
+                    });
+                }
+                start = -1;
+            }
+        }
+
+        _folding.UpdateFoldings(foldings, -1);
+    }
+
+    /// <summary>
     /// 見えている範囲を知らせる。**割合で渡す。**
     /// </summary>
     private void RaiseViewport()
@@ -77,7 +169,10 @@ public partial class DiffEditorPane : UserControl
             return;
         }
         var start = view.VerticalOffset / total;
-        var size = Math.Min(1, Bounds.Height / total);
+        // **見えている高さは本文の入れ物から取る。** このコントロール全体には
+        // 矢印の列も含まれるが、高さは同じなのでどちらでもよい。
+        var visible = view.Bounds.Height > 0 ? view.Bounds.Height : Bounds.Height;
+        var size = Math.Min(1, visible / total);
         ViewportChanged?.Invoke(this, (start, size));
     }
 
@@ -133,7 +228,12 @@ public partial class DiffEditorPane : UserControl
         Editor.Text = document.Text;
         _filling = false;
 
+        UpdateFoldings();
         Editor.CaretOffset = Math.Min(caret, Editor.Text.Length);
+
+        // **入れ直した直後にも知らせる。** ここではまだ高さが決まって
+        // いないことがあるので、組み終わってからもう一度。
+        Avalonia.Threading.Dispatcher.UIThread.Post(RaiseViewport);
 
         // **読んでいた場所へ戻す。** ScrollOffset は読むだけの値なので、
         // 代入しても何も起きない（そこに気づかず、入れ直すたびに

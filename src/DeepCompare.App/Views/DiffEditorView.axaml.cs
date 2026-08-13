@@ -56,6 +56,13 @@ public partial class DiffEditorView : UserControl
         RightPane.ScrollToFraction(fraction);
     }
 
+    /// <summary>一致行を畳む／開く。左右そろって。</summary>
+    public void SetFolded(bool folded)
+    {
+        LeftPane.SetFolded(folded);
+        RightPane.SetFolded(folded);
+    }
+
     /// <summary>その行へ移す。</summary>
     public void GoToLine(int index)
     {
