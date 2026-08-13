@@ -95,6 +95,10 @@
           <SolidColorBrush x:Key="FgUnimportant">#8C959F</SolidColorBrush>
           <SolidColorBrush x:Key="FgWarning">#9A6700</SolidColorBrush>
           <SolidColorBrush x:Key="FgMoved">#1A7F37</SolidColorBrush>
+          <!-- git の状態を 1 文字で示すときの色。足した／消した／直した -->
+          <SolidColorBrush x:Key="FgAdded">#1A7F37</SolidColorBrush>
+          <SolidColorBrush x:Key="FgRemoved">#CF222E</SolidColorBrush>
+          <SolidColorBrush x:Key="FgChanged">#0969DA</SolidColorBrush>
 
           <!-- 構文 -->
           <SolidColorBrush x:Key="FgKeyword">#8250DF</SolidColorBrush>
@@ -198,6 +202,9 @@
           <SolidColorBrush x:Key="FgUnimportant">#6E7488</SolidColorBrush>
           <SolidColorBrush x:Key="FgWarning">#E0A060</SolidColorBrush>
           <SolidColorBrush x:Key="FgMoved">#8FBF6F</SolidColorBrush>
+          <SolidColorBrush x:Key="FgAdded">#3FB950</SolidColorBrush>
+          <SolidColorBrush x:Key="FgRemoved">#F85149</SolidColorBrush>
+          <SolidColorBrush x:Key="FgChanged">#58A6FF</SolidColorBrush>
 
           <!-- 構文 -->
           <SolidColorBrush x:Key="FgKeyword">#C792EA</SolidColorBrush>

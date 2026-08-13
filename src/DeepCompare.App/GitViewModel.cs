@@ -16,8 +16,51 @@ public sealed class GitFileRow(GitFileStatus status)
         ? $"{original} → {Status.Path}"
         : Status.Path;
 
-    /// <summary>索引と作業ツリーの状態を 2 文字で。git の表記に合わせる。</summary>
-    public string Mark => Status.IsConflicted ? "UU" : $"{Code(Status.Index)}{Code(Status.WorkTree)}";
+    /// <summary>
+    /// ファイル名だけ。**先に目に入るのはこれ。**
+    /// パスをそのまま並べていたので、末尾を読むまで何のファイルか
+    /// 分からなかった（VS Code は名前が先、場所は薄く後ろ）。
+    /// </summary>
+    public string FileName => System.IO.Path.GetFileName(Status.Path);
+
+    /// <summary>置き場所。名前の後ろに薄く出す。</summary>
+    public string Directory
+    {
+        get
+        {
+            var directory = System.IO.Path.GetDirectoryName(Status.Path) ?? string.Empty;
+            return directory.Replace('\\', '/');
+        }
+    }
+
+    /// <summary>
+    /// 状態の 1 文字。**git の 2 文字ではなく、人が読む 1 文字にする。**
+    /// 「.M」と書かれても、点が何を指すのかは git を知らないと読めない。
+    /// </summary>
+    public string Mark => Status switch
+    {
+        { IsConflicted: true } => "!",
+        { Index: GitStatusCode.Untracked } => "U",
+        { Index: GitStatusCode.Added } => "A",
+        { Index: GitStatusCode.Deleted } => "D",
+        { WorkTree: GitStatusCode.Deleted } => "D",
+        { Index: GitStatusCode.Renamed } => "R",
+        _ => "M",
+    };
+
+    /// <summary>状態の色。VS Code と同じ考え方で、足した／消した／直したを分ける。</summary>
+    public IBrush MarkBrush => Status switch
+    {
+        { IsConflicted: true } => Palette.Brush("FgWarning"),
+        { Index: GitStatusCode.Untracked } => Palette.Brush("FgAdded"),
+        { Index: GitStatusCode.Added } => Palette.Brush("FgAdded"),
+        { Index: GitStatusCode.Deleted } => Palette.Brush("FgRemoved"),
+        { WorkTree: GitStatusCode.Deleted } => Palette.Brush("FgRemoved"),
+        _ => Palette.Brush("FgChanged"),
+    };
+
+    /// <summary>git の 2 文字表記。**ツールチップにだけ残す。**</summary>
+    public string RawMark => Status.IsConflicted ? "UU" : $"{Code(Status.Index)}{Code(Status.WorkTree)}";
 
     public string KindLabel => Status switch
     {
@@ -376,6 +419,48 @@ public sealed class GitViewModel : ViewModelBase
     public ObservableCollection<GitFileRow> Files { get; } = [];
 
     /// <summary>
+    /// 索引に載っているもの／載っていないもの。
+    ///
+    /// **2 つに分ける。** 1 つの一覧に混ぜて色で示していたが、
+    /// 「次のコミットに入るのはどれか」が一目で分からなかった。
+    /// VS Code と同じ並びにする（上が載っているもの）。
+    ///
+    /// **同じファイルが両方に出ることがある。** 一部だけ stage して
+    /// その後さらに直した場合で、git の見え方をそのまま出す。
+    /// </summary>
+    public ObservableCollection<GitFileRow> StagedFiles { get; } = [];
+    public ObservableCollection<GitFileRow> UnstagedFiles { get; } = [];
+
+    public bool HasStagedFiles => StagedFiles.Count > 0;
+    public bool HasUnstagedFiles => UnstagedFiles.Count > 0;
+
+    /// <summary>見出しに出す件数。**0 のときは出さない。**</summary>
+    public string StagedCount => StagedFiles.Count.ToString();
+    public string UnstagedCount => UnstagedFiles.Count.ToString();
+
+    private void SplitFiles()
+    {
+        StagedFiles.Clear();
+        UnstagedFiles.Clear();
+        foreach (var row in Files)
+        {
+            if (row.Status.IsStaged)
+            {
+                StagedFiles.Add(row);
+            }
+            // **stage 済みでも、そのあと直していれば下にも出す。**
+            if (!row.Status.IsStaged || row.Status.IsDirty)
+            {
+                UnstagedFiles.Add(row);
+            }
+        }
+        OnPropertyChanged(nameof(HasStagedFiles));
+        OnPropertyChanged(nameof(HasUnstagedFiles));
+        OnPropertyChanged(nameof(StagedCount));
+        OnPropertyChanged(nameof(UnstagedCount));
+    }
+
+    /// <summary>
     /// 変更が 1 件も無い。**空の枠をそのまま見せない。**
     /// 何も無いのか、まだ読んでいないのか、失敗したのかが区別できない。
     /// </summary>
@@ -623,6 +708,7 @@ public sealed class GitViewModel : ViewModelBase
             {
                 Message = $"{path} は git リポジトリの中にありません。";
                 Files.Clear();
+                SplitFiles();
                 Commits.Clear();
                 return;
             }
@@ -659,6 +745,7 @@ public sealed class GitViewModel : ViewModelBase
             {
                 Files.Add(new GitFileRow(file));
             }
+            SplitFiles();
 
             Commits.Clear();
             SelectedCommit = null;

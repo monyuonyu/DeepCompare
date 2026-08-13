@@ -4,6 +4,76 @@
              x:Class="DeepCompare.App.Views.GitView"
              x:DataType="vm:GitViewModel">
 
+  <UserControl.Resources>
+    <!--
+      作業ツリーの 1 行。**stage 済みと未 stage で同じ形を使う。**
+      置き場所（どちらの見出しの下か）で意味が決まるので、行の中で
+      色を分ける必要はない。
+    -->
+    <DataTemplate x:Key="GitFileTemplate" x:DataType="vm:GitFileRow">
+      <Border Classes="row" Background="Transparent">
+        <Grid ColumnDefinitions="20,*,Auto">
+          <!-- **名前が先、場所は薄く後ろ。** VS Code と同じ並び -->
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                      ToolTip.Tip="{Binding Path}">
+            <TextBlock Text="{Binding FileName}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding Directory}" FontSize="11" VerticalAlignment="Center"
+                       Foreground="{DynamicResource FgDim}"
+                       TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+
+          <!-- 状態は右端に 1 文字。git の 2 文字はツールチップに残す -->
+          <TextBlock Grid.Column="0" Text="{Binding Mark}" Classes="mono"
+                     FontWeight="Bold" VerticalAlignment="Center"
+                     HorizontalAlignment="Center"
+                     Foreground="{Binding MarkBrush}"
+                     ToolTip.Tip="{Binding KindLabel}" />
+
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="0">
+            <!--
+              競合しているファイルにだけ出す。**押せない状態で置かない。**
+              3 方向マージの画面をそのまま器にする。
+            -->
+            <Button Classes="accent" Padding="7,2" Margin="0,0,4,0"
+                    IsVisible="{Binding Status.IsConflicted}"
+                    ToolTip.Tip="祖先・こちら・むこうを並べて解決します"
+                    Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).ResolveCommand}"
+                    CommandParameter="{Binding}">
+              <StackPanel Orientation="Horizontal" Spacing="4">
+                <Path Classes="icon" Data="{StaticResource IconMerge}"
+                      Width="13" Height="13" VerticalAlignment="Center" />
+                <TextBlock Text="解決" FontSize="11" VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+            <Button Classes="icon small" ToolTip.Tip="HEAD と作業ツリーを比べる"
+                    Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).OpenFileCommand}"
+                    CommandParameter="{Binding}">
+              <Path Classes="icon" Data="{StaticResource IconOpen}" />
+            </Button>
+            <Button Classes="icon small" IsVisible="{Binding CanStage}"
+                    ToolTip.Tip="塊ごとに索引へ載せる（git add -p に当たる）"
+                    Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).StagePartlyCommand}"
+                    CommandParameter="{Binding}">
+              <Path Classes="icon" Data="{StaticResource IconStagePartly}" />
+            </Button>
+            <Button Classes="icon small" IsVisible="{Binding CanStage}"
+                    ToolTip.Tip="索引へ載せる（stage）"
+                    Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).StageCommand}"
+                    CommandParameter="{Binding}">
+              <Path Classes="icon" Data="{StaticResource IconStage}" />
+            </Button>
+            <Button Classes="icon small" IsVisible="{Binding CanUnstage}"
+                    ToolTip.Tip="索引から降ろす。中身は変えない"
+                    Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).UnstageCommand}"
+                    CommandParameter="{Binding}">
+              <Path Classes="icon" Data="{StaticResource IconUnstage}" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </UserControl.Resources>
+
   <Grid RowDefinitions="Auto,*,Auto">
 
     <!-- 上の帯。操作はアイコン、場所は 1 行 -->
@@ -49,71 +119,75 @@
     <!-- 左に作業ツリー、右に履歴 -->
     <Grid Grid.Row="1" ColumnDefinitions="*,8,*" Margin="12,8">
 
+      <!--
+        作業ツリー。**VS Code の並びに寄せる。**
+        上から順に、コミットの説明 → 索引に載っているもの → 載っていないもの。
+        以前は説明が一番下、ファイルは 1 つの一覧に混ぜて色で示していたので、
+        「次のコミットに何が入るのか」が一目で分からなかった。
+      -->
       <DockPanel Grid.Column="0">
-        <TextBlock DockPanel.Dock="Top" Text="作業ツリー" Classes="title" Margin="0,0,0,8"
-                   ToolTip.Tip="行を開くと HEAD と作業ツリーを比べます。git の diff ではなく、こちらの比較エンジンに掛けるので、意味的な行の対応付けが効きます。" />
 
         <!--
           コミット。**索引に何も載っていなければ押せない。**
           押しても git が断るだけなので、その前に分かる方がよい。
         -->
-        <Border DockPanel.Dock="Bottom" Background="{DynamicResource PanelBg}"
-                BorderBrush="{DynamicResource Divider}" BorderThickness="1"
-                CornerRadius="{DynamicResource RadiusMedium}"
-                Padding="10,8" Margin="0,8,0,0">
-          <StackPanel Spacing="6">
-            <TextBox Text="{Binding CommitMessage}" AcceptsReturn="True" Height="56"
-                     PlaceholderText="このコミットで何をしたか" />
-            <StackPanel Orientation="Horizontal" Spacing="6">
-              <Button Content="コミット" Classes="accent" Command="{Binding CommitCommand}" />
-              <Button Content="直前を書き直す" Command="{Binding AmendCommand}"
-                      ToolTip.Tip="空のままなら、元の説明をそのまま使います" />
-              <!--
-                **接続先を設定した人にだけ出る。** 設定していない人にとって、
-                この機能は存在しないのと同じでよい。
-              -->
-              <Button Content="草案をもらう" Command="{Binding Assist.DraftCommitCommand}"
-                      IsVisible="{Binding Assist.IsAvailable}"
-                      ToolTip.Tip="stage された差分から説明の草案を書きます。そのまま記録はしません" />
-              <Button Content="いまの状態を説明" Command="{Binding Assist.ExplainCommand}"
-                      IsVisible="{Binding Assist.IsAvailable}" />
-            </StackPanel>
-
-            <!--
-              支援の返事。**畳んだままにしない。** 出るときは必ず見える場所に置く。
-              状態バーへ入れると、横並びのせいで折り返らずに切れる。
-            -->
-            <Border IsVisible="{Binding Assist.HasExplanation}"
-                    Background="{DynamicResource SubtleBg}"
-                    CornerRadius="{DynamicResource RadiusSmall}" Padding="8,6">
-              <StackPanel Spacing="4">
-                <TextBlock Text="{Binding Assist.Explanation}" TextWrapping="Wrap"
-                           FontSize="12" />
-                <ItemsControl ItemsSource="{Binding Assist.Suggestions}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
-                        <TextBlock Grid.Column="0" Text="{Binding Display}" FontSize="12"
-                                   FontWeight="SemiBold" Margin="0,0,8,0" />
-                        <TextBlock Grid.Column="1" Text="{Binding Reason}" FontSize="12"
-                                   TextWrapping="Wrap"
-                                   Foreground="{DynamicResource FgDim}" />
-                      </Grid>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <!--
-                  **押せるボタンにしない。** 提案までで止め、実行は人が
-                  普段の操作でやる。並べたものを押せるようにすると、
-                  「AI が勧めたから」で作業ツリーが動く。
-                -->
-                <TextBlock Text="提案までです。実行するかどうかは、上のボタンから自分で決めてください。"
-                           IsVisible="{Binding Assist.Suggestions.Count}"
-                           FontSize="11" Foreground="{DynamicResource FgDim}" />
+        <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,10">
+          <TextBox Text="{Binding CommitMessage}" AcceptsReturn="True" Height="56"
+                   PlaceholderText="このコミットで何をしたか" />
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <Button Classes="accent" Command="{Binding CommitCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Path Classes="icon" Data="{StaticResource IconCheck}"
+                      Width="13" Height="13" VerticalAlignment="Center" />
+                <TextBlock Text="コミット" VerticalAlignment="Center" />
               </StackPanel>
-            </Border>
+            </Button>
+            <Button Content="直前を書き直す" Command="{Binding AmendCommand}"
+                    ToolTip.Tip="空のままなら、元の説明をそのまま使います" />
+            <!--
+              **接続先を設定した人にだけ出る。** 設定していない人にとって、
+              この機能は存在しないのと同じでよい。
+            -->
+            <Button Content="草案をもらう" Command="{Binding Assist.DraftCommitCommand}"
+                    IsVisible="{Binding Assist.IsAvailable}"
+                    ToolTip.Tip="stage された差分から説明の草案を書きます。そのまま記録はしません" />
+            <Button Content="いまの状態を説明" Command="{Binding Assist.ExplainCommand}"
+                    IsVisible="{Binding Assist.IsAvailable}" />
           </StackPanel>
-        </Border>
+
+          <!--
+            支援の返事。**畳んだままにしない。** 出るときは必ず見える場所に置く。
+          -->
+          <Border IsVisible="{Binding Assist.HasExplanation}"
+                  Background="{DynamicResource SubtleBg}"
+                  CornerRadius="{DynamicResource RadiusSmall}" Padding="8,6">
+            <StackPanel Spacing="4">
+              <TextBlock Text="{Binding Assist.Explanation}" TextWrapping="Wrap"
+                         FontSize="12" />
+              <ItemsControl ItemsSource="{Binding Assist.Suggestions}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,0">
+                      <TextBlock Grid.Column="0" Text="{Binding Display}" FontSize="12"
+                                 FontWeight="SemiBold" Margin="0,0,8,0" />
+                      <TextBlock Grid.Column="1" Text="{Binding Reason}" FontSize="12"
+                                 TextWrapping="Wrap"
+                                 Foreground="{DynamicResource FgDim}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <!--
+                **押せるボタンにしない。** 提案までで止め、実行は人が
+                普段の操作でやる。並べたものを押せるようにすると、
+                「AI が勧めたから」で作業ツリーが動く。
+              -->
+              <TextBlock Text="提案までです。実行するかどうかは、上のボタンから自分で決めてください。"
+                         IsVisible="{Binding Assist.Suggestions.Count}"
+                         FontSize="11" Foreground="{DynamicResource FgDim}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
 
         <!--
           変更が無いときの案内。**空の枠をそのまま見せない。**
@@ -130,64 +204,35 @@
           </StackPanel>
 
           <ScrollViewer>
-            <ItemsControl ItemsSource="{Binding Files}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:GitFileRow">
-                <Border Background="{Binding Background}" Classes="row">
-                  <Grid ColumnDefinitions="28,*,Auto">
-                    <TextBlock Grid.Column="0" Text="{Binding Mark}" Classes="mono"
-                               FontWeight="Bold" VerticalAlignment="Center" />
+            <StackPanel Spacing="4">
 
-                    <StackPanel Grid.Column="1" Spacing="1">
-                      <TextBlock Text="{Binding Display}" Classes="mono"
-                                 TextTrimming="CharacterEllipsis" />
-                      <TextBlock Text="{Binding KindLabel}" FontSize="11"
-                                 Foreground="{DynamicResource FgDim}" />
-                    </StackPanel>
+              <!-- 索引に載っているもの＝次のコミットに入るもの -->
+              <StackPanel IsVisible="{Binding HasStagedFiles}" Spacing="2">
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="2,4,0,2">
+                  <TextBlock Text="次のコミットに入るもの" Classes="title" FontSize="12" />
+                  <Border Background="{DynamicResource CardBg}" CornerRadius="8"
+                          Padding="6,1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding StagedCount}" FontSize="11" />
+                  </Border>
+                </StackPanel>
+                <ItemsControl ItemsSource="{Binding StagedFiles}"
+                              ItemTemplate="{StaticResource GitFileTemplate}" />
+              </StackPanel>
 
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="0">
-                      <!--
-                        競合しているファイルにだけ出す。**押せない状態で置かない。**
-                        3 方向マージの画面をそのまま器にする。
-                      -->
-                      <Button Classes="accent" Padding="7,2" Margin="0,0,4,0"
-                              IsVisible="{Binding Status.IsConflicted}"
-                              ToolTip.Tip="祖先・こちら・むこうを並べて解決します"
-                              Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).ResolveCommand}"
-                              CommandParameter="{Binding}">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                          <Path Classes="icon" Data="{StaticResource IconMerge}"
-                                Width="13" Height="13" VerticalAlignment="Center" />
-                          <TextBlock Text="解決" FontSize="11" VerticalAlignment="Center" />
-                        </StackPanel>
-                      </Button>
-                      <Button Classes="icon" ToolTip.Tip="HEAD と作業ツリーを比べる"
-                              Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).OpenFileCommand}"
-                              CommandParameter="{Binding}">
-                        <Path Classes="icon" Data="{StaticResource IconOpen}" />
-                      </Button>
-                      <Button Classes="icon"
-                              ToolTip.Tip="塊ごとに索引へ載せる（git add -p に当たる）"
-                              Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).StagePartlyCommand}"
-                              CommandParameter="{Binding}">
-                        <Path Classes="icon" Data="{StaticResource IconStagePartly}" />
-                      </Button>
-                      <Button Classes="icon" ToolTip.Tip="索引へ載せる（stage）"
-                              Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).StageCommand}"
-                              CommandParameter="{Binding}">
-                        <Path Classes="icon" Data="{StaticResource IconStage}" />
-                      </Button>
-                      <Button Classes="icon" ToolTip.Tip="索引から降ろす。中身は変えない"
-                              Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).UnstageCommand}"
-                              CommandParameter="{Binding}">
-                        <Path Classes="icon" Data="{StaticResource IconUnstage}" />
-                      </Button>
-                    </StackPanel>
-                  </Grid>
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-            </ItemsControl>
+              <!-- 索引に載っていないもの -->
+              <StackPanel IsVisible="{Binding HasUnstagedFiles}" Spacing="2">
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="2,8,0,2">
+                  <TextBlock Text="入らないもの" Classes="title" FontSize="12" />
+                  <Border Background="{DynamicResource CardBg}" CornerRadius="8"
+                          Padding="6,1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding UnstagedCount}" FontSize="11" />
+                  </Border>
+                </StackPanel>
+                <ItemsControl ItemsSource="{Binding UnstagedFiles}"
+                              ItemTemplate="{StaticResource GitFileTemplate}" />
+              </StackPanel>
+
+            </StackPanel>
           </ScrollViewer>
         </Panel>
       </DockPanel>

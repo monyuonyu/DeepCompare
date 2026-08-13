@@ -70,8 +70,13 @@
     前の比較が消える。見比べながら直す作業では、開いたまま行き来できることが効く。
   -->
   <DockPanel>
-    <Border DockPanel.Dock="Top" Background="{DynamicResource SidebarBg}"
-            BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1">
+    <!--
+      **本体と同じ色にし、下の線も引かない。** 帯だけ別の色にすると、
+      上端に「窓の飾り」がもう 1 段あるように見える。VS Code のように
+      題の帯からそのまま中身へ続いて見せる。選ばれているタブだけが
+      浮いて見えればよい。
+    -->
+    <Border DockPanel.Dock="Top" Background="{DynamicResource WindowBg}">
       <DockPanel>
 
       <!--
@@ -135,9 +140,15 @@
           <Style Selector="ListBoxItem:pointerover /template/ Border#TabRoot">
             <Setter Property="Background" Value="{DynamicResource ControlBgHover}" />
           </Style>
+          <!--
+            **選ばれているタブは、色ではなく細い線で示す。**
+            帯を本体と同じ色にしたので、背景を変える手が使えない
+            （変えると、そこだけ別の面が乗っているように見える）。
+          -->
           <Style Selector="ListBoxItem:selected /template/ Border#TabRoot">
-            <Setter Property="Background" Value="{DynamicResource WindowBg}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource Divider}" />
+            <Setter Property="Background" Value="{DynamicResource CardBg}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+            <Setter Property="BorderThickness" Value="0,2,0,0" />
           </Style>
           <Style Selector="ListBoxItem:selected">
             <Setter Property="Foreground" Value="{DynamicResource FgNormal}" />

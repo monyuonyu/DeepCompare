@@ -196,6 +196,8 @@
   <StreamGeometry x:Key="IconMinusSmall">M12,5 M12,19 M5,12 h14</StreamGeometry>
 
   <!-- 新しいタブ -->
+  <!-- コミットの確定。VS Code と同じくチェックで示す -->
+  <StreamGeometry x:Key="IconCheck">M4,12.5 l5,5 l11,-11</StreamGeometry>
   <StreamGeometry x:Key="IconPlus">M12,4.5 v15 M4.5,12 h15</StreamGeometry>
 
 </ResourceDictionary>
