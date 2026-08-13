@@ -305,15 +305,29 @@
     <Setter Property="MinHeight" Value="18" />
     <Setter Property="CornerRadius" Value="3" />
     <Setter Property="Cursor" Value="Hand" />
+    <!--
+      **中身を箱の真ん中に置く。** 既定のままだと上に寄って見えた。
+      矢印は横長の図形なので、縦の中心がずれると特に目立つ。
+    -->
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
   </Style>
   <Style Selector="Button.apply Path">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
     <Setter Property="Stroke" Value="{DynamicResource ApplyArrow}" />
     <Setter Property="StrokeThickness" Value="2.4" />
     <Setter Property="StrokeLineCap" Value="Round" />
     <Setter Property="StrokeJoin" Value="Round" />
     <Setter Property="Fill" Value="Transparent" />
-    <Setter Property="Width" Value="11" />
-    <Setter Property="Height" Value="11" />
+    <!--
+      **余白が偶数になる寸法にする。**
+      箱 20×18、枠 1px なので内側は 18×16。中身を 12×12 にすると、
+      余りは横 6・縦 4 でどちらも 2 で割り切れ、上下左右が揃う。
+      11 にすると縦の余りが 5 になり、**片側へ 1 画素寄って上寄りに見えた。**
+    -->
+    <Setter Property="Width" Value="12" />
+    <Setter Property="Height" Value="12" />
     <Setter Property="Stretch" Value="Uniform" />
   </Style>
   <Style Selector="Button.apply:pointerover /template/ ContentPresenter">
