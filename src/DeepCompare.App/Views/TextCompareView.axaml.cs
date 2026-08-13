@@ -76,9 +76,9 @@ public partial class TextCompareView : UserControl
                 Editors.ViewportChanged -= OnViewport;
                 Editors.ViewportChanged += OnViewport;
 
-                // 地図を押したら、その位置へ飛ぶ。
-                model.MapJump -= OnMapJump;
-                model.MapJump += OnMapJump;
+                // 行が変わったら本文をそこへ動かす（地図・次の差分へ・Ctrl+G）。
+                model.GoToLineRequested -= OnGoToLine;
+                model.GoToLineRequested += OnGoToLine;
 
                 // **打った内容を本文へ戻す。** 詰め物は除いてから渡す。
                 Editors.LeftChanged -= OnLeftEdited;
@@ -228,9 +228,11 @@ public partial class TextCompareView : UserControl
     {
         if (DataContext is TextCompareViewModel model)
         {
-            model.SelectedRowIndex = line;
+            model.FollowCaret(line);
         }
     }
+
+    private void OnGoToLine(object? sender, int line) => Editors.GoToLine(line);
 
     private void OnViewport(object? sender, (double Start, double Size) range)
     {
@@ -241,7 +243,6 @@ public partial class TextCompareView : UserControl
         }
     }
 
-    private void OnMapJump(object? sender, double fraction) => Editors.ScrollToFraction(fraction);
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {

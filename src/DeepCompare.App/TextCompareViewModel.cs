@@ -33,10 +33,29 @@ public sealed class TextCompareViewModel : ViewModelBase
     public event EventHandler? AlignedChanged;
 
     /// <summary>
-    /// 地図が押されたときに上がる（0〜1）。
-    /// **画面側がスクロールする。** ViewModel から部品には触らない。
+    /// この行へ移してほしい、と画面側へ頼む（揃えた本文での行番号）。
+    /// **ViewModel から部品には触らない。**
     /// </summary>
-    public event EventHandler<double>? MapJump;
+    public event EventHandler<int>? GoToLineRequested;
+
+    private bool _followingCaret;
+
+    /// <summary>
+    /// 本文のカーソルが動いたことを受ける。
+    /// **ここから来た変更では本文を動かさない**（互いに呼び合う）。
+    /// </summary>
+    public void FollowCaret(int line)
+    {
+        _followingCaret = true;
+        try
+        {
+            SelectedRowIndex = line;
+        }
+        finally
+        {
+            _followingCaret = false;
+        }
+    }
     private List<RowView> _allRows = [];
     private int _compareGeneration;
 
@@ -806,6 +825,14 @@ public sealed class TextCompareViewModel : ViewModelBase
                 // 選んだ行を下の帯へ移す。ここで直せる。
                 ShowDetailFor(value >= 0 && value < VisibleRows.Count ? VisibleRows[value] : null);
                 UpdateEditingRow();
+
+                // **本文もその行へ動かす。** 地図を押したときも、
+                // 「次の差分へ」でも、Ctrl+G でも、行が変われば本文が追う。
+                // ただし本文の側から来た変更では動かさない（互いに呼び合う）。
+                if (!_followingCaret)
+                {
+                    GoToLineRequested?.Invoke(this, value);
+                }
             }
         }
     }
@@ -1206,9 +1233,6 @@ public sealed class TextCompareViewModel : ViewModelBase
             var index = (int)Math.Round(value * (VisibleRows.Count - 1));
             SelectedRowIndex = Math.Clamp(index, 0, VisibleRows.Count - 1);
 
-            // **エディタ側もそこへ動かす。** 選んだ行を変えるだけでは、
-            // 画面がその場所まで動かない。
-            MapJump?.Invoke(this, value);
         }
     }
 
