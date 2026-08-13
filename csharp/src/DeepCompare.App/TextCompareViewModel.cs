@@ -379,6 +379,27 @@ public sealed class TextCompareViewModel : ViewModelBase
         }
     }
 
+    private bool _showWhitespace;
+
+    /// <summary>
+    /// 空白を記号で見せるか（BC の Visible Whitespace）。
+    ///
+    /// **「なぜか一致しない」の原因が空白のとき、これが唯一の手がかりになる。**
+    /// 下の帯の知らせは「どこかにある」ことしか言わないが、これは位置まで示す。
+    /// </summary>
+    public bool ShowWhitespace
+    {
+        get => _showWhitespace;
+        set
+        {
+            if (Set(ref _showWhitespace, value))
+            {
+                RowView.ShowWhitespace = value;
+                RebuildForTheme();   // 行を作り直す（色と同じ理由）
+            }
+        }
+    }
+
     // --- 差分の地図 ---
 
     private double _mapViewStart;

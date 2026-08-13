@@ -59,6 +59,15 @@ public sealed class RowView
     public InlineCollection LeftInlines { get; }
     public InlineCollection RightInlines { get; }
 
+    /// <summary>
+    /// 空白を記号で見せるか。
+    ///
+    /// **1 文字を 1 文字に置き換える。** 「&lt;U+200B&gt;」のように長さの変わる
+    /// 置き換えをすると、差分の範囲（何文字目から何文字目か）とずれて、
+    /// 色の付く位置が狂う。
+    /// </summary>
+    public static bool ShowWhitespace { get; set; }
+
     public RowView(Row row, DecodedText left, DecodedText right,
         Language? language = null, LexState leftState = default, LexState rightState = default)
     {
@@ -127,7 +136,7 @@ public sealed class RowView
         }
         if (spans.Count == 0)
         {
-            inlines.Add(new Run(text) { Foreground = Palette.Brush("FgNormal") });
+            AddRun(inlines, text, Palette.Brush("FgNormal"));
             return inlines;
         }
 
@@ -145,10 +154,8 @@ public sealed class RowView
             if (tokens is null || diffBrush is not null)
             {
                 // 変更部分は構文で塗り分けない。1 つの塊として見せる。
-                inlines.Add(new Run(text.Substring(span.Start, span.Length))
-                {
-                    Foreground = diffBrush ?? Palette.Brush("FgNormal"),
-                });
+                AddRun(inlines, text.Substring(span.Start, span.Length),
+                    diffBrush ?? Palette.Brush("FgNormal"));
                 continue;
             }
 
@@ -163,15 +170,59 @@ public sealed class RowView
                 {
                     continue;
                 }
-                inlines.Add(new Run(text[from..to]) { Foreground = Colour(token.Kind) });
+                AddRun(inlines, text[from..to], Colour(token.Kind));
                 at = to;
             }
             if (at < end)
             {
-                inlines.Add(new Run(text[at..end]) { Foreground = Palette.Brush("FgNormal") });
+                AddRun(inlines, text[at..end], Palette.Brush("FgNormal"));
             }
         }
         return inlines;
+    }
+
+    /// <summary>
+    /// 文字を足す。空白の可視化が入っているときは、空白だけ別の色の記号にする。
+    ///
+    /// **記号は必ず 1 文字に置き換える。** 長さが変わると、差分の範囲（何文字目
+    /// から何文字目か）とずれて色の付く位置が狂う。
+    /// </summary>
+    private static void AddRun(InlineCollection inlines, string text, IBrush brush)
+    {
+        if (!ShowWhitespace || text.Length == 0)
+        {
+            inlines.Add(new Run(text) { Foreground = brush });
+            return;
+        }
+
+        var faint = Palette.Brush("FgUnimportant");
+        var start = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var mark = text[i] switch
+            {
+                ' ' => '\u00b7',      // 半角空白 → 中点
+                '\t' => '\u2192',     // タブ → 矢印
+                '\u3000' => '\u25a1', // 全角空白 → 四角
+                '\u00a0' => '\u00b0', // ノーブレークスペース → 度記号（普通の空白と区別する）
+                _ => '\0',
+            };
+            if (mark == '\0')
+            {
+                continue;
+            }
+
+            if (i > start)
+            {
+                inlines.Add(new Run(text[start..i]) { Foreground = brush });
+            }
+            inlines.Add(new Run(mark.ToString()) { Foreground = faint });
+            start = i + 1;
+        }
+        if (start < text.Length)
+        {
+            inlines.Add(new Run(text[start..]) { Foreground = brush });
+        }
     }
 
     private static IBrush Colour(TokenKind kind) => kind switch

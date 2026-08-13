@@ -62,6 +62,10 @@
                         ToolTip.Tip="変更のある行だけを出す">
             <Path Classes="icon" Data="{StaticResource IconFilterDiff}" />
           </ToggleButton>
+          <ToggleButton Classes="filter" IsChecked="{Binding ShowWhitespace}"
+                        ToolTip.Tip="空白・タブを記号で見せる">
+            <Path Classes="icon" Data="{StaticResource IconWhitespace}" />
+          </ToggleButton>
 
           <Border Classes="vsep" />
 

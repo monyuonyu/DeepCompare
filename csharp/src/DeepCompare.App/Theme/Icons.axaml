@@ -85,6 +85,9 @@
   -->
   <StreamGeometry x:Key="IconFilterSame">M4,9 h16 M4,15 h16</StreamGeometry>
 
+  <!-- 空白を見せる: 中点とタブの矢印 -->
+  <StreamGeometry x:Key="IconWhitespace">M5,12 a1.2,1.2 0 1 0 2.4,0 a1.2,1.2 0 1 0 -2.4,0 M11,12 h7 M15.5,8.5 l3.5,3.5 l-3.5,3.5 M4,5 h16 M4,19 h16</StreamGeometry>
+
   <!-- 木の開閉 -->
   <StreamGeometry x:Key="IconChevronRight">M9.5,5 l7,7 l-7,7</StreamGeometry>
   <StreamGeometry x:Key="IconChevronDown">M5,9.5 l7,7 l7,-7</StreamGeometry>
