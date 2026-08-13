@@ -176,18 +176,21 @@ public sealed class UnigramTokenizer : ITokenizer
             return [];
         }
 
-        var best = new float[text.Length + 1];
+        // **double で足す。** スコアは float で持っているが、合計を float で
+        // 取ると加算の順序で丸めが変わる。同じ切り方の組み合わせ（`M`+`MM` と
+        // `MM`+`M`）で合計が厳密には一致せず、参照実装と違う方を選んでいた。
+        var best = new double[text.Length + 1];
         var from = new int[text.Length + 1];
-        Array.Fill(best, float.NegativeInfinity);
+        Array.Fill(best, double.NegativeInfinity);
         best[0] = 0;
 
         // 未知の 1 文字に与える罰。**十分に悪い値**にして、語彙にある切り方が
         // あるならそちらが選ばれるようにする。
-        const float UnknownPenalty = -20f;
+        const double UnknownPenalty = -20.0;
 
         for (var i = 0; i < text.Length; i++)
         {
-            if (float.IsNegativeInfinity(best[i]))
+            if (double.IsNegativeInfinity(best[i]))
             {
                 continue;
             }
@@ -213,7 +216,7 @@ public sealed class UnigramTokenizer : ITokenizer
 
             // 語彙に無い文字。**1 文字だけ進める。** ここで諦めると、
             // 未知の文字が 1 つあるだけで行全体が切れなくなる。
-            if (!matched || float.IsNegativeInfinity(best[i + 1]))
+            if (!matched || double.IsNegativeInfinity(best[i + 1]))
             {
                 var score = best[i] + UnknownPenalty;
                 if (score > best[i + 1])

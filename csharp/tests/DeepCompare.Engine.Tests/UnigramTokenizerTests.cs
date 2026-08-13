@@ -167,6 +167,17 @@ public class UnigramTokenizerTests
     }
 
     [Fact]
+    public void 同じ合計になる切り方は先に来た方を採る()
+    {
+        // 「MMM」は "M"+"MM" とも "MM"+"M" とも切れて**合計が同じ**。
+        // 合計を float で取ると加算の順序で丸めが変わり、参照実装と
+        // 違う方を選んでいた（本物の語彙で 155 行中 1 行だけ食い違った）。
+        // double で足すと同点が真の同点になり、先に来た方が残る。
+        var tokenizer = Build(("▁", -1f), ("M", -6.3547845f), ("MM", -9.1287651f));
+        Assert.Equal(["▁", "M", "MM"], tokenizer.Tokenize("MMM"));
+    }
+
+    [Fact]
     public void 空の語彙は断る()
     {
         Assert.Throws<InvalidDataException>(
