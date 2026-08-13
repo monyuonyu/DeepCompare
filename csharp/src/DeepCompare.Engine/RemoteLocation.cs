@@ -23,7 +23,9 @@ public static class RemoteLocation
     public static bool IsRemote(string location)
         => location.StartsWith("dav://", StringComparison.OrdinalIgnoreCase)
         || location.StartsWith("davs://", StringComparison.OrdinalIgnoreCase)
-        || location.StartsWith("s3://", StringComparison.OrdinalIgnoreCase);
+        || location.StartsWith("s3://", StringComparison.OrdinalIgnoreCase)
+        || location.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase)
+        || location.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 場所から接続を作る。手元のパスなら <see cref="LocalFileSource"/>。
@@ -41,6 +43,11 @@ public static class RemoteLocation
             || location.StartsWith("davs://", StringComparison.OrdinalIgnoreCase))
         {
             return OpenWebDav(location);
+        }
+        if (location.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase)
+            || location.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase))
+        {
+            return OpenFtp(location);
         }
         return new LocalFileSource(location);
     }
@@ -65,6 +72,58 @@ public static class RemoteLocation
         }
 
         return new WebDavFileSource((secure ? "https://" : "http://") + rest, credentials);
+    }
+
+    private static IFileSource OpenFtp(string location)
+    {
+        var secure = location.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase);
+        var rest = location[(location.IndexOf("://", StringComparison.Ordinal) + 3)..];
+
+        var user = "anonymous";
+        // 匿名の置き場は「連絡先を合言葉に」という慣習。**空にしない**
+        // （空だと断る実装がある）。
+        var password = "deepcompare@example.com";
+
+        var at = rest.LastIndexOf('@');
+        if (at >= 0)
+        {
+            var userInfo = rest[..at];
+            rest = rest[(at + 1)..];
+            var colon = userInfo.IndexOf(':');
+            if (colon >= 0)
+            {
+                user = Uri.UnescapeDataString(userInfo[..colon]);
+                password = Uri.UnescapeDataString(userInfo[(colon + 1)..]);
+            }
+            else
+            {
+                user = Uri.UnescapeDataString(userInfo);
+            }
+        }
+
+        // 主機[:番号]/場所 に分ける。
+        var slash = rest.IndexOf('/');
+        var authority = slash < 0 ? rest : rest[..slash];
+        var root = slash < 0 ? "/" : rest[slash..];
+
+        var port = secure ? 21 : 21;
+        var colonAt = authority.LastIndexOf(':');
+        if (colonAt >= 0 && int.TryParse(authority[(colonAt + 1)..], out var parsed))
+        {
+            port = parsed;
+            authority = authority[..colonAt];
+        }
+
+        return new FtpFileSource(new FtpSettings(authority, user, password)
+        {
+            Port = port,
+            UseTls = secure,
+            Root = root,
+            // 自己署名の置き場を相手にすることがある。**明示的に切れるようにする**
+            // （既定は検証したまま）。
+            ValidateCertificate =
+                Environment.GetEnvironmentVariable("DEEPCOMPARE_FTP_INSECURE") != "1",
+        });
     }
 
     private static IFileSource OpenS3(string location)

@@ -27,7 +27,13 @@ internal static class Program
                                        dav://利用者:合言葉@主機/dav/
                                        davs://主機/dav/         （https）
                                        s3://鍵:秘密@入口/バケツ/接頭辞
+                                       ftp://利用者:合言葉@主機:番号/場所
+                                       ftps://主機/場所         （明示的 TLS）
                                      鍵は AWS_ACCESS_KEY_ID などからも拾う。
+                                     **平文の FTP は合言葉がそのまま流れる。**
+                                     相手が対応しているなら ftps:// を使う
+                                     （自己署名の相手には
+                                     DEEPCOMPARE_FTP_INSECURE=1 が要る）。
                                      リモートは一時領域へ取ってくるので、
                                      --include / --exclude / --max-size で
                                      取る量を絞る（取らなかったものは必ず言う）
