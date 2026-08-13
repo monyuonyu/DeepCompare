@@ -7,11 +7,13 @@ namespace DeepCompare.Engine;
 /// 英語中心のモデルは日本語をほとんど語彙に持たない。それを言わずに
 /// 「意味的に比べました」と出すのは、黙って間違った結果を出すのに近い。
 ///
-/// 実測（2026-08-13、既定の minilm.dcm）:
-/// - 語彙 30,522 のうち、かな 184 項目・漢字 486 項目（あわせて 2%）
-/// - **濁点つきのかなは 1 つも無い。** BertNormalizer の strip_accents が
-///   NFD 分解で結合文字（U+3099）を落とすため、学習時から存在しない
-/// - その結果、「バグを直す」と「ハクを直す」の類似度が **1.0000** になる
+/// 実測（2026-08-13）:
+/// - 英語モデル（minilm.dcm、WordPiece 30,522 語）
+///   かな 184 項目・漢字 486 項目（あわせて 2%）。**濁点つきのかなは 1 つも無い**
+///   （BertNormalizer の strip_accents が NFD 分解で U+3099 を落とすため、
+///   学習時から存在しない）。「バグを直す」と「ハクを直す」の類似度が **1.0000**
+/// - 多言語モデル（multilingual.dcm、unigram 250,002 語）
+///   濁点つきのかなが揃っており、「設定」「読み」「込む」のように語で切れる
 /// </summary>
 public static class ModelCoverage
 {
@@ -61,18 +63,38 @@ public static class ModelCoverage
     }
 
     /// <summary>
+    /// 日本語を扱えるモデルとみなす語彙の数。
+    ///
+    /// **語彙の数で見分ける。** 名前で判断すると、利用者が別名で置いた
+    /// 多言語モデルを「日本語が苦手」と誤って言う。英語モデルは 30,522 語、
+    /// 多言語モデルは 250,002 語で、桁が違う。
+    /// </summary>
+    public const int MultilingualVocabSize = 100_000;
+
+    /// <summary>
     /// 知らせるべきことがあれば、その文言。無ければ null。
     ///
     /// **何ができないかを具体的に言う。** 「精度が落ちます」では、
     /// 何を疑えばいいのか分からない。
     /// </summary>
-    public static string? Warn(IEnumerable<string> left, IEnumerable<string> right)
+    /// <param name="vocabSize">
+    /// いま使っているモデルの語彙の数。多言語モデルなら知らせない。
+    /// 分からないときは null（英語モデルとみなして知らせる）。
+    /// </param>
+    public static string? Warn(
+        IEnumerable<string> left, IEnumerable<string> right, int? vocabSize = null)
     {
+        if (vocabSize >= MultilingualVocabSize)
+        {
+            return null;
+        }
+
         var ratio = JapaneseRatio(left.Concat(right));
         return ratio > JapaneseThreshold
             ? $"日本語が {ratio:P0} を占めますが、いまのモデルは日本語をほとんど"
               + "語彙に持ちません（濁点も落ちるため「バグ」と「ハク」を同じと見ます）。"
               + "意味的な対応付けは効かず、文字の重なりで並んでいます。"
+              + "多言語モデルを置くと効くようになります（README を参照）。"
             : null;
     }
 }

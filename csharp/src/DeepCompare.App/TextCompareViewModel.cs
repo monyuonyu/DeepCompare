@@ -782,10 +782,6 @@ public sealed class TextCompareViewModel : ViewModelBase
             // ここで操作可能にする。以降は待たせない。
             IsBusy = false;
 
-            // **モデルが扱えない本文なら、段階 2 の前に知らせる。**
-            // 効いていないのに「意味的に比べました」と出すのは、黙って
-            // 間違った結果を出すのに近い。
-            ModelWarning = ModelCoverage.Warn(first.left.Lines, first.right.Lines) ?? string.Empty;
 
             // 高速モードなら段階 2 を走らせない。**段階 1 の答えで確定する。**
             if (_shell.FastMode)
@@ -795,10 +791,19 @@ public sealed class TextCompareViewModel : ViewModelBase
             }
 
             // 段階 2: 埋め込みで対応付けを取り直し、差し替える。
+            var warning = string.Empty;
             var refinedResult = await Task.Run(() =>
             {
                 // モデルは殻が保持していて、初回だけ読む。
                 var embedder = _shell.GetEmbedder();
+
+                // **モデルが扱えない本文なら知らせる。** 効いていないのに
+                // 「意味的に比べました」と出すのは、黙って間違った結果を
+                // 出すのに近い。**語彙の数で判断する** — 多言語モデルなら
+                // 日本語でも効くので、そのときは黙る。
+                warning = ModelCoverage.Warn(
+                    first.left.Lines, first.right.Lines, embedder.VocabSize) ?? string.Empty;
+
                 var started = DateTime.UtcNow;
                 var comparison = DiffComparer.Compare(
                     first.left, first.right, embedder, compareOptions);
@@ -809,6 +814,8 @@ public sealed class TextCompareViewModel : ViewModelBase
             {
                 return;
             }
+
+            ModelWarning = warning;
 
             // **読んでいた場所を保つ。** 段階 2 は行数を変えるので、
             // 何もしないとスクロールが飛ぶ（届く前に読み始めていると気になる）。

@@ -115,6 +115,38 @@ internal static class Cli
             }
             return RunSecrets(files, args, output);
         }
+        if (args.Contains("--print-embeddings"))
+        {
+            // **本家の埋め込みと突き合わせるための出口。**
+            // トークン列が合っていても、重みの変換や推論がずれていれば
+            // 数値は合わない。そこは別に確かめる必要がある。
+            var files = Positional(args);
+            if (files.Length < 1)
+            {
+                Console.Error.WriteLine("--print-embeddings には調べるファイルが必要です");
+                return 2;
+            }
+            try
+            {
+                var embedder = Embedder.CreateFromDefaultAssets(ValueOf(args, "--model"));
+                var lines = File.ReadAllLines(files[0]);
+                var vectors = embedder.EmbedLines(lines);
+                var text = new StringBuilder();
+                foreach (var vector in vectors)
+                {
+                    text.AppendLine(string.Join(' ',
+                        vector.Select(v => v.ToString("G9", System.Globalization.CultureInfo.InvariantCulture))));
+                }
+                Emit(text.ToString(), output);
+                return 0;
+            }
+            catch (Exception error) when (error is IOException or InvalidDataException
+                                            or FileNotFoundException)
+            {
+                Console.Error.WriteLine(error.Message);
+                return 2;
+            }
+        }
         if (args.Contains("--tokenize"))
         {
             // **参照実装と突き合わせるための出口。** トークナイザーは
@@ -1601,7 +1633,8 @@ internal static class Cli
 
         // **モデルが扱えない本文なら知らせる。** 標準エラーへ出す
         // （標準出力は結果なので、混ぜると読み直せなくなる）。
-        if (embedder is not null && ModelCoverage.Warn(left.Lines, right.Lines) is { } warning)
+        if (embedder is not null
+            && ModelCoverage.Warn(left.Lines, right.Lines, embedder.VocabSize) is { } warning)
         {
             Console.Error.WriteLine(warning);
         }

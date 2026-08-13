@@ -25,6 +25,12 @@ public sealed class Embedder
         _tokenizer = tokenizer;
     }
 
+    /// <summary>
+    /// いま使っている語彙の数。**モデルが日本語を扱えるかの目安になる。**
+    /// 英語モデルは 30,522、多言語モデルは 250,002。
+    /// </summary>
+    public int VocabSize => _tokenizer.Count;
+
     /// <summary>既定の重みファイルの名前。実行ファイルと同じ場所に置く。</summary>
     public const string DefaultWeightsFileName = "minilm.dcm";
 
@@ -143,12 +149,16 @@ public sealed class Embedder
         // **語彙と重みが噛み合っているかを、使う前に確かめる。**
         // 合っていないと、番号が語彙表の外を指して例外になるか、
         // 範囲内なら黙って別の語の埋め込みを引く。後者は気づけない。
+        // **足りないときだけ断る。** モデル側の行数が語彙より多いのは普通で、
+        // 学習時に切りのいい数へ切り上げた余白が入っている
+        // （多言語 MiniLM は語彙 250,002 に対して 250,037 行）。
+        // 足りないときは番号が表の外を指して落ちるので、先に止める。
         if (tensors.TryGetValue("embeddings.word_embeddings.weight", out var wordEmbeddings)
-            && wordEmbeddings.Rows != tokenizer.Count)
+            && wordEmbeddings.Rows < tokenizer.Count)
         {
             throw new InvalidDataException(
-                $"語彙 {tokenizer.Count:N0} 語に対して、モデルは {wordEmbeddings.Rows:N0} 語を"
-                + $" 期待しています。モデルと語彙（{VocabExtension}）を対で置いてください。");
+                $"語彙 {tokenizer.Count:N0} 語に対して、モデルは {wordEmbeddings.Rows:N0} 語"
+                + $"しか持ちません。モデルと語彙（{VocabExtension}）を対で置いてください。");
         }
         return new Embedder(new Bert(tensors), tokenizer);
     }
