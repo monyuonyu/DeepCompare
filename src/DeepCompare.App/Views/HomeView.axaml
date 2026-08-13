@@ -128,7 +128,7 @@
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding HostLabel}"
                            VerticalAlignment="Center" />
                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Host}"
-                         Watermark="例.com" />
+                         Watermark="example.com" />
 
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding UserLabel}"
                            VerticalAlignment="Center" />

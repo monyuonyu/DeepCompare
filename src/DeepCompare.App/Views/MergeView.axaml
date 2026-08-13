@@ -56,7 +56,7 @@
             <Path Classes="icon" Data="{StaticResource IconExport}" />
           </Button>
           <ToggleButton Classes="filter" IsChecked="{Binding ShowUnchanged}"
-                        ToolTip.Tip="変化のない部分も出す">
+                        ToolTip.Tip="同じ部分も出す">
             <Path Classes="icon" Data="{StaticResource IconFilterAll}" />
           </ToggleButton>
           <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}"

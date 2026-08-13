@@ -107,7 +107,7 @@
                   普段の操作でやる。並べたものを押せるようにすると、
                   「AI が勧めたから」で作業ツリーが動く。
                 -->
-                <TextBlock Text="※提案までです。実行は上のボタンから行ってください。"
+                <TextBlock Text="提案までです。実行するかどうかは、上のボタンから自分で決めてください。"
                            IsVisible="{Binding Assist.Suggestions.Count}"
                            FontSize="11" Foreground="{DynamicResource FgDim}" />
               </StackPanel>

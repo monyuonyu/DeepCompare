@@ -89,6 +89,12 @@ public partial class TextCompareView : UserControl
         // 差分の地図に「いま見えている範囲」を出すために、スクロール位置を拾う。
         // ListBox の中の ScrollViewer は、テンプレートが当たるまで存在しない。
         AttachedToVisualTree += (_, _) => HookScroll();
+
+        // **見つかるまで探し続ける。** 本文の一覧は比較が終わるまで
+        // 非表示で、そのあいだ中の ScrollViewer は作られてすらいない。
+        // 木に付いたときの一度きりで諦めていたため、地図の「いま見えている
+        // 範囲」がずっと初期値のまま（＝全体）になっていた。
+        LayoutUpdated += (_, _) => HookScroll();
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
@@ -123,7 +129,10 @@ public partial class TextCompareView : UserControl
         {
             return;
         }
-        _scroll = this.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+        // **本文の一覧のものに限る。** 上から順に拾うと、先に現れた別の
+        // 入れ物の ScrollViewer を掴んでしまう。
+        var list = this.FindControl<ListBox>("RowList");
+        _scroll = list?.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
         if (_scroll is null)
         {
             return;

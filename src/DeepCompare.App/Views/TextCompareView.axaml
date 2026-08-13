@@ -215,7 +215,7 @@
                     <TextBlock Text="{Binding ImportanceError}"
                                Foreground="{DynamicResource FgWarning}"
                                TextWrapping="Wrap" FontSize="11" />
-                    <Button Content="適用して比較しなおす" Classes="accent"
+                    <Button Content="適用して比べ直す" Classes="accent"
                             HorizontalAlignment="Left"
                             Command="{Binding ApplyImportanceCommand}" />
                   </StackPanel>

@@ -31,7 +31,7 @@
         <CheckBox Content="出力も比べる" IsChecked="{Binding CompareOutputs}"
                   VerticalAlignment="Center" Margin="6,0,0,0" FontSize="12"
                   ToolTip.Tip="実行しただけで動くので、既定では見ません" />
-        <CheckBox Content="変化なしも出す" IsChecked="{Binding ShowUnchanged}"
+        <CheckBox Content="同じセルも出す" IsChecked="{Binding ShowUnchanged}"
                   VerticalAlignment="Center" Margin="6,0,0,0" FontSize="12" />
         <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}"
                      Width="70" VerticalAlignment="Center" Margin="6,0" />

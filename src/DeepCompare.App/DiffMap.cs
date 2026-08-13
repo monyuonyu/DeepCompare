@@ -36,10 +36,21 @@ public sealed class DiffMap : Control
         AvaloniaProperty.Register<DiffMap, double>(
             nameof(ClickedPosition), defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
 
+    /// <summary>いま指している位置（0〜1）。指していなければ -1。</summary>
+    private static readonly StyledProperty<double> HoverProperty =
+        AvaloniaProperty.Register<DiffMap, double>(nameof(Hover), -1);
+
+    private double Hover
+    {
+        get => GetValue(HoverProperty);
+        set => SetValue(HoverProperty, value);
+    }
+
     static DiffMap()
     {
         AffectsRender<DiffMap>(
-            RowsProperty, ViewStartProperty, ViewSizeProperty, CurrentLineProperty);
+            RowsProperty, ViewStartProperty, ViewSizeProperty, CurrentLineProperty,
+            HoverProperty);
     }
 
     public System.Collections.IEnumerable? Rows
@@ -89,11 +100,23 @@ public sealed class DiffMap : Control
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        var y = e.GetPosition(this).Y;
+
+        // **どこを指しているかを出す。** 帯は幅 26px しかないので、
+        // 押す前に「ここを押すとどこへ飛ぶか」が分からなかった。
+        Hover = Bounds.Height > 0 ? Math.Clamp(y / Bounds.Height, 0, 1) : -1;
+
         // 押したまま動かすと、なぞった先へ追いかける。スクロールバーと同じ感覚にする。
         if (ReferenceEquals(e.Pointer.Captured, this))
         {
-            Move(e.GetPosition(this).Y);
+            Move(y);
         }
+    }
+
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        base.OnPointerExited(e);
+        Hover = -1;
     }
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
@@ -181,6 +204,18 @@ public sealed class DiffMap : Control
         context.DrawLine(new Pen(accent, 2.5), new Point(0, top + 1), new Point(width, top + 1));
         context.DrawLine(new Pen(accent, 2.5),
             new Point(0, top + viewH - 1), new Point(width, top + viewH - 1));
+
+        // 指している場所。**範囲の枠より前に描く。** 枠の上に重ねると、
+        // 見えている範囲の中を指したときに線が枠に埋もれる。
+        var hover = Hover;
+        if (hover >= 0)
+        {
+            var hy = hover * height;
+            context.FillRectangle(new SolidColorBrush(Colors.Gray, 0.18),
+                new Rect(0, Math.Max(0, hy - 6), width, 12));
+            context.DrawLine(new Pen(Palette.Brush("FgNormal"), 1),
+                new Point(0, hy), new Point(width, hy));
+        }
 
         // いま選んでいる行。**表示範囲とは別に示す。**
         // 範囲の四角だけだと、その中のどこに居るのかが分からない（BC も三角を出す）。

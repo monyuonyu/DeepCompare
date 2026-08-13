@@ -31,7 +31,7 @@
           <Path Classes="icon" Data="{StaticResource IconRefresh}" />
         </Button>
         <ToggleButton Classes="filter" IsChecked="{Binding ShowIdentical}"
-                      ToolTip.Tip="変化のないものも出す">
+                      ToolTip.Tip="同じものも出す">
           <Path Classes="icon" Data="{StaticResource IconFilterAll}" />
         </ToggleButton>
         <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}"

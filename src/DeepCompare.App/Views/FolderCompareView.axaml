@@ -26,7 +26,7 @@
         <Border Classes="vsep" />
 
         <Button Classes="icon" Command="{Binding RefreshCommand}" IsEnabled="{Binding !IsBusy}"
-                ToolTip.Tip="走査しなおす">
+                ToolTip.Tip="走査し直す">
           <Path Classes="icon" Data="{StaticResource IconRefresh}" />
         </Button>
         <!--
@@ -91,7 +91,7 @@
         <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}"
                      Width="70" VerticalAlignment="Center" Margin="6,0" />
 
-        <!-- 絞り込みと比較方式。変えたら「走査しなおす」で反映する -->
+        <!-- 絞り込みと比較方式。変えたら「走査し直す」で反映する -->
         <Button Classes="icon" ToolTip.Tip="絞り込みと比較のしかた">
           <Button.Flyout>
             <Flyout Placement="BottomEdgeAlignedRight">
@@ -122,7 +122,7 @@
                             ToolTip.Tip="片側にしか無いファイルどうしを中身で突き合わせる。" />
                 </StackPanel>
 
-                <Button Content="走査しなおす" Classes="accent" HorizontalAlignment="Left"
+                <Button Content="走査し直す" Classes="accent" HorizontalAlignment="Left"
                         Command="{Binding RefreshCommand}" />
               </StackPanel>
             </Flyout>
