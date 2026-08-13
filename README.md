@@ -111,12 +111,56 @@ C# + Avalonia。外部ランタイムを必要としないネイティブ実行�
 - **`MathF.Round` の既定は偶数丸め。** Rust の `round()` は 0 から遠い側へ丸めるので、
   同じ重みから別のバイト列が出る。`MidpointRounding.AwayFromZero` を明示する。
 
-## 既知の限界
+## 日本語を比べるなら多言語モデルを置く
 
-**日本語の比較品質には構造的な上限がある。** このモデルの正規化は濁点を落とす
-（`だがぱ` → `たかは`）。`paraphrase-MiniLM-L6-v2` が英語中心の uncased モデルである
-ためで、実装の問題ではない（Python の参照実装も同じ挙動）。多言語モデルに替えれば
-解消するが、モデルが数倍大きくなる。
+**既定のモデルは日本語では意味的な対応付けが効かない。** `paraphrase-MiniLM-L6-v2`
+は英語中心の uncased モデルで、正規化が濁点を落とす（`だがぱ` → `たかは`）。
+語彙 30,522 のうち、かなは 184 項目・漢字は 486 項目しかなく、**濁点つきのかなは
+1 つも無い**。実装の問題ではない（Python の参照実装も同じ挙動）。
+
+この機体で実測した差:
+
+| | 英語 22MB | 多言語 114MB |
+|---|---|---|
+| 「バグを直す」vs「ハクを直す」（低いほど良い） | **1.0000** | 0.9429 |
+| 「設定ファイルを読み込む」vs「コンフィグを読む」（高いほど良い） | 0.9290 | 0.5131 |
+| 「設定を読む」vs「DB へ接続する」（低いほど良い） | 0.9110 | 0.4080 |
+| 「設定ファイルを読み込む」vs「load the configuration file」（高いほど良い） | **-0.1756** | 0.5751 |
+| 「今日はいい天気ですね」vs「設定を読む」（低いほど良い） | 0.8442 | 0.0557 |
+
+英語モデルは日本語をすべて 0.84〜1.00 に潰していて、**何も区別していない**
+（高い値は意味ではなく文字の重なりによる）。同義と別物の差は 0.018 しかない。
+多言語モデルでは 0.105 と 6 倍に広がり、日本語と英語の訳も繋がる。
+
+日本語が半分を超えるファイルを英語モデルで比べると、その旨を画面と CLI に出す。
+
+### 置き方
+
+    B=https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2/resolve/main
+    curl -sSLO $B/model.safetensors
+    curl -sSL -o unigram.json $B/unigram.json
+
+    # 語彙を「トークン<TAB>スコア」の形へ
+    python3 -c "import json;d=json.load(open('unigram.json'));print('\n'.join(f'{t}\t{s}' for t,s in d['vocab']))" \
+        > multilingual.vocab
+
+    dotnet run --project csharp/src/DeepCompare.ModelPrep/DeepCompare.ModelPrep.csproj -c Release \
+        -- model.safetensors multilingual.dcm
+
+`multilingual.dcm` と `multilingual.vocab` を**実行ファイルと同じ場所に、対で**置く。
+名前を揃えるのは、そこで対応を取っているから。片方だけ差し替えると番号は付くのに
+モデルが学習した番号とは別物になるので、使う前に語彙数を照合して断る。
+
+    deepcompare --print 左 右 --model multilingual.dcm
+
+GUI では設定から選べる（`.dcm` を並べて置けば一覧に出る）。既定を変えるなら
+環境変数 `DEEPCOMPARE_MODEL` にフルパスを入れる。
+
+**コスト**: 114MB（英語版は 22MB）、読み込みが 2.8 秒（同 0.8 秒）。
+日本語を扱わないなら置く必要はない。
+
+本家 transformers との照合はコサイン 0.99982 以上（最悪の食い違い 0.000185）で、
+int8 量子化の誤差の範囲。トークン化は参照実装（tokenizers）と 6006 行で完全一致。
 
 ---
 
