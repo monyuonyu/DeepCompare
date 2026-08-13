@@ -43,6 +43,10 @@ public partial class DiffEditorView : UserControl
     {
         LeftPane.Fill(left, leftReadOnly);
         RightPane.Fill(right, rightReadOnly);
+
+        // **入れ直した直後に揃える。** 片方だけ位置が残っていると、
+        // 開いた瞬間から左右が別の場所を向いている。
+        Sync(from: LeftPane, to: RightPane);
     }
 
     public IReadOnlyList<string> LeftLines() => LeftPane.CurrentLines();

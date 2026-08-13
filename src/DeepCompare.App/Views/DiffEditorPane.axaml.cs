@@ -71,7 +71,11 @@ public partial class DiffEditorPane : UserControl
         _filling = false;
 
         Editor.CaretOffset = Math.Min(caret, Editor.Text.Length);
-        Editor.TextArea.TextView.ScrollOffset.WithY(scroll);
+
+        // **読んでいた場所へ戻す。** ScrollOffset は読むだけの値なので、
+        // 代入しても何も起きない（そこに気づかず、入れ直すたびに
+        // 左右がばらばらの位置を向いていた）。
+        Editor.ScrollToVerticalOffset(scroll);
         Editor.TextArea.TextView.InvalidateVisual();
     }
 
