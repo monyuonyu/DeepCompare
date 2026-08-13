@@ -42,7 +42,7 @@ public sealed class CommitGraph : Control
     }
 
     /// <summary>列の間隔。狭いと線が重なり、広いと説明の場所が減る。</summary>
-    private const double LaneWidth = 14;
+    internal const double LaneWidth = 14;
     private const double Radius = 3.5;
 
     /// <summary>
@@ -89,10 +89,14 @@ public sealed class CommitGraph : Control
         }
 
         // 自分の列の上半分（1 つ新しい側から降りてくる線）。
-        // 先頭の行にも引く。**そこで切れていると、上に続きがあることが伝わらない。**
+        // **枝の先端には引かない。** 引くと画面の上にまだ続きがあるように見え、
+        // そこが枝の始まりだと分からない。
         var own = X(row.Lane);
-        context.DrawLine(new Pen(Colour(row.Lane), 1.6),
-            new Point(own, 0), new Point(own, middle));
+        if (!row.IsTip)
+        {
+            context.DrawLine(new Pen(Colour(row.Lane), 1.6),
+                new Point(own, 0), new Point(own, middle));
+        }
 
         // 親へ伸びる線。列が変わるなら、真ん中で曲げて次の行へ渡す。
         foreach (var edge in row.Edges)

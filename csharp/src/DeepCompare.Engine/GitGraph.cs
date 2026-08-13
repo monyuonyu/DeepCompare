@@ -18,6 +18,14 @@ public sealed record GraphRow(
 {
     /// <summary>親が 2 つ以上ある（マージ）。丸を大きくして目印にする。</summary>
     public bool IsMerge { get; init; }
+
+    /// <summary>
+    /// この行より上（新しい側）から、この列へ降りてくる線が無い。枝の先端。
+    ///
+    /// **上半分の線を引くかどうかがこれで決まる。** 先端にも引くと、画面の上に
+    /// 続きがあるように見えて、そこが枝の始まりだと分からない。
+    /// </summary>
+    public bool IsTip { get; init; }
 }
 
 /// <summary>
@@ -50,6 +58,7 @@ public static class GitGraph
         {
             // この列で待たれているか。待たれていなければ新しい列に置く。
             var lane = lanes.IndexOf(commit.Hash);
+            var tip = lane < 0;         // 誰も待っていない＝ここが枝の先端
             if (lane < 0)
             {
                 lane = FreeLane(lanes, maximumLanes);
@@ -137,6 +146,7 @@ public static class GitGraph
                 Math.Max(lane + 1, lanes.Count))
             {
                 IsMerge = commit.Parents.Count > 1,
+                IsTip = tip,
             });
         }
 

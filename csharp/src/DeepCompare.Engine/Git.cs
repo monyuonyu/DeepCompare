@@ -500,6 +500,49 @@ public sealed class GitRepository
         return result.StandardOutputBytes;
     }
 
+    /// <summary>
+    /// そのコミットで変わったファイルの一覧。
+    ///
+    /// **マージは最初の親と比べる。** git の既定はマージで何も出さない
+    /// （どちらの親と比べるか決まらないため）が、画面で「何も変わっていない」
+    /// ように見えるのは嘘に近い。ふつう知りたいのは取り込み元との差なので、
+    /// <c>-m --first-parent</c> で最初の親との差を出す。
+    /// </summary>
+    public IReadOnlyList<GitFileStatus> CommitFiles(string revision)
+    {
+        var output = Run([
+            "diff-tree", "--no-commit-id", "--name-status", "-r", "-z",
+            "-m", "--first-parent", revision,
+        ]).StandardOutput;
+
+        var result = new List<GitFileStatus>();
+        var fields = output.Split('\0', StringSplitOptions.RemoveEmptyEntries);
+        for (var i = 0; i + 1 < fields.Length;)
+        {
+            var code = fields[i];
+            // **R と C だけ、後ろに名前が 2 つ続く。** 一律に 2 つずつ読むと
+            // リネームの次から全部ずれる（status の解析で踏んだのと同じ形）。
+            var renamed = code.Length > 0 && code[0] is 'R' or 'C';
+            if (renamed && i + 2 >= fields.Length)
+            {
+                break;
+            }
+
+            var from = fields[i + 1];
+            var to = renamed ? fields[i + 2] : from;
+            i += renamed ? 3 : 2;
+
+            var status = code.Length > 0 ? Code(code[0]) : GitStatusCode.Unchanged;
+            result.Add(new GitFileStatus(to, status, GitStatusCode.Unchanged,
+                renamed ? from : null));
+        }
+        return result;
+    }
+
+    /// <summary>コミットの説明の全文（1 行目の後ろも含む）。</summary>
+    public string CommitBody(string revision)
+        => Run(["log", "-1", "--format=%B", revision]).StandardOutput.TrimEnd('\n', '\r');
+
     /// <summary>その時点にファイルが存在したか。</summary>
     public bool Exists(string revision, string path)
         => RunRaw(["cat-file", "-e", $"{revision}:{ToRelative(path)}"]).ExitCode == 0;

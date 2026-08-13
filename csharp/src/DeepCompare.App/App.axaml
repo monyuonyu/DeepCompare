@@ -122,6 +122,32 @@
           <SolidColorBrush x:Key="StatusLeftOnly">#CF222E</SolidColorBrush>
           <SolidColorBrush x:Key="StatusRightOnly">#1A7F37</SolidColorBrush>
           <SolidColorBrush x:Key="StatusSame">#8C959F</SolidColorBrush>
+
+          <!--
+            git の変更の色。**フォルダー比較の Status* とは別に持つ。**
+            あちらは「どちら側に無いか」で赤緑を決めており（右に無い＝赤）、
+            git の「足した＝緑・消した＝赤」とは向きが逆になる。同じ鍵を
+            使い回すと、片方を直したときにもう片方が黙って裏返る。
+          -->
+          <SolidColorBrush x:Key="GitAdded">#1A7F37</SolidColorBrush>
+          <SolidColorBrush x:Key="GitRemoved">#CF222E</SolidColorBrush>
+          <SolidColorBrush x:Key="GitChanged">#9A6700</SolidColorBrush>
+
+          <!--
+            枝やタグの札。**種類ごとに色を変える。** 名前だけ並べても、
+            どれが手元でどれが遠隔か読み取れない（`origin/main` の接頭辞は
+            長い名前の中に埋もれる）。
+          -->
+          <SolidColorBrush x:Key="RefLocalBg">#DDF4FF</SolidColorBrush>
+          <SolidColorBrush x:Key="RefLocalFg">#0969DA</SolidColorBrush>
+          <SolidColorBrush x:Key="RefCurrentBg">#0969DA</SolidColorBrush>
+          <SolidColorBrush x:Key="RefCurrentFg">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="RefRemoteBg">#EAEEF2</SolidColorBrush>
+          <SolidColorBrush x:Key="RefRemoteFg">#57606A</SolidColorBrush>
+          <SolidColorBrush x:Key="RefTagBg">#FFF1E5</SolidColorBrush>
+          <SolidColorBrush x:Key="RefTagFg">#BC4C00</SolidColorBrush>
+          <SolidColorBrush x:Key="RefHeadBg">#FBEFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="RefHeadFg">#8250DF</SolidColorBrush>
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Dark">
@@ -191,6 +217,23 @@
           <SolidColorBrush x:Key="StatusLeftOnly">#E06C75</SolidColorBrush>
           <SolidColorBrush x:Key="StatusRightOnly">#8FBF6F</SolidColorBrush>
           <SolidColorBrush x:Key="StatusSame">#7E838F</SolidColorBrush>
+
+          <!-- git の変更の色（足した＝緑・消した＝赤） -->
+          <SolidColorBrush x:Key="GitAdded">#3FB950</SolidColorBrush>
+          <SolidColorBrush x:Key="GitRemoved">#F85149</SolidColorBrush>
+          <SolidColorBrush x:Key="GitChanged">#D29922</SolidColorBrush>
+
+          <!-- 枝やタグの札 -->
+          <SolidColorBrush x:Key="RefLocalBg">#12325A</SolidColorBrush>
+          <SolidColorBrush x:Key="RefLocalFg">#79C0FF</SolidColorBrush>
+          <SolidColorBrush x:Key="RefCurrentBg">#1F6FEB</SolidColorBrush>
+          <SolidColorBrush x:Key="RefCurrentFg">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="RefRemoteBg">#30363D</SolidColorBrush>
+          <SolidColorBrush x:Key="RefRemoteFg">#ADBAC7</SolidColorBrush>
+          <SolidColorBrush x:Key="RefTagBg">#4A2C10</SolidColorBrush>
+          <SolidColorBrush x:Key="RefTagFg">#F0A868</SolidColorBrush>
+          <SolidColorBrush x:Key="RefHeadBg">#3A2A55</SolidColorBrush>
+          <SolidColorBrush x:Key="RefHeadFg">#D2A8FF</SolidColorBrush>
         </ResourceDictionary>
 
       </ResourceDictionary.ThemeDictionaries>

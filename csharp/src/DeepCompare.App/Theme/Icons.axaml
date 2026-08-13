@@ -37,6 +37,15 @@
   <!-- Git: 枝分かれと 3 つの節 -->
   <StreamGeometry x:Key="IconGit">M7,7 v10 M7,11 h7 a3,3 0 0 0 3,-3 M4.5,4.5 a2.5,2.5 0 1 0 5,0 a2.5,2.5 0 1 0 -5,0 M4.5,19.5 a2.5,2.5 0 1 0 5,0 a2.5,2.5 0 1 0 -5,0 M14.5,5.5 a2.5,2.5 0 1 0 5,0 a2.5,2.5 0 1 0 -5,0</StreamGeometry>
 
+  <!-- 枝の札: 分岐（Git と同じ骨組みだが、札に載るので描く範囲を狭める） -->
+  <StreamGeometry x:Key="IconBranch">M8,6.5 v11 M8,12 h5 a3,3 0 0 0 3,-3 v-2.5 M6,5 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M6,19 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M14,5 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0</StreamGeometry>
+
+  <!-- タグ: 荷札と穴 -->
+  <StreamGeometry x:Key="IconTag">M12.5,3.5 h8 v8 l-9,9 l-8,-8 z M17,7.5 a1.2,1.2 0 1 0 2.4,0 a1.2,1.2 0 1 0 -2.4,0</StreamGeometry>
+
+  <!-- 遠隔: 雲 -->
+  <StreamGeometry x:Key="IconCloud">M7,18.5 h10.5 a3.75,3.75 0 0 0 0,-7.5 a5.5,5.5 0 0 0 -10.6,-1.2 a3.35,3.35 0 0 0 0.1,8.7 z</StreamGeometry>
+
   <!-- 保存した比較: しおり -->
   <StreamGeometry x:Key="IconSaved">M6,3.5 h12 v17.5 l-6,-4.5 l-6,4.5 z</StreamGeometry>
 

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Controls;
 using Avalonia.Media;
 using DeepCompare.Engine;
 
@@ -82,6 +83,71 @@ public sealed class GitBranchRow(GitBranch branch)
     public bool HasTrack => TrackText.Length > 0;
 }
 
+/// <summary>枝やタグの札 1 つ。</summary>
+public sealed class GitRefChip(GitRef reference)
+{
+    public string Text => reference.Name;
+
+    /// <summary>種類ごとに色を変える。**文字だけだと、どれが遠隔か分からない。**</summary>
+    public IBrush Background => Palette.Brush(reference.Kind switch
+    {
+        GitRefKind.Tag => "RefTagBg",
+        GitRefKind.Remote => "RefRemoteBg",
+        GitRefKind.Head => "RefHeadBg",
+        _ => reference.IsCurrent ? "RefCurrentBg" : "RefLocalBg",
+    });
+
+    public IBrush Foreground => Palette.Brush(reference.Kind switch
+    {
+        GitRefKind.Tag => "RefTagFg",
+        GitRefKind.Remote => "RefRemoteFg",
+        GitRefKind.Head => "RefHeadFg",
+        _ => reference.IsCurrent ? "RefCurrentFg" : "RefLocalFg",
+    });
+
+    /// <summary>いま居る枝だけ太字にする。</summary>
+    public FontWeight Weight => reference.IsCurrent ? FontWeight.SemiBold : FontWeight.Normal;
+
+    public Geometry? Icon => Icons.Get(reference.Kind switch
+    {
+        GitRefKind.Tag => "IconTag",
+        GitRefKind.Remote => "IconCloud",
+        _ => "IconBranch",
+    });
+}
+
+/// <summary>
+/// コミットで変わったファイル 1 件。
+///
+/// 作業ツリーの行（<see cref="GitFileRow"/>）とは別に持つ。あちらは索引と
+/// 作業ツリーの 2 段を表すが、こちらに段は無い。**同じ型にすると
+/// 「stage 済み」のような、ここでは意味を成さない札が出る。**
+/// </summary>
+public sealed class GitCommitFileRow(GitFileStatus status)
+{
+    public string Path => status.Path;
+
+    public string Display => status.OriginalPath is { Length: > 0 } original
+        ? $"{original} → {status.Path}"
+        : status.Path;
+
+    public string Mark => status.Index switch
+    {
+        GitStatusCode.Added => "A",
+        GitStatusCode.Deleted => "D",
+        GitStatusCode.Renamed => "R",
+        GitStatusCode.Copied => "C",
+        _ => "M",
+    };
+
+    public IBrush MarkColour => Palette.Brush(status.Index switch
+    {
+        GitStatusCode.Added => "GitAdded",
+        GitStatusCode.Deleted => "GitRemoved",
+        _ => "GitChanged",
+    });
+}
+
 /// <summary>コミット 1 件の表示用。</summary>
 public sealed class GitCommitRow(GitCommit commit)
 {
@@ -93,6 +159,55 @@ public sealed class GitCommitRow(GitCommit commit)
     public string When => Commit.When.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
     public string MergeNote => Commit.IsMerge ? "マージ" : string.Empty;
     public bool IsMerge => Commit.IsMerge;
+
+    /// <summary>この行のグラフ。<see cref="GitGraph"/> が決める。</summary>
+    public GraphRow? Graph { get; set; }
+
+    /// <summary>
+    /// グラフ列の幅。**行ごとに変えない。** 変えると列が揃わない。
+    ///
+    /// <see cref="GridLength"/> で持つ。数値のまま <c>ColumnDefinition.Width</c> へ
+    /// 束縛すると**静かに既定（<c>1*</c>）へ落ちて**、列が半分ずつに割れる。
+    /// </summary>
+    public GridLength GraphWidth { get; set; } = new(CommitGraph.LaneWidth);
+
+    public IReadOnlyList<GitRefChip> Refs { get; } =
+        [.. commit.Refs.Select(r => new GitRefChip(r))];
+
+    public bool HasRefs => Refs.Count > 0;
+
+    /// <summary>
+    /// 詳細に出す相対時刻。**「3 日前」の方が、日付より早く分かる。**
+    /// 1 か月を超えたら日付そのものを出す（「87 日前」は数え直しが要る）。
+    /// </summary>
+    public string Ago
+    {
+        get
+        {
+            var span = DateTimeOffset.Now - Commit.When;
+            if (span < TimeSpan.Zero)
+            {
+                return "これから";     // 時計がずれている
+            }
+            if (span.TotalMinutes < 1)
+            {
+                return "たった今";
+            }
+            if (span.TotalHours < 1)
+            {
+                return $"{(int)span.TotalMinutes} 分前";
+            }
+            if (span.TotalDays < 1)
+            {
+                return $"{(int)span.TotalHours} 時間前";
+            }
+            if (span.TotalDays < 31)
+            {
+                return $"{(int)span.TotalDays} 日前";
+            }
+            return Commit.When.ToLocalTime().ToString("yyyy-MM-dd");
+        }
+    }
 }
 
 /// <summary>
@@ -138,6 +253,20 @@ public sealed class GitViewModel : ViewModelBase
             () => NewBranchName.Trim().Length > 0);
         OpenCommitCommand = new RelayCommand<GitCommitRow>(
             row => { OpenCommit(row); return Task.CompletedTask; });
+        OpenCommitFileCommand = new RelayCommand<GitCommitFileRow>(
+            file => { OpenCommitFile(SelectedCommit, file); return Task.CompletedTask; });
+    }
+
+    /// <summary>グラフの列の間隔。描く側と同じ値を使う（別々に持つとずれる）。</summary>
+    internal const double GraphLaneWidth = CommitGraph.LaneWidth;
+
+    private GridLength _graphColumnWidth = new(GraphLaneWidth);
+
+    /// <summary>グラフ列の幅。見出しと本体で同じ値を使い、列を揃える。</summary>
+    public GridLength GraphColumnWidth
+    {
+        get => _graphColumnWidth;
+        private set => Set(ref _graphColumnWidth, value);
     }
 
     public ObservableCollection<GitFileRow> Files { get; } = [];
@@ -148,6 +277,7 @@ public sealed class GitViewModel : ViewModelBase
     public RelayCommand<GitFileRow> StageCommand { get; }
     public RelayCommand<GitFileRow> UnstageCommand { get; }
     public RelayCommand<GitCommitRow> OpenCommitCommand { get; }
+    public RelayCommand<GitCommitFileRow> OpenCommitFileCommand { get; }
     public RelayCommand CommitCommand { get; }
     public RelayCommand AmendCommand { get; }
     public RelayCommand FetchCommand { get; }
@@ -380,7 +510,9 @@ public sealed class GitViewModel : ViewModelBase
             var (files, branch, commits, branches, staged) = await Task.Run(() => (
                 repository.Status().Where(f => f.Index != GitStatusCode.Ignored).ToList(),
                 repository.CurrentBranch(),
-                repository.Log(100),
+                // **すべての枝を含める。** いま居る枝だけだと線が 1 本しか無く、
+                // グラフにする意味が無い。
+                repository.Log(100, all: true),
                 repository.Branches(),
                 repository.HasStagedChanges()));
 
@@ -404,9 +536,30 @@ public sealed class GitViewModel : ViewModelBase
             }
 
             Commits.Clear();
-            foreach (var commit in commits)
+            SelectedCommit = null;
+
+            // グラフの列を決める。**全部まとめて計算する。** 1 行だけ見ても
+            // どこから来てどこへ行くかは決まらない（前後の行に依存する）。
+            var graph = GitGraph.Build(commits);
+            var width = graph.Count == 0 ? 1 : graph.Max(g => g.Width);
+            var graphWidth = new GridLength(width * GraphLaneWidth);
+            GraphColumnWidth = graphWidth;
+
+            for (var i = 0; i < commits.Count; i++)
             {
-                Commits.Add(new GitCommitRow(commit));
+                Commits.Add(new GitCommitRow(commits[i])
+                {
+                    Graph = graph[i],
+                    // 列の幅は全行で揃える。**行ごとに変えると説明の左端が
+                    // 揃わず、目が行を追えなくなる。**
+                    GraphWidth = graphWidth,
+                });
+            }
+
+            // 先頭を選んでおく。詳細の枠が空のままだと、何をすればいいか伝わらない。
+            if (Commits.Count > 0)
+            {
+                SelectedCommit = Commits[0];
             }
 
             Summary = files.Count == 0
@@ -451,10 +604,18 @@ public sealed class GitViewModel : ViewModelBase
             leftReadOnly: true, rightReadOnly: false);
     }
 
-    /// <summary>そのコミットで何が変わったかを見る。親と比べる。</summary>
-    private void OpenCommit(GitCommitRow row)
+    /// <summary>
+    /// そのコミットで、そのファイルが何に変わったかを見る。最初の親と比べる。
+    ///
+    /// **どのファイルかは、選んだコミットの変更一覧から来る。** 以前は作業ツリー
+    /// 側で選ばれているファイルに合わせていたが、そのコミットで触っていない
+    /// ファイルを指していると「差分なし」が出るだけで、意味が無かった。
+    /// </summary>
+    private void OpenCommit(GitCommitRow row) => OpenCommitFile(row, SelectedCommitFile);
+
+    private void OpenCommitFile(GitCommitRow? row, GitCommitFileRow? file)
     {
-        if (_repository is not { } repository)
+        if (_repository is not { } repository || row is null)
         {
             return;
         }
@@ -463,18 +624,15 @@ public sealed class GitViewModel : ViewModelBase
             Message = "最初のコミットには親が無いので、比べる相手がありません。";
             return;
         }
-
-        // どのファイルを見るかは、いま選ばれている変更ファイルに合わせる。
-        // 選ばれていなければ、何を出すか決められないので知らせる。
-        if (SelectedFile is not { } selected)
+        if (file is null)
         {
-            Message = "先に左の一覧でファイルを選んでください。そのファイルの、このコミットでの変化を出します。";
+            Message = "下の一覧でファイルを選ぶと、そのコミットでの変化を出します。";
             return;
         }
 
         var hash = row.Commit.Hash;
         var parent = row.Commit.Parents[0];
-        var relative = selected.Status.Path;
+        var relative = file.Path;
 
         _shell.ShowTextWith(
             $"{parent[..7]}:{relative}", $"{hash[..7]}:{relative}",
@@ -487,6 +645,126 @@ public sealed class GitViewModel : ViewModelBase
                 return repository.Exists(revision, file) ? repository.Show(revision, file) : [];
             },
             leftReadOnly: true, rightReadOnly: true);
+    }
+
+    private GitCommitRow? _selectedCommit;
+
+    /// <summary>
+    /// 履歴で選ばれているコミット。選ぶたびに、下の詳細を読み直す。
+    ///
+    /// **一覧を引くときにまとめて取らない。** 100 件それぞれの変更ファイルを
+    /// 先に取ると、git を 100 回起動することになる。見るのは 1 件なので、
+    /// 選ばれてから取る。
+    /// </summary>
+    public GitCommitRow? SelectedCommit
+    {
+        get => _selectedCommit;
+        set
+        {
+            if (Set(ref _selectedCommit, value))
+            {
+                OnPropertyChanged(nameof(HasSelectedCommit));
+                _ = LoadCommitDetailAsync(value);
+            }
+        }
+    }
+
+    public bool HasSelectedCommit => _selectedCommit is not null;
+
+    /// <summary>選んだコミットの変更ファイル。</summary>
+    public ObservableCollection<GitCommitFileRow> CommitFiles { get; } = [];
+
+    private GitCommitFileRow? _selectedCommitFile;
+    public GitCommitFileRow? SelectedCommitFile
+    {
+        get => _selectedCommitFile;
+        set => Set(ref _selectedCommitFile, value);
+    }
+
+    private string _commitBody = string.Empty;
+
+    /// <summary>
+    /// 説明の 2 行目より後ろ。1 行目（件名）は上に出ているので落とす。
+    ///
+    /// **同じ文を 2 回出さない。** 1 行だけのコミットでは全文＝件名なので、
+    /// そのまま出すと真下に同じ文が並び、続きがあるように見える。
+    /// </summary>
+    public string CommitBody
+    {
+        get => _commitBody;
+        private set => Set(ref _commitBody, value);
+    }
+
+    public bool HasCommitBody => _commitBody.Length > 0;
+
+    private static string BodyAfterSubject(string full)
+    {
+        var breakAt = full.IndexOf('\n');
+        return breakAt < 0 ? string.Empty : full[(breakAt + 1)..].Trim('\n', '\r', ' ');
+    }
+
+    private string _commitParents = string.Empty;
+
+    /// <summary>親のハッシュ。マージなら 2 つ以上並ぶ。</summary>
+    public string CommitParents
+    {
+        get => _commitParents;
+        private set => Set(ref _commitParents, value);
+    }
+
+    /// <summary>詳細の読み込みを 1 つに絞る。素早く選び替えたときに古い結果を出さない。</summary>
+    private int _detailGeneration;
+
+    private async Task LoadCommitDetailAsync(GitCommitRow? row)
+    {
+        var generation = ++_detailGeneration;
+
+        CommitFiles.Clear();
+        SelectedCommitFile = null;
+        CommitBody = string.Empty;
+        OnPropertyChanged(nameof(HasCommitBody));
+        CommitParents = string.Empty;
+
+        if (row is null || _repository is not { } repository)
+        {
+            return;
+        }
+
+        var hash = row.Commit.Hash;
+        try
+        {
+            var (body, files) = await Task.Run(() => (
+                repository.CommitBody(hash),
+                repository.CommitFiles(hash)));
+
+            // 待っている間に別のコミットが選ばれていたら、この結果は捨てる。
+            if (generation != _detailGeneration)
+            {
+                return;
+            }
+
+            CommitBody = BodyAfterSubject(body);
+            OnPropertyChanged(nameof(HasCommitBody));
+            CommitParents = string.Join("  ", row.Commit.Parents.Select(p => p[..Math.Min(7, p.Length)]));
+
+            foreach (var file in files.OrderBy(f => f.Path, StringComparer.Ordinal))
+            {
+                CommitFiles.Add(new GitCommitFileRow(file));
+            }
+
+            // 1 件だけなら選んでおく。**そこを選ばせるためだけの一手間を省く。**
+            if (CommitFiles.Count == 1)
+            {
+                SelectedCommitFile = CommitFiles[0];
+            }
+        }
+        catch (GitException error)
+        {
+            if (generation == _detailGeneration)
+            {
+                Message = error.Message;
+            }
+        }
     }
 
     private GitFileRow? _selectedFile;
