@@ -337,14 +337,20 @@
                    Foreground="{DynamicResource Accent}"
                    IsVisible="{Binding ManualNote,
                      Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-        <!--
-          **意味的な対応付けが効いていないことを黙らない。**
-          この道具の売りなので、効いていないと思われずに使われるのが一番困る。
-        -->
-        <TextBlock Text="{Binding ModelWarning}" FontSize="11"
-                   Foreground="{DynamicResource FgWarning}"
-                   IsVisible="{Binding HasModelWarning}" TextWrapping="Wrap" />
       </StackPanel>
+    </Border>
+
+    <!--
+      **意味的な対応付けが効いていないことを黙らない。**
+      この道具の売りなので、効いていないと思われずに使われるのが一番困る。
+
+      **状態バーの中に入れない。** あそこは横並びなので幅が無限に取れ、
+      TextWrapping が効かずに右端で切れる。長い文は自分の行を持たせる。
+    -->
+    <Border DockPanel.Dock="Bottom" Classes="statusbar"
+            IsVisible="{Binding HasModelWarning}">
+      <TextBlock Text="{Binding ModelWarning}" FontSize="11"
+                 Foreground="{DynamicResource FgWarning}" TextWrapping="Wrap" />
     </Border>
 
     <!--
