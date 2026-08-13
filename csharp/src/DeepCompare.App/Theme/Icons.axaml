@@ -77,8 +77,13 @@
 
   <!-- 表示の絞り込み -->
   <StreamGeometry x:Key="IconFilterAll">M3.5,6 h17 M3.5,12 h17 M3.5,18 h17</StreamGeometry>
-  <StreamGeometry x:Key="IconFilterDiff">M3.5,6 h17 M3.5,18 h17 M8,12 h8</StreamGeometry>
-  <StreamGeometry x:Key="IconFilterSame">M3.5,12 h17</StreamGeometry>
+  <!-- 「差異のあるもの」は上下に離れた 2 本と、間の短い線 -->
+  <StreamGeometry x:Key="IconFilterDiff">M3.5,5.5 h17 M3.5,18.5 h17 M7,12 h10</StreamGeometry>
+  <!--
+    「同じもの」は等号で表す。**1 本線にしない。**
+    高さを持たない図形は Stretch=Uniform で潰れ、点にしか見えなくなる。
+  -->
+  <StreamGeometry x:Key="IconFilterSame">M4,9 h16 M4,15 h16</StreamGeometry>
 
   <!-- 木の開閉 -->
   <StreamGeometry x:Key="IconChevronRight">M9.5,5 l7,7 l-7,7</StreamGeometry>

@@ -1,0 +1,100 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:DeepCompare.App"
+             x:Class="DeepCompare.App.Views.BinaryCompareView"
+             x:DataType="vm:BinaryCompareViewModel">
+
+  <UserControl.Styles>
+    <!-- 16 進は桁が揃っていないと読めない。行の高さも固定する。 -->
+    <Style Selector="TextBlock.hex">
+      <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Height" Value="18" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextWrapping" Value="NoWrap" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+
+    <Border DockPanel.Dock="Top" Classes="topbar" BorderThickness="0">
+      <StackPanel Orientation="Horizontal" Spacing="2">
+        <Button Classes="icon" Command="{Binding Shell.GoHomeCommand}"
+                ToolTip.Tip="起動画面へ戻る">
+          <Path Classes="icon" Data="{StaticResource IconHome}" />
+        </Button>
+        <Border Classes="vsep" />
+        <Button Classes="icon" Command="{Binding CompareCommand}" IsEnabled="{Binding !Busy}"
+                ToolTip.Tip="バイト列として比べる">
+          <Path Classes="icon" Data="{StaticResource IconRefresh}" />
+        </Button>
+        <ToggleButton Classes="filter" IsChecked="{Binding ChangesOnly}"
+                      ToolTip.Tip="違う行だけ出す">
+          <Path Classes="icon" Data="{StaticResource IconFilterDiff}" />
+        </ToggleButton>
+        <Border Classes="vsep" />
+        <Button Classes="icon" Command="{Binding OpenAsTextCommand}"
+                ToolTip.Tip="テキストとして比べ直す">
+          <Path Classes="icon" Data="{StaticResource IconText}" />
+        </Button>
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}"
+                     Width="70" VerticalAlignment="Center" Margin="6,0" />
+      </StackPanel>
+    </Border>
+
+    <Border DockPanel.Dock="Top" Classes="topbar">
+      <Grid ColumnDefinitions="*,Auto,*">
+        <TextBox Grid.Column="0" Text="{Binding LeftPath}" PlaceholderText="左のファイル" />
+        <TextBlock Grid.Column="1" Text="↔" Classes="dim" VerticalAlignment="Center" Margin="10,0" />
+        <TextBox Grid.Column="2" Text="{Binding RightPath}" PlaceholderText="右のファイル" />
+      </Grid>
+    </Border>
+
+    <Border DockPanel.Dock="Bottom" Classes="statusbar">
+      <StackPanel Orientation="Horizontal" Spacing="14">
+        <TextBlock Text="{Binding Summary}" FontSize="12" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding Message}" Foreground="{DynamicResource FgWarning}"
+                   FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+
+    <ListBox ItemsSource="{Binding Rows}" Background="Transparent" BorderThickness="0"
+             ScrollViewer.HorizontalScrollBarVisibility="Auto">
+      <ListBox.Styles>
+        <Style Selector="ListBoxItem">
+          <Setter Property="Padding" Value="0" />
+          <Setter Property="MinHeight" Value="0" />
+          <Setter Property="Height" Value="18" />
+        </Style>
+      </ListBox.Styles>
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:HexRowView">
+          <StackPanel Orientation="Horizontal">
+            <!-- 位置は 1 本で足りる。左右でずれたときは片側だけの行になる -->
+            <TextBlock Classes="hex" Text="{Binding Offset}" Width="76"
+                       Foreground="{DynamicResource FgDim}" Margin="8,0,4,0" />
+
+            <Border Background="{Binding LeftBackground}" Width="356">
+              <TextBlock Classes="hex" Inlines="{Binding LeftHex}" Margin="4,0" />
+            </Border>
+            <Border Background="{Binding LeftBackground}" Width="140">
+              <TextBlock Classes="hex" Text="{Binding LeftAscii}" Margin="4,0"
+                         Foreground="{DynamicResource FgDim}" />
+            </Border>
+
+            <Border Width="8" />
+
+            <Border Background="{Binding RightBackground}" Width="356">
+              <TextBlock Classes="hex" Inlines="{Binding RightHex}" Margin="4,0" />
+            </Border>
+            <Border Background="{Binding RightBackground}" Width="140">
+              <TextBlock Classes="hex" Text="{Binding RightAscii}" Margin="4,0"
+                         Foreground="{DynamicResource FgDim}" />
+            </Border>
+          </StackPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+  </DockPanel>
+</UserControl>

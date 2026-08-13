@@ -296,16 +296,20 @@
                   塊の先頭行にだけ出すコピーボタン。BC の gutter button に相当する。
                   高さを行に揃えないと、押せる範囲が行からはみ出して隣の行を隠す。
                 -->
-                <Panel Width="40">
+                <Panel Width="44">
                   <StackPanel Orientation="Horizontal" Spacing="2" IsVisible="{Binding IsBlockStart}">
-                    <Button Content="▶" Width="18" Height="18" Padding="0" FontSize="10"
+                    <Button Classes="apply"
                             ToolTip.Tip="この塊を左から右へ写す"
                             Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyToRightCommand}"
-                            CommandParameter="{Binding}" />
-                    <Button Content="◀" Width="18" Height="18" Padding="0" FontSize="10"
+                            CommandParameter="{Binding}">
+                      <Path Data="{StaticResource IconToRight}" />
+                    </Button>
+                    <Button Classes="apply"
                             ToolTip.Tip="この塊を右から左へ写す"
                             Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyToLeftCommand}"
-                            CommandParameter="{Binding}" />
+                            CommandParameter="{Binding}">
+                      <Path Data="{StaticResource IconToLeft}" />
+                    </Button>
                   </StackPanel>
                 </Panel>
                 <TextBlock Classes="cell gutter" Text="{Binding RightNumber}" />

@@ -70,6 +70,13 @@
             変更の青と紛れないよう、彩度を持たない灰にする。
           -->
           <SolidColorBrush x:Key="BgUnimportant">#EFF1F3</SolidColorBrush>
+          <!--
+            差分を反映する矢印。**この 1 つだけ他と違う色にする。**
+            BC が黄色の矢印を使っているのと同じ理由で、行の色（緑・赤・青）と
+            重ならない色でないと、押せる場所として目に入らない。
+          -->
+          <SolidColorBrush x:Key="ApplyArrow">#D98A00</SolidColorBrush>
+          <SolidColorBrush x:Key="ApplyArrowHover">#F0A500</SolidColorBrush>
           <!-- 型の変化。目で気づけない差の筆頭なので、変更とは別の色にする -->
           <SolidColorBrush x:Key="BgTyped">#FFF6D6</SolidColorBrush>
           <!-- 片側に対応が無い空き。面ではなく縞で示すので、ごく薄く -->
@@ -129,6 +136,8 @@
           <SolidColorBrush x:Key="BgAdded">#223A2A</SolidColorBrush>
           <!-- 重要でない差異。変更の青と紛れないよう、彩度を持たない灰にする -->
           <SolidColorBrush x:Key="BgUnimportant">#2A2A2A</SolidColorBrush>
+          <SolidColorBrush x:Key="ApplyArrow">#E0A000</SolidColorBrush>
+          <SolidColorBrush x:Key="ApplyArrowHover">#FFC02E</SolidColorBrush>
           <SolidColorBrush x:Key="BgTyped">#3A3320</SolidColorBrush>
           <SolidColorBrush x:Key="BgGap">#171717</SolidColorBrush>
 

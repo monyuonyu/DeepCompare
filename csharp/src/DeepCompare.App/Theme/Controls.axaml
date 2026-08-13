@@ -249,6 +249,39 @@
   </Style>
 
   <!--
+    差分の塊を左右へ写す矢印。Beyond Compare の gutter button に当たる。
+    **行の色と重ならない琥珀色にする。** 緑や赤の上に緑や赤の矢印を置くと、
+    押せる場所として目に入らない。
+  -->
+  <Style Selector="Button.apply">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Width" Value="20" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="MinWidth" Value="20" />
+    <Setter Property="MinHeight" Value="18" />
+    <Setter Property="CornerRadius" Value="3" />
+  </Style>
+  <Style Selector="Button.apply Path">
+    <Setter Property="Stroke" Value="{DynamicResource ApplyArrow}" />
+    <Setter Property="StrokeThickness" Value="2.2" />
+    <Setter Property="StrokeLineCap" Value="Round" />
+    <Setter Property="StrokeJoin" Value="Round" />
+    <Setter Property="Fill" Value="Transparent" />
+    <Setter Property="Width" Value="14" />
+    <Setter Property="Height" Value="14" />
+    <Setter Property="Stretch" Value="Uniform" />
+  </Style>
+  <Style Selector="Button.apply:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ControlBgHover}" />
+  </Style>
+  <Style Selector="Button.apply:pointerover Path">
+    <Setter Property="Stroke" Value="{DynamicResource ApplyArrowHover}" />
+    <Setter Property="StrokeThickness" Value="2.6" />
+  </Style>
+
+  <!--
     起動画面に並べる「比較の種類」の大きな絵。
     Beyond Compare の Home view と同じ形。絵を大きく取り、名前を下に添える。
     ここに落とせばその種類で始められるので、押せる範囲は広く取る。

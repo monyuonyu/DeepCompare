@@ -278,6 +278,18 @@ public sealed class ShellViewModel : ViewModelBase
         }
     }
 
+    /// <summary>バイト列として比べる。テキストとして読めないファイル向け。</summary>
+    public void ShowBinary(string left, string right)
+    {
+        var model = new BinaryCompareViewModel(this) { LeftPath = left, RightPath = right };
+        var tab = Add(TitleFor(left, right) + "（16 進）", model, $"{left}\n{right}");
+        model.Tab = tab;
+        if (left.Length > 0 && right.Length > 0)
+        {
+            model.CompareCommand.Execute(null);
+        }
+    }
+
     public void ShowGit(string path)
     {
         var model = new GitViewModel(this, path);

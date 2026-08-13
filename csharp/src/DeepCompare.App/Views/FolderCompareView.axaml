@@ -29,9 +29,29 @@
                 ToolTip.Tip="走査しなおす">
           <Path Classes="icon" Data="{StaticResource IconRefresh}" />
         </Button>
-        <ToggleButton Classes="filter" IsChecked="{Binding DifferencesOnly}"
+        <!--
+          絞り込み。**「左だけ」「右だけ」を単独で見たい場面は多い。**
+          移行漏れや消し忘れを探す作業がそれで、差異全部の中から目で拾うのは
+          数が増えると現実的でなくなる。
+        -->
+        <ToggleButton Classes="filter" IsChecked="{Binding ShowAll}" ToolTip.Tip="全部出す">
+          <Path Classes="icon" Data="{StaticResource IconFilterAll}" />
+        </ToggleButton>
+        <ToggleButton Classes="filter" IsChecked="{Binding ShowDifferences}"
                       ToolTip.Tip="差異のあるものだけ出す">
           <Path Classes="icon" Data="{StaticResource IconFilterDiff}" />
+        </ToggleButton>
+        <ToggleButton Classes="filter" IsChecked="{Binding ShowLeftOnly}"
+                      ToolTip.Tip="左にしか無いものだけ出す">
+          <Path Classes="icon" Data="{StaticResource IconToLeft}" />
+        </ToggleButton>
+        <ToggleButton Classes="filter" IsChecked="{Binding ShowRightOnly}"
+                      ToolTip.Tip="右にしか無いものだけ出す">
+          <Path Classes="icon" Data="{StaticResource IconToRight}" />
+        </ToggleButton>
+        <ToggleButton Classes="filter" IsChecked="{Binding ShowIdentical}"
+                      ToolTip.Tip="中身が同じものだけ出す">
+          <Path Classes="icon" Data="{StaticResource IconFilterSame}" />
         </ToggleButton>
 
         <Border Classes="vsep" />
@@ -142,6 +162,9 @@
                             CommandParameter="{Binding}" />
                   <MenuItem Header="構造として比較（JSON）"
                             Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).OpenStructuredCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="バイト列として比較（16 進）"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).OpenBinaryCommand}"
                             CommandParameter="{Binding}" />
                   <Separator />
                   <MenuItem Header="左の場所を開く"

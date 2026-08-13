@@ -30,6 +30,9 @@
     <DataTemplate DataType="vm:MergeViewModel">
       <views:MergeView />
     </DataTemplate>
+    <DataTemplate DataType="vm:BinaryCompareViewModel">
+      <views:BinaryCompareView />
+    </DataTemplate>
   </Window.DataTemplates>
 
   <!--

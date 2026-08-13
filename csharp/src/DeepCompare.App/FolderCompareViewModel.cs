@@ -6,6 +6,31 @@ using DeepCompare.Engine;
 
 namespace DeepCompare.App;
 
+/// <summary>
+/// 一覧に出すものの絞り込み。
+///
+/// **「左だけにあるもの」「右だけにあるもの」を単独で見たい場面は多い。**
+/// 移行漏れを探す、消し忘れを探す、といった作業がそれ。差異全部の中から
+/// 目で拾うのは、数が増えると現実的でなくなる。
+/// </summary>
+public enum FolderFilter
+{
+    /// <summary>全部。</summary>
+    All,
+
+    /// <summary>差異のあるもの（違う・片側のみ）。</summary>
+    Differences,
+
+    /// <summary>左にしか無いもの。</summary>
+    LeftOnly,
+
+    /// <summary>右にしか無いもの。</summary>
+    RightOnly,
+
+    /// <summary>中身が同じもの。</summary>
+    Identical,
+}
+
 /// <summary>フォルダー一覧の 1 行。</summary>
 public sealed class FolderRowView(FolderEntry entry) : ViewModelBase
 {
@@ -137,7 +162,6 @@ public sealed class FolderCompareViewModel : ViewModelBase
     private List<FolderRowView> _allRows = [];
     private FolderComparison? _comparison;
     private bool _isBusy;
-    private bool _differencesOnly = true;
     private string _statusText = string.Empty;
     private FolderRowView? _selected;
     private string _include = string.Empty;
@@ -157,6 +181,15 @@ public sealed class FolderCompareViewModel : ViewModelBase
         ExportCsvCommand = new RelayCommand(ExportCsvAsync);
         OpenStructuredCommand = new RelayCommand<FolderRowView>(
             OpenStructuredAsync, row => row.CanOpenText);
+        OpenBinaryCommand = new RelayCommand<FolderRowView>(row =>
+        {
+            var (left, right) = PathsOf(row);
+            if (File.Exists(left) && File.Exists(right))
+            {
+                _shell.ShowBinary(left, right);
+            }
+            return Task.CompletedTask;
+        }, row => !row.Entry.IsDirectory);
         RevealLeftCommand = new RelayCommand<FolderRowView>(row => RevealAsync(row, left: true));
         RevealRightCommand = new RelayCommand<FolderRowView>(row => RevealAsync(row, left: false));
         CopyLeftPathCommand = new RelayCommand<FolderRowView>(row => CopyPathAsync(row, left: true));
@@ -199,6 +232,7 @@ public sealed class FolderCompareViewModel : ViewModelBase
     public ObservableCollection<FolderRowView> Rows { get; } = [];
     public ICommand OpenRowCommand { get; }
     public ICommand OpenStructuredCommand { get; }
+    public ICommand OpenBinaryCommand { get; }
     public ICommand RevealLeftCommand { get; }
     public ICommand RevealRightCommand { get; }
     public ICommand CopyLeftPathCommand { get; }
@@ -336,17 +370,58 @@ public sealed class FolderCompareViewModel : ViewModelBase
         private set => Set(ref _isBusy, value);
     }
 
-    /// <summary>既定で差異のみ表示。一致まで並べると本当に見たい行が埋もれる。</summary>
-    public bool DifferencesOnly
+    private FolderFilter _filter = FolderFilter.Differences;
+
+    /// <summary>既定は差異のみ。一致まで並べると本当に見たい行が埋もれる。</summary>
+    public FolderFilter Filter
     {
-        get => _differencesOnly;
+        get => _filter;
         set
         {
-            if (Set(ref _differencesOnly, value))
+            if (Set(ref _filter, value))
             {
                 Rebuild();
+                // 押している状態を出すため、どれが選ばれているかを全部知らせる。
+                OnPropertyChanged(nameof(ShowAll));
+                OnPropertyChanged(nameof(ShowDifferences));
+                OnPropertyChanged(nameof(ShowLeftOnly));
+                OnPropertyChanged(nameof(ShowRightOnly));
+                OnPropertyChanged(nameof(ShowIdentical));
             }
         }
+    }
+
+    // ToggleButton は bool しか扱えないので、種類ごとに口を開ける。
+    // 立てられたらその種類にする。**下ろす操作は受けない**（何も選ばれていない
+    // 状態に落ちると、一覧が空になって理由が分からなくなる）。
+    public bool ShowAll
+    {
+        get => _filter == FolderFilter.All;
+        set { if (value) { Filter = FolderFilter.All; } else { OnPropertyChanged(); } }
+    }
+
+    public bool ShowDifferences
+    {
+        get => _filter == FolderFilter.Differences;
+        set { if (value) { Filter = FolderFilter.Differences; } else { OnPropertyChanged(); } }
+    }
+
+    public bool ShowLeftOnly
+    {
+        get => _filter == FolderFilter.LeftOnly;
+        set { if (value) { Filter = FolderFilter.LeftOnly; } else { OnPropertyChanged(); } }
+    }
+
+    public bool ShowRightOnly
+    {
+        get => _filter == FolderFilter.RightOnly;
+        set { if (value) { Filter = FolderFilter.RightOnly; } else { OnPropertyChanged(); } }
+    }
+
+    public bool ShowIdentical
+    {
+        get => _filter == FolderFilter.Identical;
+        set { if (value) { Filter = FolderFilter.Identical; } else { OnPropertyChanged(); } }
     }
 
     public string StatusText
@@ -450,7 +525,7 @@ public sealed class FolderCompareViewModel : ViewModelBase
             }
             closedAt = int.MaxValue;
 
-            if (!DifferencesOnly || row.Entry.Status != EntryStatus.Identical)
+            if (Matches(row))
             {
                 Rows.Add(row);
             }
@@ -461,6 +536,28 @@ public sealed class FolderCompareViewModel : ViewModelBase
             }
         }
         OnPropertyChanged(nameof(IsEmpty));
+    }
+
+    /// <summary>
+    /// その行を出すか。
+    ///
+    /// **フォルダーの行は、絞り込んでいても出す。** 中身を隠すと、階層の
+    /// どこにあるファイルなのかが分からなくなる。
+    /// </summary>
+    private bool Matches(FolderRowView row)
+    {
+        if (row.Entry.IsDirectory)
+        {
+            return true;
+        }
+        return Filter switch
+        {
+            FolderFilter.Differences => row.Entry.Status != EntryStatus.Identical,
+            FolderFilter.LeftOnly => row.Entry.Status == EntryStatus.LeftOnly,
+            FolderFilter.RightOnly => row.Entry.Status == EntryStatus.RightOnly,
+            FolderFilter.Identical => row.Entry.Status == EntryStatus.Identical,
+            _ => true,
+        };
     }
 
     /// <summary>その行を開閉する。</summary>

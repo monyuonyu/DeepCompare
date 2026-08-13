@@ -37,6 +37,35 @@ internal static class Cli
         {
             return Report(() => RunFontCheck(output));
         }
+        if (args.Contains("--print-binary"))
+        {
+            var files = Positional(args);
+            if (files.Length < 2)
+            {
+                Console.Error.WriteLine("--print-binary には比較する 2 つのファイルが必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            try
+            {
+                var (comparison, truncated) = BinaryCompare.CompareFiles(files[0], files[1]);
+                var text = new StringBuilder();
+                if (truncated)
+                {
+                    // 切り捨てたことは必ず出す。黙って途中までを比べると、
+                    // 「差分なし」が「先頭 64MB に差分なし」の意味になってしまう。
+                    text.AppendLine("注意: 大きいので先頭 64MB だけを比べています。");
+                }
+                text.Append(BinaryCompare.Format(comparison));
+                Emit(text.ToString(), output);
+                return comparison.Identical ? 0 : 1;
+            }
+            catch (IOException error)
+            {
+                Console.Error.WriteLine(error.Message);
+                return 2;
+            }
+        }
         if (args.Contains("--invisible"))
         {
             var files = Positional(args);
