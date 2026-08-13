@@ -21,6 +21,9 @@ public partial class App : Application
     /// <summary>版の比較を出して起動する。</summary>
     public static bool StartVersion { get; set; }
 
+    /// <summary>写しの画面を出して起動する。</summary>
+    public static bool StartSnapshot { get; set; }
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
@@ -28,7 +31,7 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow = new MainWindow(
-                StartupFiles, StartStructured, StartGit, StartMerge, StartVersion);
+                StartupFiles, StartStructured, StartGit, StartMerge, StartVersion, StartSnapshot);
         }
         base.OnFrameworkInitializationCompleted();
     }

@@ -9,13 +9,13 @@ public partial class MainWindow : Window
 {
     private readonly ShellViewModel _shell;
 
-    public MainWindow() : this([], false, false, false, false)
+    public MainWindow() : this([], false, false, false, false, false)
     {
     }
 
     public MainWindow(
         string[] startupPaths, bool structured = false, bool git = false,
-        bool merge = false, bool version = false)
+        bool merge = false, bool version = false, bool snapshot = false)
     {
         InitializeComponent();
         _shell = new ShellViewModel(PickPathAsync, PickSavePathAsync);
@@ -29,6 +29,15 @@ public partial class MainWindow : Window
         {
             var (ancestor, ours, theirs) = (startupPaths[0], startupPaths[1], startupPaths[2]);
             Opened += (_, _) => _shell.ShowMerge(ancestor, ours, theirs);
+            return;
+        }
+
+        // 写しは フォルダー 1 つ（写しを添えればそのまま比べる）。
+        if (snapshot)
+        {
+            var folder = startupPaths.Length > 0 ? startupPaths[0] : string.Empty;
+            var file = startupPaths.Length > 1 ? startupPaths[1] : string.Empty;
+            Opened += (_, _) => _shell.ShowSnapshot(folder, file);
             return;
         }
 

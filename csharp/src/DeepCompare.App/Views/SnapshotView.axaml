@@ -1,0 +1,106 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:DeepCompare.App"
+             x:Class="DeepCompare.App.Views.SnapshotView"
+             x:DataType="vm:SnapshotViewModel">
+
+  <DockPanel>
+
+    <Border DockPanel.Dock="Top" Classes="topbar" BorderThickness="0">
+      <StackPanel Orientation="Horizontal" Spacing="2">
+        <Button Classes="icon" Command="{Binding Shell.GoHomeCommand}"
+                ToolTip.Tip="起動画面へ戻る">
+          <Path Classes="icon" Data="{StaticResource IconHome}" />
+        </Button>
+        <Border Classes="vsep" />
+        <Button Classes="accent" Padding="10,4" Command="{Binding TakeCommand}"
+                ToolTip.Tip="いまの状態を写し取って保存します。中身は保存しません（名前・大きさ・時刻だけ）">
+          <StackPanel Orientation="Horizontal" Spacing="5">
+            <Path Classes="icon" Data="{StaticResource IconCamera}"
+                  Width="14" Height="14" VerticalAlignment="Center" />
+            <TextBlock Text="いまを写す" FontSize="12" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <ToggleButton Classes="filter" IsChecked="{Binding WithHashes}"
+                      ToolTip.Tip="指紋も取る。切ると速いが、同じ秒の内の書き換えを見分けられません">
+          <Path Classes="icon" Data="{StaticResource IconFingerprint}" />
+        </ToggleButton>
+        <Border Classes="vsep" />
+        <Button Classes="icon" Command="{Binding CompareCommand}" IsEnabled="{Binding !Busy}"
+                ToolTip.Tip="写しと今の姿を比べる">
+          <Path Classes="icon" Data="{StaticResource IconRefresh}" />
+        </Button>
+        <ToggleButton Classes="filter" IsChecked="{Binding ShowIdentical}"
+                      ToolTip.Tip="変化のないものも出す">
+          <Path Classes="icon" Data="{StaticResource IconFilterAll}" />
+        </ToggleButton>
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}"
+                     Width="70" VerticalAlignment="Center" Margin="6,0" />
+      </StackPanel>
+    </Border>
+
+    <Border DockPanel.Dock="Top" Classes="topbar">
+      <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="フォルダー" FontSize="11"
+                   Foreground="{DynamicResource FgDim}" Margin="0,0,8,0"
+                   VerticalAlignment="Center" MinWidth="60" />
+        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding FolderPath}"
+                 PlaceholderText="写し取る／比べる先のフォルダー" />
+        <Button Grid.Row="0" Grid.Column="2" Classes="icon"
+                Command="{Binding BrowseFolderCommand}" ToolTip.Tip="選ぶ">
+          <Path Classes="icon" Data="{StaticResource IconBrowse}" />
+        </Button>
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="写し" FontSize="11"
+                   Foreground="{DynamicResource FgDim}" Margin="0,6,8,0"
+                   VerticalAlignment="Center" />
+        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SnapshotPath}"
+                 Margin="0,6,0,0" PlaceholderText="比べる相手の写し" />
+        <Button Grid.Row="1" Grid.Column="2" Classes="icon" Margin="0,6,0,0"
+                Command="{Binding BrowseSnapshotCommand}" ToolTip.Tip="選ぶ">
+          <Path Classes="icon" Data="{StaticResource IconBrowse}" />
+        </Button>
+      </Grid>
+    </Border>
+
+    <!--
+      指紋なしの写しであることは**必ず見える場所に出す。**
+      「変化なし」が「大きさと時刻に変化なし」の意味になっているのを
+      黙っているのは嘘に近い。
+    -->
+    <Border DockPanel.Dock="Top" Background="{DynamicResource BgChanged}"
+            Padding="12,6" IsVisible="{Binding WithoutHashes}">
+      <TextBlock Text="指紋なしの写しです。大きさと時刻でしか比べていません。"
+                 FontSize="12" Foreground="{DynamicResource FgWarning}" />
+    </Border>
+
+    <Border DockPanel.Dock="Bottom" Classes="statusbar">
+      <StackPanel Orientation="Horizontal" Spacing="14">
+        <TextBlock Text="{Binding Summary}" FontSize="12" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding Message}" Foreground="{DynamicResource FgWarning}"
+                   FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer Margin="12,8">
+      <ItemsControl ItemsSource="{Binding Rows}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:SnapshotRowView">
+            <Border Background="{Binding Background}" Classes="row">
+              <Grid ColumnDefinitions="70,*,Auto">
+                <!-- 何が起きたかは**言葉で**。記号だけだと向きを取り違える -->
+                <TextBlock Grid.Column="0" Text="{Binding What}" FontSize="11"
+                           FontWeight="SemiBold" Foreground="{Binding WhatBrush}"
+                           VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Path}" Classes="mono" FontSize="12"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding SizeChange}" FontSize="11"
+                           Foreground="{DynamicResource FgDim}" VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

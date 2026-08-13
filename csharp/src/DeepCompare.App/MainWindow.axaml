@@ -39,6 +39,9 @@
     <DataTemplate DataType="vm:VersionCompareViewModel">
       <views:VersionCompareView />
     </DataTemplate>
+    <DataTemplate DataType="vm:SnapshotViewModel">
+      <views:SnapshotView />
+    </DataTemplate>
   </Window.DataTemplates>
 
   <!--

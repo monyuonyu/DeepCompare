@@ -13,6 +13,7 @@ public enum CompareKindId
     Git,
     Image,
     VersionInfo,
+    Snapshot,
 }
 
 /// <summary>
@@ -115,6 +116,8 @@ public sealed class ShellViewModel : ViewModelBase
                 "IconImage", CompareKindId.Image),
             new CompareKind("版の比較", "実行ファイルの版・会社名・説明を並べる",
                 "IconVersion", CompareKindId.VersionInfo),
+            new CompareKind("写しと比べる", "いまの状態を保存し、後の時点と比べる",
+                "IconCamera", CompareKindId.Snapshot),
             new CompareKind("Git", "作業ツリーと履歴", "IconGit", CompareKindId.Git),
         ];
 
@@ -326,6 +329,26 @@ public sealed class ShellViewModel : ViewModelBase
     }
 
     /// <summary>バイト列として比べる。テキストとして読めないファイル向け。</summary>
+    /// <summary>写しの画面。フォルダーは空でも開ける（画面で指定できる）。</summary>
+    public void ShowSnapshot(string folder, string snapshotFile = "")
+    {
+        var model = new SnapshotViewModel(this)
+        {
+            FolderPath = folder,
+            SnapshotPath = snapshotFile,
+        };
+        var tab = Add(folder.Length > 0
+            ? System.IO.Path.GetFileName(folder.TrimEnd(System.IO.Path.DirectorySeparatorChar)) + "（写し）"
+            : "写し", model, folder);
+        model.Tab = tab;
+
+        // 写しが指定されていれば、そのまま比べる。**開いてから押させない。**
+        if (snapshotFile.Length > 0)
+        {
+            model.CompareCommand.Execute(null);
+        }
+    }
+
     public void ShowVersionInfo(string left, string right)
     {
         var model = new VersionCompareViewModel(this) { LeftPath = left, RightPath = right };
@@ -389,6 +412,9 @@ public sealed class ShellViewModel : ViewModelBase
                 break;
             case CompareKindId.VersionInfo:
                 ShowVersionInfo(left, right);
+                break;
+            case CompareKindId.Snapshot:
+                ShowSnapshot(left, right);
                 break;
             case CompareKindId.Git:
                 ShowGit(left.Length > 0 ? left : Environment.CurrentDirectory);
