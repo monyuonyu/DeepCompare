@@ -178,13 +178,27 @@
                 <TextBlock Text="{Binding SelectedCommit.Ago}" FontSize="11"
                            Foreground="{DynamicResource FgDim}"
                            ToolTip.Tip="{Binding SelectedCommit.When}" />
-                <TextBlock Text="{Binding CommitParents}" Classes="mono" FontSize="11"
-                           Foreground="{DynamicResource FgDim}"
-                           ToolTip.Tip="親のコミット。2 つ以上ならマージ" />
+                <!--
+                  親のハッシュ。**アイコンを添える。** ハッシュだけ並べると、
+                  自分のものか親のものか見ただけでは分からない。
+                -->
+                <StackPanel Orientation="Horizontal" Spacing="3"
+                            ToolTip.Tip="親のコミット。2 つ以上ならマージ">
+                  <Path Classes="icon" Data="{StaticResource IconBranch}"
+                        Width="11" Height="11" VerticalAlignment="Center"
+                        Fill="{DynamicResource FgDim}" />
+                  <TextBlock Text="{Binding CommitParents}" Classes="mono" FontSize="11"
+                             Foreground="{DynamicResource FgDim}" VerticalAlignment="Center" />
+                </StackPanel>
               </StackPanel>
             </StackPanel>
 
-            <Grid Grid.Row="1" ColumnDefinitions="*,8,*">
+            <Grid Grid.Row="1">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="{Binding BodyWidth}" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
               <!-- 説明の全文。1 行目だけでは、なぜそうしたかが分からない -->
               <ScrollViewer Grid.Column="0" IsVisible="{Binding HasCommitBody}">
                 <SelectableTextBlock Text="{Binding CommitBody}" Classes="mono" FontSize="11"
@@ -267,6 +281,60 @@
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:GitCommitRow">
               <Grid>
+                <!--
+                  **履歴を書き換える操作は置かない。** reset や rebase は、
+                  既に送った後だと取り返しがつかない。打ち消したいなら
+                  revert（打ち消すコミットを作る）で足りる。
+                -->
+                <Grid.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="このコミットへ移る"
+                              Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).CheckoutCommand}"
+                              CommandParameter="{Binding}"
+                              ToolTip.Tip="枝から離れた状態（切り離された HEAD）になります">
+                      <MenuItem.Icon>
+                        <Path Classes="icon" Data="{StaticResource IconGit}" />
+                      </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="ここから枝を作る"
+                              Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).BranchHereCommand}"
+                              CommandParameter="{Binding}"
+                              ToolTip.Tip="上の「新しい枝の名前」に入れた名前で作ります">
+                      <MenuItem.Icon>
+                        <Path Classes="icon" Data="{StaticResource IconBranch}" />
+                      </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
+                    <MenuItem Header="打ち消すコミットを作る"
+                              Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).RevertCommand}"
+                              CommandParameter="{Binding}"
+                              ToolTip.Tip="履歴は書き換えません。送った後でも安全に使えます">
+                      <MenuItem.Icon>
+                        <Path Classes="icon" Data="{StaticResource IconUndo}" />
+                      </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="いまの枝に載せる"
+                              Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).CherryPickCommand}"
+                              CommandParameter="{Binding}"
+                              ToolTip.Tip="このコミットの変更だけを取り込みます（cherry-pick）">
+                      <MenuItem.Icon>
+                        <Path Classes="icon" Data="{StaticResource IconToRight}" />
+                      </MenuItem.Icon>
+                    </MenuItem>
+                    <Separator />
+                    <MenuItem Header="ハッシュを写す"
+                              Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).CopyHashCommand}"
+                              CommandParameter="{Binding}">
+                      <MenuItem.Icon>
+                        <Path Classes="icon" Data="{StaticResource IconClipboard}" />
+                      </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="説明を写す"
+                              Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).CopySubjectCommand}"
+                              CommandParameter="{Binding}" />
+                  </ContextMenu>
+                </Grid.ContextMenu>
+
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="{Binding GraphWidth}" />
                   <ColumnDefinition Width="*" />

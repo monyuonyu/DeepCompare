@@ -255,6 +255,68 @@ public sealed class GitViewModel : ViewModelBase
             row => { OpenCommit(row); return Task.CompletedTask; });
         OpenCommitFileCommand = new RelayCommand<GitCommitFileRow>(
             file => { OpenCommitFile(SelectedCommit, file); return Task.CompletedTask; });
+
+        CheckoutCommand = new RelayCommand<GitCommitRow>(
+            row => WriteAsync(
+                $"{row.ShortHash} へ移りました。枝から離れた状態です",
+                r => r.Checkout(row.Commit.Hash)));
+        BranchHereCommand = new RelayCommand<GitCommitRow>(
+            row => WriteAsync(
+                $"{NewBranchName.Trim()} を {row.ShortHash} から作りました",
+                r => r.CreateBranch(NewBranchName.Trim(), row.Commit.Hash)),
+            _ => NewBranchName.Trim().Length > 0);
+        RevertCommand = new RelayCommand<GitCommitRow>(
+            row => WriteAsync(
+                $"{row.ShortHash} を打ち消すコミットを作りました",
+                r => r.Revert(row.Commit.Hash, row.IsMerge)));
+        CherryPickCommand = new RelayCommand<GitCommitRow>(
+            row => WriteAsync(
+                $"{row.ShortHash} の変更をいまの枝に載せました",
+                r => r.CherryPick(row.Commit.Hash)));
+        CopyHashCommand = new RelayCommand<GitCommitRow>(row => Copy(row.Commit.Hash));
+        CopySubjectCommand = new RelayCommand<GitCommitRow>(row => Copy(row.Subject));
+    }
+
+    /// <summary>書き込み先。表示側から差し込む（ViewModel から画面に触らない）。</summary>
+    public Action<string>? Clipboard { get; set; }
+
+    private Task Copy(string text)
+    {
+        Clipboard?.Invoke(text);
+        Message = $"写しました: {text}";
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 書き換える操作をまとめて実行し、終わったら読み直す。
+    ///
+    /// **成功したときだけ「できた」と言う。** git が断ったら、その理由を
+    /// そのまま出す。ここで握り潰すと、何も起きていないのに成功に見える。
+    /// </summary>
+    private async Task WriteAsync(string done, Action<GitRepository> operation)
+    {
+        if (_repository is not { } repository || Busy)
+        {
+            return;
+        }
+
+        Busy = true;
+        try
+        {
+            await Task.Run(() => operation(repository));
+            Message = done;
+        }
+        catch (GitException error)
+        {
+            Message = error.Message;
+            return;
+        }
+        finally
+        {
+            Busy = false;
+        }
+
+        await RefreshAsync();
     }
 
     /// <summary>グラフの列の間隔。描く側と同じ値を使う（別々に持つとずれる）。</summary>
@@ -278,6 +340,12 @@ public sealed class GitViewModel : ViewModelBase
     public RelayCommand<GitFileRow> UnstageCommand { get; }
     public RelayCommand<GitCommitRow> OpenCommitCommand { get; }
     public RelayCommand<GitCommitFileRow> OpenCommitFileCommand { get; }
+    public RelayCommand<GitCommitRow> CheckoutCommand { get; }
+    public RelayCommand<GitCommitRow> BranchHereCommand { get; }
+    public RelayCommand<GitCommitRow> RevertCommand { get; }
+    public RelayCommand<GitCommitRow> CherryPickCommand { get; }
+    public RelayCommand<GitCommitRow> CopyHashCommand { get; }
+    public RelayCommand<GitCommitRow> CopySubjectCommand { get; }
     public RelayCommand CommitCommand { get; }
     public RelayCommand AmendCommand { get; }
     public RelayCommand FetchCommand { get; }
@@ -697,6 +765,13 @@ public sealed class GitViewModel : ViewModelBase
 
     public bool HasCommitBody => _commitBody.Length > 0;
 
+    /// <summary>
+    /// 説明の欄の幅。**説明が無ければ 0 にして、ファイル一覧を全幅にする。**
+    /// 隠すだけだと列は残り、左半分が空いたままになる。
+    /// </summary>
+    public GridLength BodyWidth => HasCommitBody ? new GridLength(1, GridUnitType.Star)
+        : new GridLength(0);
+
     private static string BodyAfterSubject(string full)
     {
         var breakAt = full.IndexOf('\n');
@@ -723,6 +798,7 @@ public sealed class GitViewModel : ViewModelBase
         SelectedCommitFile = null;
         CommitBody = string.Empty;
         OnPropertyChanged(nameof(HasCommitBody));
+        OnPropertyChanged(nameof(BodyWidth));
         CommitParents = string.Empty;
 
         if (row is null || _repository is not { } repository)
@@ -745,6 +821,7 @@ public sealed class GitViewModel : ViewModelBase
 
             CommitBody = BodyAfterSubject(body);
             OnPropertyChanged(nameof(HasCommitBody));
+        OnPropertyChanged(nameof(BodyWidth));
             CommitParents = string.Join("  ", row.Commit.Parents.Select(p => p[..Math.Min(7, p.Length)]));
 
             foreach (var file in files.OrderBy(f => f.Path, StringComparer.Ordinal))

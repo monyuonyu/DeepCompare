@@ -382,6 +382,13 @@ public sealed class GitRepository
                 current = true;
             }
 
+            // **タグには `tag: ` が前に付く。** full 形式でも付くので、
+            // ここで剥がさないと refs/tags/... に一致せず、タグだけ消える。
+            if (name.StartsWith("tag: ", StringComparison.Ordinal))
+            {
+                name = name["tag: ".Length..];
+            }
+
             if (name == "HEAD")
             {
                 // 切り離された HEAD。枝の名前が無いときだけ出る。
@@ -627,6 +634,43 @@ public sealed class GitRepository
     /// <summary>枝を消す。**まだ取り込まれていない枝は git が止める。**</summary>
     public void DeleteBranch(string name, bool force = false)
         => Run(["branch", force ? "-D" : "-d", name]);
+
+    /// <summary>
+    /// ある時点へ移る。枝を指していなければ**切り離された HEAD**になる。
+    ///
+    /// git はそのとき長い注意書きを出す。画面では出ないので、
+    /// <see cref="CurrentBranch"/> が null を返すことで示す。
+    /// </summary>
+    public void Checkout(string revision) => Run(["checkout", revision]);
+
+    /// <summary>
+    /// タグを付ける。
+    ///
+    /// 注釈付き（<c>-a</c>）にはしない。注釈付きは説明が要り、
+    /// エディタが開くのを待つことになる。画面から付けるなら軽い方を採る。
+    /// </summary>
+    public void Tag(string name, string? revision = null)
+        => Run(revision is { Length: > 0 } ? ["tag", name, revision] : ["tag", name]);
+
+    public void DeleteTag(string name) => Run(["tag", "-d", name]);
+
+    /// <summary>
+    /// そのコミットを打ち消すコミットを作る。
+    ///
+    /// **履歴は書き換えない。** reset と違って、既に送った後でも安全に使える。
+    /// マージを打ち消す場合は <c>-m 1</c>（最初の親を残す）が要る。
+    /// </summary>
+    public void Revert(string revision, bool isMerge = false)
+        => Run(isMerge
+            ? ["revert", "--no-edit", "-m", "1", revision]
+            : ["revert", "--no-edit", revision]);
+
+    /// <summary>そのコミットの変更を、いま居る枝の先に載せる。</summary>
+    public void CherryPick(string revision) => Run(["cherry-pick", revision]);
+
+    /// <summary>ハッシュの全文。短い形しか持っていないときに引き延ばす。</summary>
+    public string FullHash(string revision)
+        => Run(["rev-parse", revision]).StandardOutput.Trim();
 
     /// <summary>
     /// 取ってくる・送る。

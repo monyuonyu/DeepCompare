@@ -157,8 +157,9 @@ public sealed class GitRepositoryTests : IDisposable
     [Fact]
     public void 枝とタグの名前を読み分ける()
     {
+        // **タグには `tag: ` が前に付く。** full 形式でも付く。
         var refs = GitRepository.ParseRefs(
-            "HEAD -> refs/heads/main, refs/remotes/origin/main, refs/tags/v1.0");
+            "HEAD -> refs/heads/main, refs/remotes/origin/main, tag: refs/tags/v1.0");
 
         Assert.Equal(3, refs.Count);
 
@@ -190,7 +191,7 @@ public sealed class GitRepositoryTests : IDisposable
     [Fact]
     public void 切り離されたHEADを読む()
     {
-        var refs = GitRepository.ParseRefs("HEAD, refs/tags/v2");
+        var refs = GitRepository.ParseRefs("HEAD, tag: refs/tags/v2");
 
         Assert.Equal(GitRefKind.Head, refs[0].Kind);
         Assert.True(refs[0].IsCurrent);
@@ -216,6 +217,55 @@ public sealed class GitRepositoryTests : IDisposable
 
         // /tmp が symlink の環境（macOS）では realpath が違う。名前で比べる。
         Assert.Equal(Path.GetFileName(_root), Path.GetFileName(repository.Root));
+    }
+
+    [Fact]
+    public void 本物のgitから枝とタグの札を取る()
+    {
+        // **文字列を組み立てた試験だけでは足りない。** git が実際に出す形は
+        // 版や設定で変わる（タグに `tag: ` が付くことを取りこぼしていた）。
+        WriteFile("a.txt", "1\n");
+        Git("add", "-A");
+        Git("commit", "-m", "最初");
+        Git("tag", "v1.0");
+        Git("switch", "-c", "feature/x");
+        WriteFile("b.txt", "2\n");
+        Git("add", "-A");
+        Git("commit", "-m", "枝の方");
+
+        var log = Open().Log(all: true);
+
+        var tip = log[0];
+        var local = Assert.Single(tip.Refs);
+        Assert.Equal("feature/x", local.Name);
+        Assert.Equal(GitRefKind.Local, local.Kind);
+        Assert.True(local.IsCurrent);
+
+        var root = log[^1];
+        Assert.Contains(root.Refs, r => r.Kind == GitRefKind.Tag && r.Name == "v1.0");
+        Assert.Contains(root.Refs, r => r.Kind == GitRefKind.Local && r.Name is "main" or "master");
+    }
+
+    [Fact]
+    public void コミットで変わったファイルを取る()
+    {
+        WriteFile("a.txt", "1\n");
+        WriteFile("消える.txt", "x\n");
+        Git("add", "-A");
+        Git("commit", "-m", "最初");
+
+        WriteFile("a.txt", "2\n");
+        WriteFile("増える.txt", "y\n");
+        File.Delete(Path.Combine(_root, "消える.txt"));
+        Git("add", "-A");
+        Git("commit", "-m", "二つ目");
+
+        var files = Open().CommitFiles("HEAD");
+
+        Assert.Equal(3, files.Count);
+        Assert.Equal(GitStatusCode.Modified, files.Single(f => f.Path == "a.txt").Index);
+        Assert.Equal(GitStatusCode.Added, files.Single(f => f.Path == "増える.txt").Index);
+        Assert.Equal(GitStatusCode.Deleted, files.Single(f => f.Path == "消える.txt").Index);
     }
 
     [Fact]
