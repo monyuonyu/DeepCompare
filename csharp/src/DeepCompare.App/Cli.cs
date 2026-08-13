@@ -37,6 +37,30 @@ internal static class Cli
         {
             return Report(() => RunFontCheck(output));
         }
+        if (args.Contains("--multi"))
+        {
+            var files = Positional(args);
+            if (files.Length < 2)
+            {
+                Console.Error.WriteLine("--multi には 2 つ以上のファイルが必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            try
+            {
+                var result = MultiCompare.Compare(
+                    [.. files.Select(f => Path.GetFileNameWithoutExtension(f) ?? f)],
+                    [.. files.Select(StructuredReaders.ParseFile)]);
+
+                Emit(MultiCompare.Format(result, !args.Contains("--all")), output);
+                return result.Differences == 0 ? 0 : 1;
+            }
+            catch (Exception error) when (error is StructuredParseException or IOException)
+            {
+                Console.Error.WriteLine(error.Message);
+                return 2;
+            }
+        }
         if (args.Contains("--deps"))
         {
             var files = Positional(args);

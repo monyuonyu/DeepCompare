@@ -44,6 +44,10 @@ internal static class Program
                                      バイト列として 16 進で比較する。テキストとして
                                      読めないファイル向け。終了コードは
                                      0 同じ / 1 違う / 2 異常
+          deepcompare --multi A B C …
+                                     3 つ以上を並べて比べる（dev / staging / prod の
+                                     設定など）。**どれが仲間外れか**を出す。
+                                     --all を付けると同じものも並べる
           deepcompare --deps 左 右   依存の一覧（ロックファイル）の変化だけを出す。
                                      数千行動いても、意味のある変化は数行
           deepcompare --secrets <ファイル> [変更後]
