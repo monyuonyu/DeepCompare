@@ -192,6 +192,15 @@ public sealed class FolderCompareViewModel : ViewModelBase
             row => !row.Entry.IsDirectory && row.HasLeft);
         CopyToLeftCommand = new RelayCommand<FolderRowView>(row => CopyFileAsync(row, toRight: false),
             row => !row.Entry.IsDirectory && row.HasRight);
+        // BC の Actions の残り。**どれも戻せないので必ず確認を出す。**
+        DeleteLeftCommand = new RelayCommand<FolderRowView>(row => DeleteAsync(row, left: true),
+            row => row.HasLeft);
+        DeleteRightCommand = new RelayCommand<FolderRowView>(row => DeleteAsync(row, left: false),
+            row => row.HasRight);
+        TouchToLeftCommand = new RelayCommand<FolderRowView>(row => TouchAsync(row, toLeft: true),
+            row => !row.Entry.IsDirectory && row.HasLeft && row.HasRight);
+        TouchToRightCommand = new RelayCommand<FolderRowView>(row => TouchAsync(row, toLeft: false),
+            row => !row.Entry.IsDirectory && row.HasLeft && row.HasRight);
         OpenBinaryCommand = new RelayCommand<FolderRowView>(row =>
         {
             var (left, right) = PathsOf(row);
@@ -244,7 +253,77 @@ public sealed class FolderCompareViewModel : ViewModelBase
     public ICommand OpenRowCommand { get; }
     public ICommand OpenStructuredCommand { get; }
     public ICommand OpenBinaryCommand { get; }
+    public ICommand DeleteLeftCommand { get; }
+    public ICommand DeleteRightCommand { get; }
+    public ICommand TouchToLeftCommand { get; }
+    public ICommand TouchToRightCommand { get; }
     public ICommand ExcludeCommand { get; }
+
+    /// <summary>
+    /// 片側を消す。
+    ///
+    /// **必ず確認を出す。** 上書きと違い、こちらは元の場所ごと消える。
+    /// フォルダーは中身ごと消えるので、その旨も文に入れる。
+    /// </summary>
+    private async Task DeleteAsync(FolderRowView row, bool left)
+    {
+        var (l, r) = PathsOf(row);
+        var target = left ? l : r;
+        var name = Path.GetFileName(target);
+
+        if (Confirm is null)
+        {
+            return;
+        }
+        var message = row.Entry.IsDirectory
+            ? $"{name} を中身ごと消します。元に戻せません。"
+            : $"{name} を消します。元に戻せません。";
+        if (!await Confirm(message))
+        {
+            return;
+        }
+
+        try
+        {
+            if (row.Entry.IsDirectory)
+            {
+                Directory.Delete(target, recursive: true);
+            }
+            else
+            {
+                File.Delete(target);
+            }
+            await RunAsync();
+            StatusText = $"{name} を消しました。";
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            StatusText = $"消せません: {error.Message}";
+        }
+    }
+
+    /// <summary>
+    /// 更新時刻を反対側に合わせる（BC の Touch）。
+    ///
+    /// **中身が同じなのに時刻だけ違うとき**に使う。時刻で比べる設定
+    /// （--by-timestamp）にしていると、これだけで「違う」と出てしまう。
+    /// </summary>
+    private async Task TouchAsync(FolderRowView row, bool toLeft)
+    {
+        var (l, r) = PathsOf(row);
+        var (target, source) = toLeft ? (l, r) : (r, l);
+
+        try
+        {
+            File.SetLastWriteTimeUtc(target, File.GetLastWriteTimeUtc(source));
+            await RunAsync();
+            StatusText = $"{Path.GetFileName(target)} の時刻を合わせました。";
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            StatusText = $"時刻を変えられません: {error.Message}";
+        }
+    }
     public ICommand ExcludeTypeCommand { get; }
     public ICommand CopyToRightCommand { get; }
     public ICommand CopyToLeftCommand { get; }

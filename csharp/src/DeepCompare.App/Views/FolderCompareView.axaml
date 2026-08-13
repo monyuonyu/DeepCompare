@@ -173,6 +173,19 @@
                   <MenuItem Header="右から左へ写す"
                             Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).CopyToLeftCommand}"
                             CommandParameter="{Binding}" />
+                  <MenuItem Header="時刻を左に合わせる"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).TouchToLeftCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="時刻を右に合わせる"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).TouchToRightCommand}"
+                            CommandParameter="{Binding}" />
+                  <Separator />
+                  <MenuItem Header="左を消す"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).DeleteLeftCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="右を消す"
+                            Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).DeleteRightCommand}"
+                            CommandParameter="{Binding}" />
                   <Separator />
                   <MenuItem Header="これを一覧から外す"
                             Command="{Binding $parent[UserControl].((vm:FolderCompareViewModel)DataContext).ExcludeCommand}"

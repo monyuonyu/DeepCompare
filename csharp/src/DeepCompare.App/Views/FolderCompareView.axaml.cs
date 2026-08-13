@@ -51,7 +51,10 @@ public partial class FolderCompareView : UserControl
         }
 
         var answer = false;
-        var yes = new Button { Content = "写す", Classes = { "accent" }, MinWidth = 90 };
+        // **押す前に何が起きるか分かる文言にする。** 「はい」だけだと、
+        // 読まずに押したときの被害が大きい。
+        var label = message.Contains("消します") ? "消す" : "続ける";
+        var yes = new Button { Content = label, Classes = { "accent" }, MinWidth = 90 };
         var no = new Button { Content = "やめる", MinWidth = 90 };
 
         var dialog = new Window

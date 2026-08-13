@@ -834,6 +834,26 @@ public sealed class TextCompareViewModel : ViewModelBase
         set => Set(ref _detailRight, value);
     }
 
+    private int _searchSide;
+
+    /// <summary>
+    /// どちら側を探すか。0 = 両方 / 1 = 左だけ / 2 = 右だけ（BC の Sides）。
+    /// </summary>
+    public int SearchSide
+    {
+        get => _searchSide;
+        set => Set(ref _searchSide, value);
+    }
+
+    private bool _searchWrap = true;
+
+    /// <summary>端まで来たら反対側から続けるか（BC の Wrap search）。</summary>
+    public bool SearchWrap
+    {
+        get => _searchWrap;
+        set => Set(ref _searchWrap, value);
+    }
+
     private bool _fullEdit;
 
     /// <summary>
@@ -1274,9 +1294,38 @@ public sealed class TextCompareViewModel : ViewModelBase
         }
 
         var current = SelectedRowIndex;
-        var target = forward
-            ? matches.FirstOrDefault(i => i > current, matches[0])
-            : matches.LastOrDefault(i => i < current, matches[^1]);
+        int target;
+        if (forward)
+        {
+            var next = matches.FirstOrDefault(i => i > current, -1);
+            if (next < 0)
+            {
+                // 端まで来た。**回り込むかどうかは選ばせる。**
+                // 黙って先頭へ戻ると、2 周目に入ったことに気づかず
+                // 同じ場所を何度も見ることになる。
+                if (!SearchWrap)
+                {
+                    SearchStatus = $"{matches.Count} 件（末尾）";
+                    return;
+                }
+                next = matches[0];
+            }
+            target = next;
+        }
+        else
+        {
+            var previous = matches.LastOrDefault(i => i < current, -1);
+            if (previous < 0)
+            {
+                if (!SearchWrap)
+                {
+                    SearchStatus = $"{matches.Count} 件（先頭）";
+                    return;
+                }
+                previous = matches[^1];
+            }
+            target = previous;
+        }
 
         SelectedRowIndex = target;
         SearchStatus = $"{matches.IndexOf(target) + 1}/{matches.Count} 件目";
@@ -1288,7 +1337,18 @@ public sealed class TextCompareViewModel : ViewModelBase
         for (var i = 0; i < VisibleRows.Count; i++)
         {
             var row = VisibleRows[i];
-            if (TextSearch.Find([row.LeftText, row.RightText], query).Count > 0)
+
+            // どちら側を探すか。**片側だけ探せると効く場面がある。**
+            // 「右に入ったはずの文字列が本当に入っているか」を見たいとき、
+            // 両側を探すと左の一致で止まってしまう。
+            List<string> haystack = SearchSide switch
+            {
+                1 => [row.LeftText],
+                2 => [row.RightText],
+                _ => [row.LeftText, row.RightText],
+            };
+
+            if (TextSearch.Find(haystack, query).Count > 0)
             {
                 matches.Add(i);
             }

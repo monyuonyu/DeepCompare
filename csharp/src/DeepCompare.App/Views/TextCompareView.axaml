@@ -223,6 +223,15 @@
                     <CheckBox Content="正規表現として扱う" IsChecked="{Binding SearchUseRegex}" />
                     <CheckBox Content="大文字小文字を区別する" IsChecked="{Binding SearchMatchCase}" />
                     <CheckBox Content="単語として一致するものだけ" IsChecked="{Binding SearchWholeWord}" />
+                    <CheckBox Content="端まで来たら反対側から続ける" IsChecked="{Binding SearchWrap}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Text="探す側" VerticalAlignment="Center" />
+                      <ComboBox SelectedIndex="{Binding SearchSide}" Width="130">
+                        <ComboBoxItem Content="両方" />
+                        <ComboBoxItem Content="左だけ" />
+                        <ComboBoxItem Content="右だけ" />
+                      </ComboBox>
+                    </StackPanel>
                   </StackPanel>
 
                 </StackPanel>
