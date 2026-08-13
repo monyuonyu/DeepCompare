@@ -136,7 +136,7 @@ public sealed class GitRepositoryTests : IDisposable
     [Fact]
     public void 親を持たないコミットを読める()
     {
-        var record = "abc123abc著者2026-08-13T10:00:00+09:00最初";
+        var record = "abc123abc著者2026-08-13T10:00:00+09:00最初";
 
         var log = GitRepository.ParseLog(record);
 
@@ -149,9 +149,60 @@ public sealed class GitRepositoryTests : IDisposable
     [Fact]
     public void 親が二つならマージとみなす()
     {
-        var record = "hha2026-08-13T10:00:00+09:00p1 p2まーじ";
+        var record = "hha2026-08-13T10:00:00+09:00p1 p2まーじ";
 
         Assert.True(Assert.Single(GitRepository.ParseLog(record)).IsMerge);
+    }
+
+    [Fact]
+    public void 枝とタグの名前を読み分ける()
+    {
+        var refs = GitRepository.ParseRefs(
+            "HEAD -> refs/heads/main, refs/remotes/origin/main, refs/tags/v1.0");
+
+        Assert.Equal(3, refs.Count);
+
+        Assert.Equal("main", refs[0].Name);
+        Assert.Equal(GitRefKind.Local, refs[0].Kind);
+        Assert.True(refs[0].IsCurrent);
+
+        Assert.Equal("origin/main", refs[1].Name);
+        Assert.Equal(GitRefKind.Remote, refs[1].Kind);
+        Assert.False(refs[1].IsCurrent);
+
+        Assert.Equal("v1.0", refs[2].Name);
+        Assert.Equal(GitRefKind.Tag, refs[2].Kind);
+    }
+
+    [Fact]
+    public void 斜線を含む枝を遠隔と間違えない()
+    {
+        // `feature/x` は手元の枝。短い形だと `origin/x` と区別が付かないので、
+        // **--decorate=full で受け取る**のが効いている場所。
+        var refs = GitRepository.ParseRefs("refs/heads/feature/x, refs/remotes/origin/feature/x");
+
+        Assert.Equal(GitRefKind.Local, refs[0].Kind);
+        Assert.Equal("feature/x", refs[0].Name);
+        Assert.Equal(GitRefKind.Remote, refs[1].Kind);
+        Assert.Equal("origin/feature/x", refs[1].Name);
+    }
+
+    [Fact]
+    public void 切り離されたHEADを読む()
+    {
+        var refs = GitRepository.ParseRefs("HEAD, refs/tags/v2");
+
+        Assert.Equal(GitRefKind.Head, refs[0].Kind);
+        Assert.True(refs[0].IsCurrent);
+        Assert.Equal(GitRefKind.Tag, refs[1].Kind);
+    }
+
+    [Fact]
+    public void 名前でない飾りは落とす()
+    {
+        // 浅いクローンだと `grafted` が混ざる。札にすると意味が通らない。
+        Assert.Empty(GitRepository.ParseRefs("grafted"));
+        Assert.Empty(GitRepository.ParseRefs(""));
     }
 
     // --- 本物の git に対する試験 ---

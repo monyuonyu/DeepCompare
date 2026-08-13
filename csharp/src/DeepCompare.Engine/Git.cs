@@ -52,6 +52,36 @@ public sealed record GitCommit(
     IReadOnlyList<string> Parents)
 {
     public bool IsMerge => Parents.Count > 1;
+
+    /// <summary>
+    /// このコミットを指している名前（枝・タグ・HEAD）。
+    ///
+    /// 既定を空にして、位置引数を増やさない。**呼び出し側を壊さない。**
+    /// </summary>
+    public IReadOnlyList<GitRef> Refs { get; init; } = [];
+}
+
+/// <summary>名前の種類。札の色を変えるのに使う。</summary>
+public enum GitRefKind
+{
+    /// <summary>手元の枝。</summary>
+    Local,
+
+    /// <summary>遠隔の枝。</summary>
+    Remote,
+
+    /// <summary>タグ。</summary>
+    Tag,
+
+    /// <summary>HEAD（いま居る場所）。</summary>
+    Head,
+}
+
+/// <summary>コミットを指す名前 1 つ。</summary>
+public sealed record GitRef(string Name, GitRefKind Kind)
+{
+    /// <summary>いま居る枝か。**そこだけは目立たせる。**</summary>
+    public bool IsCurrent { get; init; }
 }
 
 public sealed record GitBranch(
@@ -257,15 +287,31 @@ public sealed class GitRepository
     /// **1 回の起動で全部流し読む。** コミットごとに git を起動すると、
     /// 1000 件で 1000 回のプロセス生成になり、それだけで数秒かかる。
     /// </summary>
-    public IReadOnlyList<GitCommit> Log(int limit = 200, string? revision = null, string? path = null)
+    /// <param name="all">
+    /// すべての枝を含める。**グラフを出すならこちらが要る。** いま居る枝だけを
+    /// 引くと、線が 1 本しか無い「ただの一覧」にしかならない。
+    /// </param>
+    public IReadOnlyList<GitCommit> Log(
+        int limit = 200, string? revision = null, string? path = null, bool all = false)
     {
         var arguments = new List<string>
         {
             "log",
             $"--max-count={limit}",
+            // **日付順にする。** git の既定（逆時系列）でも親は必ず後に来るが、
+            // 枝をまたいで並びが飛ぶ。日付順なら見た目と時間の順が一致する。
+            "--date-order",
+            // **省略しない形で受け取る。** 短い形だと `origin/x` と、`/` を含む
+            // 手元の枝 `feature/x` が見分けられない。full なら refs/heads と
+            // refs/remotes で必ず割れる。
+            "--decorate=full",
             $"--pretty=format:%H{FieldSeparator}%h{FieldSeparator}%an{FieldSeparator}%aI"
-                + $"{FieldSeparator}%P{FieldSeparator}%s{RecordSeparator}",
+                + $"{FieldSeparator}%P{FieldSeparator}%D{FieldSeparator}%s{RecordSeparator}",
         };
+        if (all && revision is not { Length: > 0 })
+        {
+            arguments.Add("--all");
+        }
         if (revision is { Length: > 0 })
         {
             arguments.Add(revision);
@@ -291,7 +337,7 @@ public sealed class GitRepository
                 continue;
             }
             var fields = trimmed.Split(FieldSeparator);
-            if (fields.Length < 6)
+            if (fields.Length < 7)
             {
                 continue;
             }
@@ -300,11 +346,67 @@ public sealed class GitRepository
                 fields[1],
                 fields[2],
                 DateTimeOffset.TryParse(fields[3], out var when) ? when : default,
-                fields[5],
+                fields[6],
                 fields[4].Length == 0
                     ? []
-                    : fields[4].Split(' ', StringSplitOptions.RemoveEmptyEntries)));
+                    : fields[4].Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                Refs = ParseRefs(fields[5]),
+            });
         }
+        return result;
+    }
+
+    /// <summary>
+    /// <c>%D</c>（--decorate=full）を名前の一覧にする。
+    ///
+    /// 来る形は <c>HEAD -&gt; refs/heads/main, refs/remotes/origin/main, refs/tags/v1</c>。
+    /// <c>HEAD -&gt;</c> が付いた枝が**いま居る枝**。
+    /// </summary>
+    internal static List<GitRef> ParseRefs(string decoration)
+    {
+        var result = new List<GitRef>();
+        if (decoration.Length == 0)
+        {
+            return result;
+        }
+
+        foreach (var raw in decoration.Split(", ", StringSplitOptions.RemoveEmptyEntries))
+        {
+            var name = raw.Trim();
+            var current = false;
+
+            if (name.StartsWith("HEAD -> ", StringComparison.Ordinal))
+            {
+                name = name["HEAD -> ".Length..];
+                current = true;
+            }
+
+            if (name == "HEAD")
+            {
+                // 切り離された HEAD。枝の名前が無いときだけ出る。
+                result.Add(new GitRef("HEAD", GitRefKind.Head) { IsCurrent = true });
+                continue;
+            }
+
+            if (name.StartsWith("refs/heads/", StringComparison.Ordinal))
+            {
+                result.Add(new GitRef(name["refs/heads/".Length..], GitRefKind.Local)
+                {
+                    IsCurrent = current,
+                });
+            }
+            else if (name.StartsWith("refs/remotes/", StringComparison.Ordinal))
+            {
+                result.Add(new GitRef(name["refs/remotes/".Length..], GitRefKind.Remote));
+            }
+            else if (name.StartsWith("refs/tags/", StringComparison.Ordinal))
+            {
+                result.Add(new GitRef(name["refs/tags/".Length..], GitRefKind.Tag));
+            }
+            // `grafted` や `replaced` のような、名前でないものは落とす。
+        }
+
         return result;
     }
 
