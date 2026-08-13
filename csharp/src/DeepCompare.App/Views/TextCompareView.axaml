@@ -66,6 +66,10 @@
                         ToolTip.Tip="空白・タブを記号で見せる">
             <Path Classes="icon" Data="{StaticResource IconWhitespace}" />
           </ToggleButton>
+          <ToggleButton Classes="filter" IsChecked="{Binding ShowDetails}"
+                        ToolTip.Tip="選んだ行を下に出す（そこで直せます）">
+            <Path Classes="icon" Data="{StaticResource IconDetails}" />
+          </ToggleButton>
 
           <Border Classes="vsep" />
 
@@ -231,6 +235,36 @@
       </Border>
 
     </StackPanel>
+
+    <!--
+      選んだ行を全幅で出し、**その場で直せる**（BC の Text Details）。
+      本文の側を編集できるようにすると、仮想化した一覧の中に入力欄を置くことに
+      なり、行の高さと選択の扱いが一気に難しくなる。BC も同じ理由でここに置く。
+      横に長い行を折り返さずに読めるという利点もある。
+    -->
+    <Border DockPanel.Dock="Bottom" Background="{DynamicResource PanelBg}"
+            BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0"
+            Padding="10,8" IsVisible="{Binding ShowDetails}">
+      <Grid ColumnDefinitions="*,8,*,Auto" RowDefinitions="Auto,Auto">
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding DetailLeftLabel}"
+                   Classes="hint" Margin="2,0,0,3" />
+        <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding DetailRightLabel}"
+                   Classes="hint" Margin="2,0,0,3" />
+
+        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding DetailLeft}"
+                 FontFamily="{DynamicResource MonoFont}" FontSize="13"
+                 IsEnabled="{Binding CanEditLeftDetail}"
+                 AcceptsReturn="False" />
+        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding DetailRight}"
+                 FontFamily="{DynamicResource MonoFont}" FontSize="13"
+                 IsEnabled="{Binding CanEditRightDetail}"
+                 AcceptsReturn="False" />
+
+        <Button Grid.Row="1" Grid.Column="3" Classes="accent" Margin="8,0,0,0"
+                Content="直す" Command="{Binding ApplyDetailCommand}"
+                ToolTip.Tip="直した内容を本文へ戻す。取り消しで元に戻せる" />
+      </Grid>
+    </Border>
 
     <Border DockPanel.Dock="Bottom" Classes="statusbar">
       <StackPanel Orientation="Horizontal" Spacing="16">

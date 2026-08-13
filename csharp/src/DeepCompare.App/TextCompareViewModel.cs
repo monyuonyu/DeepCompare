@@ -100,6 +100,8 @@ public sealed class TextCompareViewModel : ViewModelBase
         FindPreviousCommand = new RelayCommand(() => { FindFrom(forward: false); return Task.CompletedTask; });
         CopyLineCommand = new RelayCommand<RowView>(row => CopyTextAsync(row, both: false));
         CopyBothLinesCommand = new RelayCommand<RowView>(row => CopyTextAsync(row, both: true));
+        ApplyDetailCommand = new RelayCommand(
+            ApplyDetailAsync, () => CanEditLeftDetail || CanEditRightDetail);
         SelectBlockCommand = new RelayCommand<RowView>(
             row => { SelectBlock(row); return Task.CompletedTask; }, row => row.BlockIndex >= 0);
     }
@@ -116,6 +118,7 @@ public sealed class TextCompareViewModel : ViewModelBase
     public RelayCommand<RowView> CopyLineCommand { get; }
     public RelayCommand<RowView> CopyBothLinesCommand { get; }
     public RelayCommand<RowView> SelectBlockCommand { get; }
+    public RelayCommand ApplyDetailCommand { get; }
 
     /// <summary>書き込み先。表示側から差し込む（ViewModel から画面に触らない）。</summary>
     public Action<string>? Clipboard { get; set; }
@@ -191,7 +194,14 @@ public sealed class TextCompareViewModel : ViewModelBase
     public int SelectedRowIndex
     {
         get => _selectedRowIndex;
-        set => Set(ref _selectedRowIndex, value);
+        set
+        {
+            if (Set(ref _selectedRowIndex, value))
+            {
+                // 選んだ行を下の帯へ移す。ここで直せる。
+                ShowDetailFor(value >= 0 && value < VisibleRows.Count ? VisibleRows[value] : null);
+            }
+        }
     }
 
     /// <summary>畳んだときに変更の前後へ残す行数。</summary>
@@ -708,6 +718,13 @@ public sealed class TextCompareViewModel : ViewModelBase
         UpdateInvisibleWarning(left, right);
 
         RebuildVisibleRows();
+
+        // **比較したら最初の差分を選ぶ。** 開いた直後にやることは、たいてい
+        // 「最初の差分を見る」なので、その 1 手を省く。BC も同じ。
+        if (!keepStatus && SelectedRowIndex < 0)
+        {
+            SelectFirstDifference();
+        }
     }
 
 
@@ -750,6 +767,115 @@ public sealed class TextCompareViewModel : ViewModelBase
     /// <summary>いま編集中の内容を、読み込んだときの符号化のまま表した形。</summary>
     private DecodedText CurrentLeft => _leftSource! with { Lines = _leftDocument!.Lines };
     private DecodedText CurrentRight => _rightSource! with { Lines = _rightDocument!.Lines };
+
+    // --- 選んだ行をその場で直す（BC の Text Details）---
+
+    private string _detailLeft = string.Empty;
+
+    /// <summary>
+    /// 選んだ行の中身（左）。**ここで直せる。**
+    ///
+    /// 本文の側を編集できるようにすると、仮想化した一覧の中に入力欄を置くことに
+    /// なり、行の高さと選択の扱いが一気に難しくなる。BC も同じ理由で、
+    /// 編集は下の帯（Text Details）で行う形にしている。
+    ///
+    /// **全幅で出るので、横に長い行も折り返さずに読める**という利点もある。
+    /// </summary>
+    public string DetailLeft
+    {
+        get => _detailLeft;
+        set => Set(ref _detailLeft, value);
+    }
+
+    private string _detailRight = string.Empty;
+    public string DetailRight
+    {
+        get => _detailRight;
+        set => Set(ref _detailRight, value);
+    }
+
+    private bool _showDetails = true;
+
+    /// <summary>下の帯を出すか。狭い画面では畳みたいことがある。</summary>
+    public bool ShowDetails
+    {
+        get => _showDetails;
+        set => Set(ref _showDetails, value);
+    }
+
+    public string DetailLeftLabel => _detailRow is null
+        ? "左（行を選ぶと、ここで直せます）"
+        : _detailRow.LeftNumber is { Length: > 0 } l
+            ? $"左 {l} 行目"
+            : "左（この行に対応する行はありません）";
+
+    public string DetailRightLabel => _detailRow is null
+        ? "右"
+        : _detailRow.RightNumber is { Length: > 0 } r
+            ? $"右 {r} 行目"
+            : "右（この行に対応する行はありません）";
+
+    /// <summary>その側に行があるときだけ直せる。無い行は作れない（塊のコピーで足す）。</summary>
+    public bool CanEditLeftDetail => _detailRow?.Row.Left is not null && !LeftReadOnly;
+    public bool CanEditRightDetail => _detailRow?.Row.Right is not null && !RightReadOnly;
+
+    private RowView? _detailRow;
+
+    /// <summary>選んだ行を下の帯へ移す。</summary>
+    private void ShowDetailFor(RowView? row)
+    {
+        _detailRow = row;
+        DetailLeft = row?.LeftText ?? string.Empty;
+        DetailRight = row?.RightText ?? string.Empty;
+        OnPropertyChanged(nameof(DetailLeftLabel));
+        OnPropertyChanged(nameof(DetailRightLabel));
+        OnPropertyChanged(nameof(CanEditLeftDetail));
+        OnPropertyChanged(nameof(CanEditRightDetail));
+        ApplyDetailCommand.Raise();
+    }
+
+    /// <summary>
+    /// 下の帯で直した内容を本文へ戻す。
+    ///
+    /// **1 行の置き換えとして履歴に積む。** 塊のコピーと同じ扱いにするので、
+    /// 取り消しも同じ操作で戻せる。
+    /// </summary>
+    private async Task ApplyDetailAsync()
+    {
+        if (_detailRow is not { } row || _leftDocument is null || _rightDocument is null)
+        {
+            return;
+        }
+
+        var changed = false;
+        if (row.Row.Left is { } leftIndex && !LeftReadOnly && DetailLeft != row.LeftText)
+        {
+            _leftDocument.Replace(leftIndex, 1, [DetailLeft]);
+            changed = true;
+        }
+        if (row.Row.Right is { } rightIndex && !RightReadOnly && DetailRight != row.RightText)
+        {
+            _rightDocument.Replace(rightIndex, 1, [DetailRight]);
+            changed = true;
+        }
+
+        if (!changed)
+        {
+            return;
+        }
+
+        // どちら側を触ったかは取り消しのときに要る。両方直したなら 2 回積む。
+        if (row.Row.Left is not null && DetailLeft != row.LeftText)
+        {
+            _undoSides.Push(false);
+        }
+        if (row.Row.Right is not null && DetailRight != row.RightText)
+        {
+            _undoSides.Push(true);
+        }
+        _redoSides.Clear();
+        await RecompareAsync();
+    }
 
     private async Task ApplyBlockAsync(RowView row, bool toRight)
     {
@@ -1061,6 +1187,20 @@ public sealed class TextCompareViewModel : ViewModelBase
             }
         }
         return false;
+    }
+
+    /// <summary>最初の差分の行を選ぶ。差分が無ければ先頭。</summary>
+    private void SelectFirstDifference()
+    {
+        for (var i = 0; i < VisibleRows.Count; i++)
+        {
+            if (!VisibleRows[i].Row.IsUnchanged)
+            {
+                SelectedRowIndex = i;
+                return;
+            }
+        }
+        SelectedRowIndex = VisibleRows.Count > 0 ? 0 : -1;
     }
 
     private void RebuildVisibleRows()
