@@ -72,8 +72,22 @@
           </StackPanel>
         </Border>
 
-        <ScrollViewer>
-          <ItemsControl ItemsSource="{Binding Files}">
+        <!--
+          変更が無いときの案内。**空の枠をそのまま見せない。**
+          何も無いのか、まだ読んでいないのかが区別できない。
+        -->
+        <Panel>
+          <StackPanel IsVisible="{Binding IsClean}" Spacing="8"
+                      HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Path Classes="icon" Data="{StaticResource IconFilterSame}"
+                  Width="34" Height="34" HorizontalAlignment="Center"
+                  Fill="{DynamicResource FgDisabled}" />
+            <TextBlock Text="変更はありません" HorizontalAlignment="Center"
+                       Foreground="{DynamicResource FgDim}" />
+          </StackPanel>
+
+          <ScrollViewer>
+            <ItemsControl ItemsSource="{Binding Files}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:GitFileRow">
                 <Border Background="{Binding Background}" Classes="row">
@@ -109,8 +123,9 @@
                 </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </ScrollViewer>
+            </ItemsControl>
+          </ScrollViewer>
+        </Panel>
       </DockPanel>
 
       <GridSplitter Grid.Column="1" Background="{DynamicResource Divider}" Width="2" />
@@ -218,13 +233,19 @@
                 </ListBox.Styles>
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="vm:GitCommitFileRow">
-                    <Grid ColumnDefinitions="16,*,Auto" ToolTip.Tip="{Binding Path}">
+                    <Grid ColumnDefinitions="16,Auto,*,Auto" ToolTip.Tip="{Binding Path}">
                       <TextBlock Grid.Column="0" Text="{Binding Mark}" Classes="mono"
                                  FontSize="11" FontWeight="Bold"
                                  Foreground="{Binding MarkColour}" />
-                      <TextBlock Grid.Column="1" Text="{Binding Display}" Classes="mono"
-                                 FontSize="11" TextTrimming="CharacterEllipsis" />
-                      <Button Grid.Column="2" Classes="icon"
+                      <!-- 名前を先に。置き場所は後ろに薄く（切れても困らない） -->
+                      <TextBlock Grid.Column="1" Text="{Binding Name}" Classes="mono"
+                                 FontSize="11" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="2" Text="{Binding Folder}" Classes="mono"
+                                 FontSize="10" Margin="6,0,0,0"
+                                 IsVisible="{Binding HasFolder}"
+                                 Foreground="{DynamicResource FgDim}"
+                                 TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                      <Button Grid.Column="3" Classes="icon"
                               ToolTip.Tip="このコミットでの、このファイルの変化を見る"
                               Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).OpenCommitFileCommand}"
                               CommandParameter="{Binding}">

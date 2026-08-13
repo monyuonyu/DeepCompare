@@ -127,6 +127,32 @@ public sealed class GitCommitFileRow(GitFileStatus status)
 {
     public string Path => status.Path;
 
+    /// <summary>
+    /// ファイル名だけ。**これを先に、大きく出す。**
+    ///
+    /// パスをそのまま 1 本の文字列で出すと、幅が足りないときに末尾が落ちる。
+    /// 落ちるのは肝心のファイル名の方で、残るのは全部同じ
+    /// <c>csharp/src/DeepCompare.App/…</c> という、区別に使えない部分になる。
+    /// </summary>
+    public string Name => System.IO.Path.GetFileName(status.Path);
+
+    /// <summary>置き場所。名前の後ろに薄く添える。切れても困らない。</summary>
+    public string Folder
+    {
+        get
+        {
+            var directory = System.IO.Path.GetDirectoryName(status.Path)?.Replace('\\', '/') ?? string.Empty;
+            if (status.OriginalPath is { Length: > 0 } original)
+            {
+                // 名前が変わったものは、どこから来たかを添える。
+                return directory.Length > 0 ? $"{directory} ← {original}" : $"← {original}";
+            }
+            return directory;
+        }
+    }
+
+    public bool HasFolder => Folder.Length > 0;
+
     public string Display => status.OriginalPath is { Length: > 0 } original
         ? $"{original} → {status.Path}"
         : status.Path;
@@ -332,6 +358,13 @@ public sealed class GitViewModel : ViewModelBase
     }
 
     public ObservableCollection<GitFileRow> Files { get; } = [];
+
+    /// <summary>
+    /// 変更が 1 件も無い。**空の枠をそのまま見せない。**
+    /// 何も無いのか、まだ読んでいないのか、失敗したのかが区別できない。
+    /// </summary>
+    public bool IsClean => HasRepository && Files.Count == 0;
+
     public ObservableCollection<GitCommitRow> Commits { get; } = [];
 
     public RelayCommand RefreshCommand { get; }
@@ -629,6 +662,8 @@ public sealed class GitViewModel : ViewModelBase
             {
                 SelectedCommit = Commits[0];
             }
+
+            OnPropertyChanged(nameof(IsClean));
 
             Summary = files.Count == 0
                 ? "作業ツリーはきれいです。"
