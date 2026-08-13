@@ -95,14 +95,49 @@ public sealed class RowView : ViewModelBase
     public string EditLeft
     {
         get => _editLeft;
-        set => Set(ref _editLeft, value);
+        set { if (Set(ref _editLeft, value)) { RefreshWhileEditing(); } }
     }
 
     private string _editRight = string.Empty;
     public string EditRight
     {
         get => _editRight;
-        set => Set(ref _editRight, value);
+        set { if (Set(ref _editRight, value)) { RefreshWhileEditing(); } }
+    }
+
+    private Language? _language;
+    private LexState _leftState;
+    private LexState _rightState;
+
+    /// <summary>
+    /// 打っている最中も、相手側の色を更新する。
+    ///
+    /// **編集中の行そのものには色を付けられない。** 入力欄は書式付きの
+    /// 文字を扱えないため。だが**相手側は入力欄ではない**ので、そちらを
+    /// 打つたびに塗り直せば「いまどこが違うか」が見える。
+    ///
+    /// 行の並びは触らない。**打つたびに組み直すと、書いている途中で
+    /// 行が動いてカーソルを見失う。**
+    /// </summary>
+    private void RefreshWhileEditing()
+    {
+        if (!IsEditing)
+        {
+            return;
+        }
+
+        var left = CanEditLeft ? EditLeft : LeftText;
+        var right = CanEditRight ? EditRight : RightText;
+        if (!CanEditLeft || !CanEditRight)
+        {
+            return;
+        }
+
+        var (leftSpans, rightSpans) = InlineDiff.Compute(left, right, _language);
+        LeftInlines = Build(left, leftSpans, _language, _leftState);
+        RightInlines = Build(right, rightSpans, _language, _rightState);
+        OnPropertyChanged(nameof(LeftInlines));
+        OnPropertyChanged(nameof(RightInlines));
     }
 
     /// <summary>その側に行があるときだけ直せる。無い行は作れない。</summary>
@@ -176,8 +211,12 @@ public sealed class RowView : ViewModelBase
     /// <summary>本文のセルごとの背景。対応が無い側は斜線になる。</summary>
     public IBrush LeftBackground { get; }
     public IBrush RightBackground { get; }
-    public InlineCollection LeftInlines { get; }
-    public InlineCollection RightInlines { get; }
+    /// <summary>
+    /// 描く中身。**差し替えられるようにしてある**（打っている最中に
+    /// 相手側を塗り直すため）。
+    /// </summary>
+    public InlineCollection LeftInlines { get; private set; }
+    public InlineCollection RightInlines { get; private set; }
 
     /// <summary>
     /// 空白を記号で見せるか。
@@ -237,6 +276,11 @@ public sealed class RowView : ViewModelBase
         RightText = row.Right is { } ri ? right.Lines[ri] : string.Empty;
         LeftInlines = Build(row.Left is null ? null : LeftText, row.LeftSpans, language, leftState);
         RightInlines = Build(row.Right is null ? null : RightText, row.RightSpans, language, rightState);
+
+        // 打っている最中に塗り直すために覚えておく。
+        _language = language;
+        _leftState = leftState;
+        _rightState = rightState;
     }
 
     /// <summary>
@@ -274,8 +318,13 @@ public sealed class RowView : ViewModelBase
             if (tokens is null || diffBrush is not null)
             {
                 // 変更部分は構文で塗り分けない。1 つの塊として見せる。
+                //
+                // **変わった文字は背景で塗る。** 文字の色を変えるだけだと、
+                // 1 文字違いや、もともと色の付いた場所（文字列・注記）では
+                // 差分だと気づけない。Beyond Compare も背景で示している。
                 AddRun(inlines, text.Substring(span.Start, span.Length),
-                    diffBrush ?? Palette.Brush("FgNormal"));
+                    diffBrush ?? Palette.Brush("FgNormal"),
+                    span.Kind == SpanKind.Changed ? Palette.Brush("BgInline") : null);
                 continue;
             }
 
@@ -307,11 +356,12 @@ public sealed class RowView : ViewModelBase
     /// **記号は必ず 1 文字に置き換える。** 長さが変わると、差分の範囲（何文字目
     /// から何文字目か）とずれて色の付く位置が狂う。
     /// </summary>
-    private static void AddRun(InlineCollection inlines, string text, IBrush brush)
+    private static void AddRun(
+        InlineCollection inlines, string text, IBrush brush, IBrush? background = null)
     {
         if (!ShowWhitespace || text.Length == 0)
         {
-            inlines.Add(new Run(text) { Foreground = brush });
+            inlines.Add(new Run(text) { Foreground = brush, Background = background });
             return;
         }
 
@@ -334,14 +384,17 @@ public sealed class RowView : ViewModelBase
 
             if (i > start)
             {
-                inlines.Add(new Run(text[start..i]) { Foreground = brush });
+                inlines.Add(new Run(text[start..i])
+                    { Foreground = brush, Background = background });
             }
-            inlines.Add(new Run(mark.ToString()) { Foreground = faint });
+            inlines.Add(new Run(mark.ToString())
+                { Foreground = faint, Background = background });
             start = i + 1;
         }
         if (start < text.Length)
         {
-            inlines.Add(new Run(text[start..]) { Foreground = brush });
+            inlines.Add(new Run(text[start..])
+                { Foreground = brush, Background = background });
         }
     }
 

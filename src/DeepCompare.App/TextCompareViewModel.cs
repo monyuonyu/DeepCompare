@@ -674,6 +674,20 @@ public sealed class TextCompareViewModel : ViewModelBase
         private set => Set(ref _statusText, value);
     }
 
+    private string _diffCountText = string.Empty;
+
+    /// <summary>
+    /// 差分が何か所あるか。
+    ///
+    /// **行数ではなく塊の数を数える。** 20 行まとめて書き換えた場所は
+    /// 「1 か所」。直す作業の単位はそちらで、行数は作業量の目安にならない。
+    /// </summary>
+    public string DiffCountText
+    {
+        get => _diffCountText;
+        private set => Set(ref _diffCountText, value);
+    }
+
     // ---- 符号化 ----
 
     /// <summary>
@@ -1269,6 +1283,20 @@ public sealed class TextCompareViewModel : ViewModelBase
             + (!refining && stats.SkippedBlocks > 0
                 ? $"    {stats.SkippedBlocks} 箇所は構造的な対応付けのまま"
                 : string.Empty);
+
+        // 差分の塊の数。**続いた差分行は 1 つと数える。**
+        var blocks = 0;
+        var inBlock = false;
+        foreach (var row in VisibleRows)
+        {
+            var differs = !row.Row.IsUnchanged;
+            if (differs && !inBlock)
+            {
+                blocks++;
+            }
+            inBlock = differs;
+        }
+        DiffCountText = blocks == 0 ? "差分なし" : $"差分 {blocks} か所";
 
         // **符号化と改行は左右それぞれの下に出す。** ひとまとめに並べていたが、
         // どちらの話なのかを読み取るのに文字を追う必要があった。

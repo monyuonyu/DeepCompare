@@ -30,9 +30,10 @@ public sealed class ModelCoverageTests
         var warning = ModelCoverage.Warn(["設定を読み込む"], ["設定の読み込み"]);
 
         Assert.NotNull(warning);
-        // **何ができないかを具体的に言う。**
-        Assert.Contains("濁点", warning);
+        // **何が起きているかと、どうすれば直るかを言う。**
+        // 濁点の例まで書いていたが、状態バーに常時居座る文としては長すぎた。
         Assert.Contains("文字の重なり", warning);
+        Assert.Contains("多言語モデル", warning);
     }
 
     [Fact]

@@ -291,6 +291,9 @@ public sealed class SessionStore
     /// 設定ファイルへ落とすと、平文で残り続ける（そして本人も忘れる）。
     /// 伏せた形で保存し、使うときに改めて聞く。
     /// </summary>
+    /// <summary>履歴に残す件数。**古いものから落とす。**</summary>
+    private const int MaxSessions = 30;
+
     public List<Session> Upsert(Session session)
     {
         var sessions = Load();
@@ -301,6 +304,14 @@ public sealed class SessionStore
             RightPath = RemoteLocation.Redact(session.RightPath),
         };
         sessions.Insert(0, session with { LastUsed = DateTime.UtcNow });
+
+        // **溜め続けない。** 開くたびに積む形にしたので、上限が無いと
+        // 設定ファイルが際限なく育ち、一覧も探しにくくなる。
+        if (sessions.Count > MaxSessions)
+        {
+            sessions.RemoveRange(MaxSessions, sessions.Count - MaxSessions);
+        }
+
         Save(sessions);
         return sessions;
     }

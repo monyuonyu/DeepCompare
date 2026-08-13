@@ -188,6 +188,100 @@ public static class Aligner
     /// 意味的アライメントを行わずに左右をそのまま並べる。
     /// 塊が大きすぎて DP に載せられない場合の退避先。
     /// </summary>
+    /// <summary>
+    /// 文字の重なりで対応付ける。
+    ///
+    /// **埋め込みが使えないときの本命。** これまでは
+    /// <see cref="WithoutScoring"/> で全部を削除＋追加として並べていたので、
+    /// 1 文字違いの行すら対にならず、行の中のどこが変わったのかが
+    /// 出せなかった（日本語ではモデルが効かないので、ほぼ常にこの経路）。
+    ///
+    /// 似ているかどうかは**2 文字の並びの重なり**で見る。単語で切らないので
+    /// 日本語でも効き、語順の入れ替えにも強い。
+    /// </summary>
+    public static List<Pair> ByCharacters(
+        Block block,
+        IReadOnlyList<string> leftLines,
+        IReadOnlyList<string> rightLines,
+        float threshold = 0.35f)
+    {
+        // 各行の 2 文字の並びを先に作る。塊の中で何度も突き合わせるので、
+        // 毎回作ると O(n*m*文字数) になる。
+        var leftGrams = new HashSet<int>[block.LeftLength];
+        var rightGrams = new HashSet<int>[block.RightLength];
+        for (var i = 0; i < block.LeftLength; i++)
+        {
+            leftGrams[i] = Bigrams(leftLines[block.LeftStart + i]);
+        }
+        for (var j = 0; j < block.RightLength; j++)
+        {
+            rightGrams[j] = Bigrams(rightLines[block.RightStart + j]);
+        }
+
+        var local = NeedlemanWunsch(
+            block.LeftLength, block.RightLength, threshold,
+            (i, j) => Dice(leftGrams[i], rightGrams[j]));
+
+        return [.. local.Select(p => new Pair(
+            p.Left is { } li ? block.LeftStart + li : null,
+            p.Right is { } ri ? block.RightStart + ri : null,
+            p.Score))];
+    }
+
+    /// <summary>
+    /// 2 文字の並びの集合。
+    ///
+    /// **空白は落とす。** 字下げだけが違う行を「別物」と見ないため。
+    /// 1 文字の行は、その 1 文字を 1 つの並びとして持つ（空集合にすると
+    /// どの行とも似ていないことになる）。
+    /// </summary>
+    private static HashSet<int> Bigrams(string text)
+    {
+        var set = new HashSet<int>();
+        var previous = -1;
+        foreach (var c in text)
+        {
+            if (char.IsWhiteSpace(c))
+            {
+                continue;
+            }
+            if (previous >= 0)
+            {
+                set.Add((previous << 16) | c);
+            }
+            previous = c;
+        }
+        if (set.Count == 0 && previous >= 0)
+        {
+            set.Add(previous);
+        }
+        return set;
+    }
+
+    /// <summary>重なりの度合い（Dice 係数）。両方が空なら 1。</summary>
+    private static float Dice(HashSet<int> a, HashSet<int> b)
+    {
+        if (a.Count == 0 && b.Count == 0)
+        {
+            return 1;
+        }
+        if (a.Count == 0 || b.Count == 0)
+        {
+            return 0;
+        }
+        var shared = 0;
+        // 小さい方を回す。
+        var (small, large) = a.Count <= b.Count ? (a, b) : (b, a);
+        foreach (var gram in small)
+        {
+            if (large.Contains(gram))
+            {
+                shared++;
+            }
+        }
+        return 2f * shared / (a.Count + b.Count);
+    }
+
     public static List<Pair> WithoutScoring(Block block)
     {
         var pairs = new List<Pair>(block.LeftLength + block.RightLength);

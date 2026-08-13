@@ -217,7 +217,10 @@ public static class DiffComparer
                     List<Pair> pairs;
                     if (!refined.Contains(index))
                     {
-                        pairs = Aligner.WithoutScoring(block);
+                        // **文字の重なりで対応付ける。** 以前はここで
+                        // 全部を削除＋追加にしていたので、1 文字違いの行も
+                        // 対にならず、行の中のどこが変わったか出せなかった。
+                        pairs = Aligner.ByCharacters(block, left.Lines, right.Lines);
                     }
                     else
                     {

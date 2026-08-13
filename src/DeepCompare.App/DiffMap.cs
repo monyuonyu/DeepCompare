@@ -83,6 +83,14 @@ public sealed class DiffMap : Control
         set => SetValue(ClickedPositionProperty, value);
     }
 
+    /// <summary>
+    /// 地図の 1 行が取る高さの上限。
+    ///
+    /// **本文の行より高くしない。** 短いファイルで引き伸ばすと、
+    /// 差分の位置が実際より大きく見える。
+    /// </summary>
+    private const double MaxRowHeight = 16;
+
     public DiffMap()
     {
         // 細いと 1 行の差分が線にしか見えず、位置は分かっても量が分からない。
@@ -131,7 +139,14 @@ public sealed class DiffMap : Control
         {
             return;
         }
-        var position = Math.Clamp(y / Bounds.Height, 0, 1);
+        // **地図が使っている高さで割る。** 短いファイルでは帯の下が
+        // 余白なので、全高で割ると押した場所より下へ飛ぶ。
+        var used = Bounds.Height;
+        if (Rows is System.Collections.ICollection rows && rows.Count > 0)
+        {
+            used = Math.Min(Bounds.Height, MaxRowHeight * rows.Count);
+        }
+        var position = Math.Clamp(y / used, 0, 1);
 
         // 同じ値を入れても知らせが飛ばないので、必ず変わるようにしてから戻す。
         // なぞって同じ位置に戻ったときに反応しないのを避ける。
@@ -158,7 +173,19 @@ public sealed class DiffMap : Control
         }
 
         var count = collection.Count;
-        var perRow = height / count;
+
+        // **1 行の高さに上限を置く。**
+        //
+        // 帯いっぱいに引き伸ばしていたので、2 行しかないファイルでも
+        // 上から下まで塗られ、「全体のどこに差分があるか」を示すはずの
+        // 地図が「全部が差分」に見えていた。
+        //
+        // Beyond Compare は本文と同じ縮尺で描き、短いファイルでは
+        // 下が余白のまま残る。同じにする。
+        var perRow = Math.Min(height / count, MaxRowHeight);
+
+        // 地図が実際に使う高さ。**枠も現在行もこの中に収める。**
+        var mapHeight = Math.Min(height, perRow * count);
 
         // **1 行が 1px を切っても、差分は必ず見えるようにする。**
         // 高さそのままで描くと、5000 行のファイルで 1 行の差分が消える。
@@ -189,9 +216,9 @@ public sealed class DiffMap : Control
         //
         // **薄く塗ったうえで枠を描く。** 枠だけだと、差分の色が濃い場所では
         // 線が紛れて見つけられない。塗りだけだと下の色が読めなくなる。
-        var viewY = Math.Clamp(ViewStart, 0, 1) * height;
-        var viewH = Math.Max(10, Math.Clamp(ViewSize, 0, 1) * height);
-        var top = Math.Min(viewY, Math.Max(0, height - viewH));
+        var viewY = Math.Clamp(ViewStart, 0, 1) * mapHeight;
+        var viewH = Math.Min(mapHeight, Math.Max(6, Math.Clamp(ViewSize, 0, 1) * mapHeight));
+        var top = Math.Min(viewY, Math.Max(0, mapHeight - viewH));
         var area = new Rect(0, top, width, viewH);
 
         context.FillRectangle(new SolidColorBrush(Colors.Gray, 0.25), area);
@@ -210,7 +237,7 @@ public sealed class DiffMap : Control
         var hover = Hover;
         if (hover >= 0)
         {
-            var hy = hover * height;
+            var hy = hover * mapHeight;
             context.FillRectangle(new SolidColorBrush(Colors.Gray, 0.18),
                 new Rect(0, Math.Max(0, hy - 6), width, 12));
             context.DrawLine(new Pen(Palette.Brush("FgNormal"), 1),
@@ -222,7 +249,7 @@ public sealed class DiffMap : Control
         var line = CurrentLine;
         if (line >= 0 && line < count)
         {
-            var y = (line + 0.5) * perRow;
+            var y = Math.Min(mapHeight, (line + 0.5) * perRow);
             var marker = new PathGeometry
             {
                 Figures =

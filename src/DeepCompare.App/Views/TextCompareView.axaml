@@ -299,69 +299,64 @@
     <Border DockPanel.Dock="Bottom" Background="{DynamicResource PanelBg}"
             BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0"
             Padding="10,8" IsVisible="{Binding ShowDetails}">
-      <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*">
+      <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
 
         <!--
-          **左右ではなく上下に並べる。** 横に割ると 1 行あたりの幅が半分になり、
-          長い行はどちらも右端で切れて、見るのに横スクロールが要る。
-          上下なら、左右のどちらも画面いっぱいの幅で読める。
+          **見出しの行をやめた。** 「左 1 行目 / 右 1 行目」と書いていたが、
+          上が左・下が右であることは並びで分かるし、その 2 行ぶんの高さは
+          本文から削られていた。行番号は左の欄の中に薄く出す。
+
+          切り替えのボタンは右端へ。**読む物の上ではなく、脇に置く。**
         -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="2,0,0,3">
-        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-          <TextBlock Text="{Binding DetailLeftLabel}" Classes="hint" VerticalAlignment="Center" />
+        <StackPanel Grid.Row="0" Grid.RowSpan="2" Grid.Column="1"
+                    Orientation="Vertical" Spacing="2" Margin="8,0,0,0"
+                    VerticalAlignment="Top">
+          <Button Classes="icon small" ToolTip.Tip="この帯を閉じる"
+                  Command="{Binding HideDetailsCommand}">
+            <Path Classes="icon" Data="{StaticResource IconClose}" />
+          </Button>
           <!--
             文字の対応で見る（BC の Alignment Details）。
             **色だけでは、片方にしか無い文字があると桁がずれて読めない。**
           -->
           <ToggleButton Classes="filter" IsChecked="{Binding DetailAsAlignment}"
-                        ToolTip.Tip="下の帯で、左右の文字の対応を桁を揃えて見る">
+                        Padding="4" MinHeight="0"
+                        ToolTip.Tip="左右の文字の対応を、桁を揃えて見る">
             <Path Classes="icon" Data="{StaticResource IconAlignment}" />
           </ToggleButton>
           <ToggleButton Classes="filter" IsChecked="{Binding DetailAsHex}"
-                        Padding="6,2" MinHeight="18"
+                        Padding="4,2" MinHeight="0"
                         ToolTip.Tip="バイトで見る（空白でも分からないときの最後の拠り所）">
-            <TextBlock Text="16 進" FontSize="10" />
+            <TextBlock Text="16" FontSize="9" />
           </ToggleButton>
         </StackPanel>
 
         <!--
-          **閉じるのはこの帯の上で。** 開け閉めのボタンをツールバーの
-          並びに置いていたが、閉じたい対象から遠く、どのボタンが効くのか
-          分からなかった。
-        -->
-        <Button Grid.Column="1" Classes="icon small" ToolTip.Tip="この帯を閉じる"
-                Command="{Binding HideDetailsCommand}">
-          <Path Classes="icon" Data="{StaticResource IconClose}" />
-        </Button>
-        </Grid>
-
-        <!--
           文字で見る（直せる）。
           **打った内容は欄を離れた時点で本文へ入る。** 「直す」ボタンを
-          押させていたが、押し忘れると黙って消える。打鍵ごとに入れると
-          今度は取り消しが 1 文字ずつになるので、離れたときにする。
+          押させていたが、押し忘れると黙って消える。
         -->
-        <TextBox Grid.Row="1" Text="{Binding DetailLeft, UpdateSourceTrigger=LostFocus}"
+        <TextBox Grid.Row="0" Grid.Column="0"
+                 Text="{Binding DetailLeft, UpdateSourceTrigger=LostFocus}"
                  FontFamily="{DynamicResource MonoFont}" FontSize="13"
                  IsEnabled="{Binding CanEditLeftDetail}"
                  IsVisible="{Binding DetailShowsText}"
-                 AcceptsReturn="False" />
+                 Watermark="{Binding DetailLeftLabel}"
+                 AcceptsReturn="False" Margin="0,0,0,3" />
 
-        <TextBlock Grid.Row="2" Text="{Binding DetailRightLabel}"
-                   Classes="hint" Margin="2,6,0,3"
-                   IsVisible="{Binding DetailShowsText}" />
-
-        <TextBox Grid.Row="3" Text="{Binding DetailRight, UpdateSourceTrigger=LostFocus}"
+        <TextBox Grid.Row="1" Grid.Column="0"
+                 Text="{Binding DetailRight, UpdateSourceTrigger=LostFocus}"
                  FontFamily="{DynamicResource MonoFont}" FontSize="13"
                  IsEnabled="{Binding CanEditRightDetail}"
                  IsVisible="{Binding DetailShowsText}"
+                 Watermark="{Binding DetailRightLabel}"
                  AcceptsReturn="False" />
 
         <!-- バイトで見る（読むだけ。ここから直すのは危ないので許さない） -->
-        <TextBox Grid.Row="1" Text="{Binding DetailLeftHex}"
+        <TextBox Grid.Row="0" Grid.Column="0" Text="{Binding DetailLeftHex}"
                  FontFamily="{DynamicResource MonoFont}" FontSize="12"
-                 IsReadOnly="True" IsVisible="{Binding DetailAsHex}" />
-        <TextBox Grid.Row="3" Text="{Binding DetailRightHex}"
+                 IsReadOnly="True" IsVisible="{Binding DetailAsHex}" Margin="0,0,0,3" />
+        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding DetailRightHex}"
                  FontFamily="{DynamicResource MonoFont}" FontSize="12"
                  IsReadOnly="True" IsVisible="{Binding DetailAsHex}" />
 
@@ -369,7 +364,7 @@
           文字の対応（BC の Alignment Details）。
           **1 つの欄に左右をまたいで出す。** 桁を揃えて見せるのが目的。
         -->
-        <TextBox Grid.Row="1" Grid.RowSpan="3"
+        <TextBox Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
                  Text="{Binding DetailAlignment}"
                  FontFamily="{DynamicResource MonoFont}" FontSize="12"
                  IsReadOnly="True" IsVisible="{Binding DetailAsAlignment}"
@@ -383,63 +378,97 @@
       「左: UTF-8 / LF    右: UTF-8 / LF」のどちらの話か文字を追う必要があった。
       押すと選び直せる（推定が外れたときの逃げ道）。
     -->
+    <!--
+      状態バー。**1 本にまとめ、区画で分ける。**
+
+      符号化の行と統計の行で 2 段を使っていたが、そのぶん本文が減る。
+      Beyond Compare は 1 本の帯を縦線で区切り、意味の違う情報を
+      並べている。同じ形にする。
+
+      左から: 差分の数 → 中身の内訳 → 左右の読み方 → 開き口。
+    -->
     <Border DockPanel.Dock="Bottom" Classes="statusbar"
             IsVisible="{Binding !ShowPlaceholder}">
-      <Grid ColumnDefinitions="*,*">
-        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
-          <TextBlock Text="左" FontSize="11" VerticalAlignment="Center"
-                     Foreground="{DynamicResource FgDim}" />
-          <ComboBox ItemsSource="{Binding Encodings}" SelectedItem="{Binding LeftEncoding}"
-                    DisplayMemberBinding="{Binding Label}"
-                    FontSize="11" Padding="6,1" MinHeight="0"
-                    ToolTip.Tip="読み方が違うと思ったら選び直す（読み直します）" />
-          <TextBlock Text="{Binding LeftEnding}" FontSize="11" VerticalAlignment="Center"
-                     Foreground="{DynamicResource FgDim}" />
+      <DockPanel LastChildFill="False">
+
+        <!-- 差分の数。**最初に目に入る場所に置く。** ここが 0 なら中身は同じ -->
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="5"
+                    VerticalAlignment="Center">
+          <Path Classes="icon" Data="{StaticResource IconFilterDiff}"
+                Width="11" Height="11" VerticalAlignment="Center"
+                Stroke="{DynamicResource FgDim}" StrokeThickness="1.6" />
+          <TextBlock Text="{Binding DiffCountText}" FontSize="11"
+                     VerticalAlignment="Center" />
         </StackPanel>
+
+        <Border DockPanel.Dock="Left" Classes="vsep" Margin="10,3" />
+
+        <TextBlock DockPanel.Dock="Left" Text="{Binding StatusText}" FontSize="11"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource FgDim}" />
+
         <!--
-          **閉じているときの開き口はここ。** 帯を閉じたあと、どこから
-          出せばいいのか分からなくなるのを避ける。
+          「同じに見えるのに一致しない」の原因を、聞かれる前に出す。
         -->
-        <Button Grid.Column="1" HorizontalAlignment="Right" Classes="icon small"
+        <Border DockPanel.Dock="Left" Classes="vsep" Margin="10,3"
+                IsVisible="{Binding HasInvisibleWarning}" />
+        <TextBlock DockPanel.Dock="Left" Text="{Binding InvisibleWarning}" FontSize="11"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource FgWarning}"
+                   IsVisible="{Binding HasInvisibleWarning}" />
+
+        <!--
+          手で付けた対応があることは**必ず見える場所に出す。**
+          自動の結果だと思って読まれると、なぜそう並ぶのか分からなくなる。
+        -->
+        <Border DockPanel.Dock="Left" Classes="vsep" Margin="10,3"
+                IsVisible="{Binding ManualNote,
+                  Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        <TextBlock DockPanel.Dock="Left" Text="{Binding ManualNote}" FontSize="11"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource Accent}"
+                   IsVisible="{Binding ManualNote,
+                     Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
+        <!--
+          **閉じているときの開き口。** 帯を閉じたあと、どこから出せばいいのか
+          分からなくなるのを避ける。
+        -->
+        <Button DockPanel.Dock="Right" Classes="icon small" Margin="6,0,0,0"
                 IsVisible="{Binding !ShowDetails}"
                 Command="{Binding ShowDetailsCommand}"
                 ToolTip.Tip="選んだ行を下に出す（そこで直せます）">
           <Path Classes="icon" Data="{StaticResource IconDetails}" />
         </Button>
 
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+        <!-- 読み方。**左右それぞれ選び直せる**（推定が外れたときの逃げ道） -->
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="5"
+                    VerticalAlignment="Center">
           <TextBlock Text="右" FontSize="11" VerticalAlignment="Center"
                      Foreground="{DynamicResource FgDim}" />
           <ComboBox ItemsSource="{Binding Encodings}" SelectedItem="{Binding RightEncoding}"
                     DisplayMemberBinding="{Binding Label}"
-                    FontSize="11" Padding="6,1" MinHeight="0"
+                    FontSize="11" Padding="6,0" MinHeight="0"
                     ToolTip.Tip="読み方が違うと思ったら選び直す（読み直します）" />
           <TextBlock Text="{Binding RightEnding}" FontSize="11" VerticalAlignment="Center"
                      Foreground="{DynamicResource FgDim}" />
         </StackPanel>
-      </Grid>
-    </Border>
 
-    <Border DockPanel.Dock="Bottom" Classes="statusbar">
-      <StackPanel Orientation="Horizontal" Spacing="16">
-        <TextBlock Text="{Binding StatusText}" FontSize="11"
-                   Foreground="{DynamicResource FgDim}" />
-        <!--
-          「同じに見えるのに一致しない」の原因を、聞かれる前に出す。
-          符号化と改行を出しているのと同じ理由。
-        -->
-        <TextBlock Text="{Binding InvisibleWarning}" FontSize="11"
-                   Foreground="{DynamicResource FgWarning}"
-                   IsVisible="{Binding HasInvisibleWarning}" />
-        <!--
-          手で付けた対応があることは**必ず見える場所に出す。**
-          自動の結果だと思って読まれると、なぜそう並ぶのか分からなくなる。
-        -->
-        <TextBlock Text="{Binding ManualNote}" FontSize="11"
-                   Foreground="{DynamicResource Accent}"
-                   IsVisible="{Binding ManualNote,
-                     Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-      </StackPanel>
+        <Border DockPanel.Dock="Right" Classes="vsep" Margin="10,3" />
+
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="5"
+                    VerticalAlignment="Center">
+          <TextBlock Text="左" FontSize="11" VerticalAlignment="Center"
+                     Foreground="{DynamicResource FgDim}" />
+          <ComboBox ItemsSource="{Binding Encodings}" SelectedItem="{Binding LeftEncoding}"
+                    DisplayMemberBinding="{Binding Label}"
+                    FontSize="11" Padding="6,0" MinHeight="0"
+                    ToolTip.Tip="読み方が違うと思ったら選び直す（読み直します）" />
+          <TextBlock Text="{Binding LeftEnding}" FontSize="11" VerticalAlignment="Center"
+                     Foreground="{DynamicResource FgDim}" />
+        </StackPanel>
+
+      </DockPanel>
     </Border>
 
     <!--

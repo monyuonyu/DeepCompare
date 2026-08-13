@@ -92,6 +92,12 @@
           <SolidColorBrush x:Key="FgNormal">#1F2328</SolidColorBrush>
           <SolidColorBrush x:Key="FgDim">#656D76</SolidColorBrush>
           <SolidColorBrush x:Key="FgInline">#BC4C00</SolidColorBrush>
+          <!--
+            行の中で変わった文字。**背景で塗る。** 文字の色だけだと、
+            1 文字違いや、もともと色の付いた場所では気づけない。
+            行全体の色（BgChanged）より濃くする。
+          -->
+          <SolidColorBrush x:Key="BgInline">#FFD8A8</SolidColorBrush>
           <SolidColorBrush x:Key="FgUnimportant">#8C959F</SolidColorBrush>
           <SolidColorBrush x:Key="FgWarning">#9A6700</SolidColorBrush>
           <SolidColorBrush x:Key="FgMoved">#1A7F37</SolidColorBrush>
@@ -199,6 +205,7 @@
           <SolidColorBrush x:Key="FgNormal">#D6D8DE</SolidColorBrush>
           <SolidColorBrush x:Key="FgDim">#7E838F</SolidColorBrush>
           <SolidColorBrush x:Key="FgInline">#FFA500</SolidColorBrush>
+          <SolidColorBrush x:Key="BgInline">#5A3D00</SolidColorBrush>
           <SolidColorBrush x:Key="FgUnimportant">#6E7488</SolidColorBrush>
           <SolidColorBrush x:Key="FgWarning">#E0A060</SolidColorBrush>
           <SolidColorBrush x:Key="FgMoved">#8FBF6F</SolidColorBrush>
