@@ -264,6 +264,25 @@
     <Setter Property="Background" Value="{DynamicResource ControlBgHover}" />
   </Style>
 
+  <!-- アウトラインの箱。Excel の [-] と同じ大きさ・同じ場所 -->
+  <Style Selector="Button.outline">
+    <Setter Property="Width" Value="11" />
+    <Setter Property="Height" Value="11" />
+    <Setter Property="MinWidth" Value="11" />
+    <Setter Property="MinHeight" Value="11" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="2" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DividerStrong}" />
+    <Setter Property="Background" Value="{DynamicResource ControlBg}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.outline:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ControlBgHover}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+  </Style>
+
   <!--
     差分の塊を左右へ写す矢印。Beyond Compare の gutter button に当たる。
     **行の色と重ならない琥珀色にする。** 緑や赤の上に緑や赤の矢印を置くと、

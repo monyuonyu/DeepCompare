@@ -122,6 +122,10 @@
   <!-- 閉じる -->
   <StreamGeometry x:Key="IconClose">M6,6 l12,12 M18,6 l-12,12</StreamGeometry>
 
+  <!-- 折りたたみの箱の中身。**小さく描くので線は 2 本だけ** -->
+  <StreamGeometry x:Key="IconPlusSmall">M12,5 v14 M5,12 h14</StreamGeometry>
+  <StreamGeometry x:Key="IconMinusSmall">M5,12 h14</StreamGeometry>
+
   <!-- 新しいタブ -->
   <StreamGeometry x:Key="IconPlus">M12,4.5 v15 M4.5,12 h15</StreamGeometry>
 

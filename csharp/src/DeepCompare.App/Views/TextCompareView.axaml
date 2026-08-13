@@ -349,16 +349,34 @@
               畳んである所を示す帯（BC の「36 FILTERED LINES」）。
               押すと開く。**隠したことを黙っていない**のが要点。
             -->
+            <!--
+              畳んである所。**言葉は入れない。** 形と数だけで足りる。
+              左端の細い柱は、開いている行のアウトラインと同じ位置に来るので、
+              「ここが畳まれている」と縦のつながりで読める。
+            -->
             <Button Classes="foldband" Height="20" IsVisible="{Binding IsFoldBand}"
                     HorizontalAlignment="Stretch"
+                    ToolTip.Tip="ここを開く"
                     Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).ExpandFoldCommand}"
                     CommandParameter="{Binding}">
-              <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                <Path Classes="icon dim" Data="{StaticResource IconExpand}"
-                      Width="11" Height="11" VerticalAlignment="Center" />
-                <TextBlock Text="{Binding FoldText}" FontSize="11"
-                           Foreground="{DynamicResource FgDim}" VerticalAlignment="Center" />
-              </StackPanel>
+              <Grid ColumnDefinitions="18,Auto,*">
+                <Border Grid.Column="0" Width="11" Height="11" CornerRadius="2"
+                        BorderBrush="{DynamicResource DividerStrong}" BorderThickness="1"
+                        Background="{DynamicResource ControlBg}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                  <Path Data="{StaticResource IconPlusSmall}" Stroke="{DynamicResource FgNormal}"
+                        StrokeThickness="2" StrokeLineCap="Round"
+                        Width="7" Height="7" Stretch="Uniform" />
+                </Border>
+
+                <TextBlock Grid.Column="1" Text="{Binding FoldCountText}" FontSize="10"
+                           Foreground="{DynamicResource FgDim}" VerticalAlignment="Center"
+                           Margin="4,0,8,0" />
+
+                <!-- 畳んだ幅を点線で示す。中身が無いことが形で分かる -->
+                <Border Grid.Column="2" Height="1" VerticalAlignment="Center"
+                        Background="{DynamicResource Divider}" />
+              </Grid>
             </Button>
 
             <Border Background="{Binding Background}" Height="20"
@@ -385,6 +403,38 @@
                 </ContextMenu>
               </Border.ContextMenu>
               <StackPanel Orientation="Horizontal">
+                <!--
+                  折りたたみの柱（Excel のアウトライン）。
+                  **開いた状態でも「ここは畳める」と分かる。**
+                  帯は畳んだ場所しか示さないので、開いている間は範囲が見えない。
+                -->
+                <Panel Width="18">
+                  <!-- 縦線。範囲の途中と末尾に引く -->
+                  <Border Width="1" Height="10" VerticalAlignment="Top"
+                          HorizontalAlignment="Center"
+                          Background="{DynamicResource DividerStrong}"
+                          IsVisible="{Binding OutlineLineAbove}" />
+                  <Border Width="1" Height="10" VerticalAlignment="Bottom"
+                          HorizontalAlignment="Center"
+                          Background="{DynamicResource DividerStrong}"
+                          IsVisible="{Binding OutlineLineBelow}" />
+                  <!-- 末尾は横に折れて範囲の終わりを示す -->
+                  <Border Width="6" Height="1" VerticalAlignment="Bottom"
+                          HorizontalAlignment="Right" Margin="0,0,3,4"
+                          Background="{DynamicResource DividerStrong}"
+                          IsVisible="{Binding OutlineFoot}" />
+
+                  <!-- 先頭には畳む箱 -->
+                  <Button Classes="outline" IsVisible="{Binding IsOutlineHead}"
+                          ToolTip.Tip="ここから下をまとめて畳む"
+                          Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CollapseOutlineCommand}"
+                          CommandParameter="{Binding}">
+                    <Path Data="{StaticResource IconMinusSmall}" Stroke="{DynamicResource FgNormal}"
+                          StrokeThickness="2" StrokeLineCap="Round"
+                          Width="7" Height="7" Stretch="Uniform" />
+                  </Button>
+                </Panel>
+
                 <TextBlock Classes="cell gutter" Text="{Binding LeftNumber}" />
 
                 <!--

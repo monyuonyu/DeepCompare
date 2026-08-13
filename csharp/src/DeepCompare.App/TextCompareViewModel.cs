@@ -105,6 +105,8 @@ public sealed class TextCompareViewModel : ViewModelBase
         CopyLineCommand = new RelayCommand<RowView>(row => CopyTextAsync(row, both: false));
         CopyBothLinesCommand = new RelayCommand<RowView>(row => CopyTextAsync(row, both: true));
         CompareClipboardCommand = new RelayCommand(CompareClipboardAsync);
+        CollapseOutlineCommand = new RelayCommand<RowView>(
+            row => { CollapseOutline(row); return Task.CompletedTask; }, row => row.IsOutlineHead);
         ExpandFoldCommand = new RelayCommand<RowView>(
             band => { ExpandFold(band); return Task.CompletedTask; }, band => band.IsFoldBand);
         ApplyDetailCommand = new RelayCommand(
@@ -127,6 +129,7 @@ public sealed class TextCompareViewModel : ViewModelBase
     public RelayCommand<RowView> SelectBlockCommand { get; }
     public RelayCommand ApplyDetailCommand { get; }
     public RelayCommand<RowView> ExpandFoldCommand { get; }
+    public RelayCommand<RowView> CollapseOutlineCommand { get; }
     public RelayCommand CompareClipboardCommand { get; }
 
     /// <summary>クリップボードの中身を読む。表示側から差し込む。</summary>
@@ -246,6 +249,7 @@ public sealed class TextCompareViewModel : ViewModelBase
         {
             if (Set(ref _contextLines, value))
             {
+                ResetFolds();
                 RebuildVisibleRows();
             }
         }
@@ -379,6 +383,7 @@ public sealed class TextCompareViewModel : ViewModelBase
         {
             if (Set(ref _changesOnly, value))
             {
+                ResetFolds();
                 RebuildVisibleRows();
             }
         }
@@ -483,8 +488,8 @@ public sealed class TextCompareViewModel : ViewModelBase
     }
 
     /// <summary>本文以外の列（行番号 3 つ・コピーボタン・移動の印）が使う幅。</summary>
-    // 行番号 3 つ ＋ 矢印 2 つ ＋ 移動の印
-    private const double GutterWidth = 52 * 3 + 22 * 2 + 52;
+    // 折りたたみの柱 ＋ 行番号 3 つ ＋ 矢印 2 つ ＋ 移動の印
+    private const double GutterWidth = 18 + 52 * 3 + 22 * 2 + 52;
 
     private void UpdateTextWidth()
     {
@@ -751,6 +756,7 @@ public sealed class TextCompareViewModel : ViewModelBase
         // 符号化と改行を出しているのと同じ理由。
         UpdateInvisibleWarning(left, right);
 
+        ResetFolds();
         RebuildVisibleRows();
 
         // **比較したら最初の差分を選ぶ。** 開いた直後にやることは、たいてい
@@ -1327,16 +1333,31 @@ public sealed class TextCompareViewModel : ViewModelBase
         SelectedRowIndex = VisibleRows.Count > 0 ? 0 : -1;
     }
 
-    /// <summary>開いた畳みの位置。ここに入っている範囲は帯にせずそのまま出す。</summary>
-    private readonly HashSet<int> _expandedFolds = [];
-
     /// <summary>
-    /// その行が属する畳みの鍵。
+    /// いま畳んでいる行（元の行の添字）。
     ///
-    /// **範囲の先頭ではなく「開いた位置」で覚える。** 再比較で行がずれても、
-    /// 近い場所は開いたままになる方が、勝手に閉じるより驚きが少ない。
+    /// **1 つの集合で持つ。** 「絞り込みで畳んだもの」と「手で畳んだもの」を
+    /// 別々に持つと、両方に入っている行の扱いが決まらず、開いたのに閉じたままに
+    /// 見える、といった食い違いが必ず出る。
     /// </summary>
-    private static int FoldKeyFor(int index) => index;
+    private readonly HashSet<int> _folded = [];
+
+    /// <summary>絞り込みの切り替えに合わせて、畳む所を作り直す。</summary>
+    private void ResetFolds()
+    {
+        _folded.Clear();
+        if (!ChangesOnly || _comparison is null)
+        {
+            return;
+        }
+        for (var i = 0; i < _comparison.Rows.Count; i++)
+        {
+            if (_comparison.Rows[i].IsUnchanged && !NearAChange(i))
+            {
+                _folded.Add(i);
+            }
+        }
+    }
 
     private void AddBand(int start, int count)
     {
@@ -1357,17 +1378,81 @@ public sealed class TextCompareViewModel : ViewModelBase
         }
         for (var i = band.FoldStart; i < band.FoldStart + band.FoldedCount; i++)
         {
-            _expandedFolds.Add(FoldKeyFor(i));
+            _folded.Remove(i);
         }
         RebuildVisibleRows();
     }
 
-    /// <summary>畳み直す。開きすぎたときに戻す。</summary>
-    public void CollapseAllFolds()
+    /// <summary>アウトラインの箱を押したら、その範囲を畳む。</summary>
+    public void CollapseOutline(RowView row)
     {
-        _expandedFolds.Clear();
+        if (!row.IsOutlineHead)
+        {
+            return;
+        }
+        for (var i = row.OutlineStart; i < row.OutlineStart + row.OutlineCount; i++)
+        {
+            _folded.Add(i);
+        }
         RebuildVisibleRows();
     }
+
+    /// <summary>
+    /// 畳める範囲に縦線を付ける（Excel のアウトラインと同じ考え方）。
+    ///
+    /// **開いた状態でも「ここは畳める」と分かる**ようにするのが目的。
+    /// 帯は畳んだ場所しか示さないので、開いている間は範囲が見えなくなる。
+    ///
+    /// 一致した行が続く所を 1 つの範囲とする。**2 行以下は線を出さない。**
+    /// 1 行畳んでも得るものが無く、線だけが増えて読みにくくなる。
+    /// </summary>
+    private void MarkOutlines()
+    {
+        const int minimum = 3;
+
+        var start = -1;
+        for (var i = 0; i <= VisibleRows.Count; i++)
+        {
+            var foldable = i < VisibleRows.Count
+                && !VisibleRows[i].IsFoldBand
+                && VisibleRows[i].Row.IsUnchanged;
+
+            if (foldable)
+            {
+                if (start < 0)
+                {
+                    start = i;
+                }
+                continue;
+            }
+
+            if (start >= 0 && i - start >= minimum)
+            {
+                // 畳むときに要るのは元の行の添字。表示の添字とは違う。
+                var origin = OriginOf(VisibleRows[start]);
+                var count = i - start;
+                for (var k = start; k < i; k++)
+                {
+                    VisibleRows[k].Outline = k == start ? OutlineMark.Head
+                        : k == i - 1 ? OutlineMark.Tail
+                        : OutlineMark.Body;
+                    VisibleRows[k].OutlineStart = origin;
+                    VisibleRows[k].OutlineCount = count;
+                }
+            }
+            else if (start >= 0)
+            {
+                for (var k = start; k < i; k++)
+                {
+                    VisibleRows[k].Outline = OutlineMark.None;
+                }
+            }
+            start = -1;
+        }
+    }
+
+    /// <summary>表示している行が、元の並びで何番目か。</summary>
+    private int OriginOf(RowView row) => _allRows.IndexOf(row);
 
     private void RebuildVisibleRows()
     {
@@ -1379,15 +1464,12 @@ public sealed class TextCompareViewModel : ViewModelBase
         }
         // 畳んだ行は帯にまとめて出す。**隠したことを黙っていない。**
         // どれだけ消えたのか分からないと、見落としたのか元から無いのかを
-        // 区別できない。BC も「36 FILTERED LINES」の帯を出す。
+        // 区別できない。
         var foldStart = -1;
 
         for (var i = 0; i < _allRows.Count; i++)
         {
-            var visible = !ChangesOnly || !_comparison.Rows[i].IsUnchanged || NearAChange(i)
-                || _expandedFolds.Contains(FoldKeyFor(i));
-
-            if (visible)
+            if (!_folded.Contains(i))
             {
                 if (foldStart >= 0)
                 {
@@ -1405,6 +1487,8 @@ public sealed class TextCompareViewModel : ViewModelBase
         {
             AddBand(foldStart, _allRows.Count - foldStart);
         }
+
+        MarkOutlines();
         OnPropertyChanged(nameof(ShowPlaceholder));
         OnPropertyChanged(nameof(SearchStatus));
         OnPropertyChanged(nameof(HasDifferences));

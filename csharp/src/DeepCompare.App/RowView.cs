@@ -13,6 +13,21 @@ namespace DeepCompare.App;
 /// ここで HTML を作っていたため、`&lt;` や `&amp;` を含む行が壊れていた。書式を持つ要素として
 /// 渡せば、本文は一切加工されないのでその種の取り違えが起こりようがない。
 /// </summary>
+/// <summary>折りたたみの縦線の位置。</summary>
+public enum OutlineMark
+{
+    None,
+
+    /// <summary>範囲の先頭。ここに畳む箱を出す。</summary>
+    Head,
+
+    /// <summary>範囲の途中。</summary>
+    Body,
+
+    /// <summary>範囲の末尾。ここで線を止める。</summary>
+    Tail,
+}
+
 public sealed class RowView : ViewModelBase
 {
     // 色は App.axaml のテーマ辞書から引く（Palette）。ここで値を持たないので、
@@ -99,7 +114,28 @@ public sealed class RowView : ViewModelBase
     /// <summary>畳んである範囲（元の行の添字）。押すと開くのに使う。</summary>
     public int FoldStart { get; init; }
 
-    public string FoldText => $"{FoldedCount:N0} 行を畳んでいます（押すと開く）";
+    /// <summary>帯に出す数。**言葉は入れない。** 数と形だけで足りる。</summary>
+    public string FoldCountText => FoldedCount.ToString("N0");
+
+    /// <summary>
+    /// 折りたたみの縦線の形（Excel のアウトラインと同じ考え方）。
+    ///
+    /// **畳める範囲がどこからどこまでかを、開いた状態でも見せる。**
+    /// 帯は「畳んだ場所」しか示さないので、開いている間は範囲が分からない。
+    /// </summary>
+    public OutlineMark Outline { get; set; }
+
+    /// <summary>その範囲の先頭と行数（元の行の添字）。畳むときに使う。</summary>
+    public int OutlineStart { get; set; }
+    public int OutlineCount { get; set; }
+
+    public bool IsOutlineHead => Outline == OutlineMark.Head;
+    public bool HasOutline => Outline != OutlineMark.None;
+
+    /// <summary>縦線を出すか。先頭の行は箱を出すので線は下半分だけ。</summary>
+    public bool OutlineLineAbove => Outline is OutlineMark.Body or OutlineMark.Tail;
+    public bool OutlineLineBelow => Outline is OutlineMark.Head or OutlineMark.Body;
+    public bool OutlineFoot => Outline == OutlineMark.Tail;
 
     /// <summary>帯を作る。中身は持たないので、比較の行は借りるだけ。</summary>
     public static RowView Band(Row anchor, DecodedText left, DecodedText right,
