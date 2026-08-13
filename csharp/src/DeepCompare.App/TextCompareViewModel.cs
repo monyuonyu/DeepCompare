@@ -935,6 +935,67 @@ public sealed class TextCompareViewModel : ViewModelBase
         await RecompareAsync();
     }
 
+    private bool _detailAsHex;
+
+    /// <summary>
+    /// 下の帯を 16 進で見せるか（BC の Hex Details）。
+    ///
+    /// **「同じに見えるのに一致しない」の最後の拠り所。** 空白の可視化でも
+    /// 分からないとき（結合文字、正規化、見えない制御文字）、バイトを見れば
+    /// 必ず分かる。
+    /// </summary>
+    public bool DetailAsHex
+    {
+        get => _detailAsHex;
+        set
+        {
+            if (Set(ref _detailAsHex, value))
+            {
+                OnPropertyChanged(nameof(DetailLeftHex));
+                OnPropertyChanged(nameof(DetailRightHex));
+            }
+        }
+    }
+
+    /// <summary>
+    /// 選んだ行のバイト列。**元の符号化で出す。**
+    /// UTF-8 に直してから見せると、Shift_JIS のファイルで実際のバイトと違う
+    /// ものを見せることになり、この機能の意味が無くなる。
+    /// </summary>
+    public string DetailLeftHex => HexOf(DetailLeft, _leftSource);
+    public string DetailRightHex => HexOf(DetailRight, _rightSource);
+
+    private static string HexOf(string line, DecodedText? source)
+    {
+        if (line.Length == 0)
+        {
+            return string.Empty;
+        }
+        try
+        {
+            // 改行は付けない（行の中身だけを見たい）。
+            var bytes = source is null
+                ? System.Text.Encoding.UTF8.GetBytes(line)
+                : TextEncoder.Encode([line], source.Encoding, LineEnding.None, endsWithNewline: false);
+
+            var text = new System.Text.StringBuilder(bytes.Length * 3);
+            for (var i = 0; i < bytes.Length; i++)
+            {
+                if (i > 0)
+                {
+                    text.Append(i % 8 == 0 ? "  " : " ");
+                }
+                text.Append(bytes[i].ToString("X2"));
+            }
+            return text.ToString();
+        }
+        catch (Exception)
+        {
+            // その符号化で表せない文字があるとき。比較そのものは続けたい。
+            return "（この符号化では表せない文字があります）";
+        }
+    }
+
     private bool _showDetails = true;
 
     /// <summary>下の帯を出すか。狭い画面では畳みたいことがある。</summary>
@@ -968,6 +1029,8 @@ public sealed class TextCompareViewModel : ViewModelBase
         _detailRow = row;
         DetailLeft = row?.LeftText ?? string.Empty;
         DetailRight = row?.RightText ?? string.Empty;
+        OnPropertyChanged(nameof(DetailLeftHex));
+        OnPropertyChanged(nameof(DetailRightHex));
         OnPropertyChanged(nameof(DetailLeftLabel));
         OnPropertyChanged(nameof(DetailRightLabel));
         OnPropertyChanged(nameof(CanEditLeftDetail));
