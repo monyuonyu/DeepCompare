@@ -97,14 +97,14 @@ public sealed class FolderRowView(FolderEntry entry) : ViewModelBase
         ? Palette.Gap()
         : Brushes.Transparent;
 
-    /// <summary>中央に置く印。差異のあるものだけ目に入ればよい。</summary>
-    public string CenterMark { get; } = entry.Status switch
-    {
-        EntryStatus.Different => "≠",
-        EntryStatus.LeftOnly => "←",
-        EntryStatus.RightOnly => "→",
-        _ => string.Empty,
-    };
+    /// <summary>
+    /// 中央に置く印。
+    ///
+    /// **「中身が違う」ものにだけ出す（BC と同じ）。**
+    /// 片側にしか無いものは、反対側が斜線で埋まっているので中央に印は要らない。
+    /// 全部の行に何か出すと、本当に見たい「両方にあるが中身が違う」が埋もれる。
+    /// </summary>
+    public string CenterMark { get; } = entry.Status == EntryStatus.Different ? "≠" : string.Empty;
 
     /// <summary>フォルダーを太字にして、階層の切れ目を目で追えるようにする。</summary>
     public FontWeight NameWeight { get; } = entry.IsDirectory ? FontWeight.SemiBold : FontWeight.Normal;

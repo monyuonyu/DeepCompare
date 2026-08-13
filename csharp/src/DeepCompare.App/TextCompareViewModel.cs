@@ -383,7 +383,8 @@ public sealed class TextCompareViewModel : ViewModelBase
     }
 
     /// <summary>本文以外の列（行番号 3 つ・コピーボタン・移動の印）が使う幅。</summary>
-    private const double GutterWidth = 52 * 3 + 44 + 52;
+    // 行番号 3 つ ＋ 矢印 2 つ ＋ 移動の印
+    private const double GutterWidth = 52 * 3 + 22 * 2 + 52;
 
     private void UpdateTextWidth()
     {

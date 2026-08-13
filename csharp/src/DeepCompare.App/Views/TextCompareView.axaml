@@ -284,39 +284,44 @@
             <Border Background="{Binding Background}" Height="20">
               <StackPanel Orientation="Horizontal">
                 <TextBlock Classes="cell gutter" Text="{Binding LeftNumber}" />
+
                 <!--
-                  本文のセルは左右それぞれ背景を持つ。対応する行が無い側は斜線に
-                  なるので、「空の行」と「対応が無い」を見分けられる。
+                  **矢印はそれぞれのペインの左端に置く（BC と同じ）。**
+                  左の矢印は「左の内容を右へ送る」、右の矢印は「右の内容を左へ
+                  送る」。中央にまとめて置くと、どちらの内容が動くのかを
+                  矢印の向きだけで読み取ることになり、一拍考える必要がある。
+                  操作したい側の手前にあれば、その側が動くと分かる。
                 -->
+                <Panel Width="22">
+                  <Button Classes="apply" IsVisible="{Binding IsBlockStart}"
+                          ToolTip.Tip="この塊を左から右へ写す"
+                          Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyToRightCommand}"
+                          CommandParameter="{Binding}">
+                    <Path Data="{StaticResource IconToRight}" />
+                  </Button>
+                </Panel>
+
                 <Border Background="{Binding LeftBackground}"
                         Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}">
                   <TextBlock Classes="cell" Inlines="{Binding LeftInlines}" />
                 </Border>
-                <!--
-                  塊の先頭行にだけ出すコピーボタン。BC の gutter button に相当する。
-                  高さを行に揃えないと、押せる範囲が行からはみ出して隣の行を隠す。
-                -->
-                <Panel Width="44">
-                  <StackPanel Orientation="Horizontal" Spacing="2" IsVisible="{Binding IsBlockStart}">
-                    <Button Classes="apply"
-                            ToolTip.Tip="この塊を左から右へ写す"
-                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyToRightCommand}"
-                            CommandParameter="{Binding}">
-                      <Path Data="{StaticResource IconToRight}" />
-                    </Button>
-                    <Button Classes="apply"
-                            ToolTip.Tip="この塊を右から左へ写す"
-                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyToLeftCommand}"
-                            CommandParameter="{Binding}">
-                      <Path Data="{StaticResource IconToLeft}" />
-                    </Button>
-                  </StackPanel>
-                </Panel>
+
                 <TextBlock Classes="cell gutter" Text="{Binding RightNumber}" />
+
+                <Panel Width="22">
+                  <Button Classes="apply" IsVisible="{Binding IsBlockStart}"
+                          ToolTip.Tip="この塊を右から左へ写す"
+                          Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyToLeftCommand}"
+                          CommandParameter="{Binding}">
+                    <Path Data="{StaticResource IconToLeft}" />
+                  </Button>
+                </Panel>
+
                 <Border Background="{Binding RightBackground}"
                         Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}">
                   <TextBlock Classes="cell" Inlines="{Binding RightInlines}" />
                 </Border>
+
                 <TextBlock Classes="cell gutter" Text="{Binding ScoreText}" />
                 <!-- 移動の印。相手側の行番号を出すので、どこへ動いたかが分かる。 -->
                 <TextBlock Classes="cell" Width="52" Text="{Binding MovedText}"

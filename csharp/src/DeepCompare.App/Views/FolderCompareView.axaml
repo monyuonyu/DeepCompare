@@ -207,8 +207,8 @@
 
               <!-- 中央の印。差異のあるものだけ目に入ればよい -->
               <TextBlock Grid.Column="3" Text="{Binding CenterMark}" TextAlignment="Center"
-                         Foreground="{Binding StatusBrush}" FontWeight="SemiBold"
-                         VerticalAlignment="Center" />
+                         Foreground="{DynamicResource StatusDifferent}" FontWeight="Bold"
+                         FontSize="14" VerticalAlignment="Center" />
 
               <!-- 右側 -->
               <Border Grid.Column="4" Grid.ColumnSpan="3" Background="{Binding RightBackground}" />

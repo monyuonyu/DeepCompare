@@ -97,8 +97,12 @@
           <SolidColorBrush x:Key="FgNumber">#953800</SolidColorBrush>
           <SolidColorBrush x:Key="FgPunctuation">#57606A</SolidColorBrush>
 
-          <!-- フォルダー一覧の状態。左右の色は差分の行と揃える（赤＝左、緑＝右） -->
-          <SolidColorBrush x:Key="StatusDifferent">#BC4C00</SolidColorBrush>
+          <!--
+            フォルダー一覧の状態。左右の色は差分の行と揃える（赤＝左、緑＝右）。
+            「中身が違う」は BC に合わせて赤にする。中央の ≠ に使う色で、
+            一覧の中で一番拾いたい情報。
+          -->
+          <SolidColorBrush x:Key="StatusDifferent">#CF222E</SolidColorBrush>
           <SolidColorBrush x:Key="StatusLeftOnly">#CF222E</SolidColorBrush>
           <SolidColorBrush x:Key="StatusRightOnly">#1A7F37</SolidColorBrush>
           <SolidColorBrush x:Key="StatusSame">#8C959F</SolidColorBrush>
@@ -156,8 +160,8 @@
           <SolidColorBrush x:Key="FgNumber">#D19A66</SolidColorBrush>
           <SolidColorBrush x:Key="FgPunctuation">#9AA0AC</SolidColorBrush>
 
-          <!-- フォルダー一覧の状態。左右の色は差分の行と揃える（赤＝左、緑＝右） -->
-          <SolidColorBrush x:Key="StatusDifferent">#FFA500</SolidColorBrush>
+          <!-- フォルダー一覧の状態。「中身が違う」は BC に合わせて赤 -->
+          <SolidColorBrush x:Key="StatusDifferent">#F0666F</SolidColorBrush>
           <SolidColorBrush x:Key="StatusLeftOnly">#E06C75</SolidColorBrush>
           <SolidColorBrush x:Key="StatusRightOnly">#8FBF6F</SolidColorBrush>
           <SolidColorBrush x:Key="StatusSame">#7E838F</SolidColorBrush>

@@ -151,13 +151,25 @@ public sealed class DiffMap : Control
             index++;
         }
 
-        // いま見えている範囲。枠だけ描いて、下の色を隠さない。
+        // いま見えている範囲。
+        //
+        // **薄く塗ったうえで枠を描く。** 枠だけだと、差分の色が濃い場所では
+        // 線が紛れて見つけられない。塗りだけだと下の色が読めなくなる。
         var viewY = Math.Clamp(ViewStart, 0, 1) * height;
-        var viewH = Math.Max(6, Math.Clamp(ViewSize, 0, 1) * height);
-        context.DrawRectangle(
-            null,
-            new Pen(Palette.Brush("FgNormal"), 1),
-            new Rect(0.5, Math.Min(viewY, height - viewH) + 0.5, width - 1, viewH - 1));
+        var viewH = Math.Max(10, Math.Clamp(ViewSize, 0, 1) * height);
+        var top = Math.Min(viewY, Math.Max(0, height - viewH));
+        var area = new Rect(0, top, width, viewH);
+
+        context.FillRectangle(new SolidColorBrush(Colors.Gray, 0.25), area);
+
+        // 枠はアクセント色。**差分の緑や赤の上でも見分けられる色**でないと、
+        // 一番濃い場所で見失う。上下の辺は太くして、範囲の切れ目を分かりやすく。
+        var accent = Palette.Brush("Accent");
+        context.DrawRectangle(null, new Pen(accent, 1.5),
+            new Rect(0.75, top + 0.75, width - 1.5, viewH - 1.5));
+        context.DrawLine(new Pen(accent, 2.5), new Point(0, top + 1), new Point(width, top + 1));
+        context.DrawLine(new Pen(accent, 2.5),
+            new Point(0, top + viewH - 1), new Point(width, top + viewH - 1));
     }
 
     /// <summary>その行を地図に出すか、出すなら何色か。一致した行は出さない。</summary>
