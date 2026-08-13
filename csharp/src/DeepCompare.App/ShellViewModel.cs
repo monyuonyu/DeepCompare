@@ -325,7 +325,12 @@ public sealed class ShellViewModel : ViewModelBase
 
     public TextCompareViewModel ShowText(string left, string right)
     {
-        var model = new TextCompareViewModel(this) { LeftPath = left, RightPath = right };
+        var model = new TextCompareViewModel(this)
+        {
+            LeftPath = left,
+            RightPath = right,
+            OverUnder = DefaultOverUnder,
+        };
         var tab = Add(TitleFor(left, right), model, $"{left}\n{right}");
         model.Tab = tab;
         model.CompareCommand.Execute(null);
@@ -482,6 +487,13 @@ public sealed class ShellViewModel : ViewModelBase
     /// **行単位の画面と分ける。** 実体は JSON で、1 文字直して実行し直すと
     /// 出力の base64 が数千行動き、直した 1 行がその中に埋もれる。
     /// </summary>
+    /// <summary>
+    /// テキスト比較を開いたときの既定の配置。
+    /// **起動の引数で決められるようにする** — 画面から毎回切り替えるより、
+    /// 長い行を扱うと分かっているときに最初からその形で開ける方がよい。
+    /// </summary>
+    public bool DefaultOverUnder { get; set; }
+
     public void ShowNotebook(string left, string right)
     {
         var model = new NotebookCompareViewModel(this) { LeftPath = left, RightPath = right };
@@ -600,6 +612,7 @@ public sealed class ShellViewModel : ViewModelBase
             RightReadOnly = rightReadOnly,
             LeftPath = leftLabel,
             RightPath = rightLabel,
+            OverUnder = DefaultOverUnder,
         };
         var tab = Add(TitleFor(leftLabel, rightLabel), model, $"{leftLabel}\n{rightLabel}");
         model.Tab = tab;

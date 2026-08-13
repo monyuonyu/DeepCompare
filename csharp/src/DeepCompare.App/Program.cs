@@ -254,6 +254,7 @@ internal static class Program
         App.StartMerge = args.Contains("--merge-view");
         App.StartVersion = args.Contains("--version-view");
         App.StartSnapshot = args.Contains("--snapshot-view");
+        App.StartOverUnder = args.Contains("--over-under");
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

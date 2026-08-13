@@ -23,6 +23,7 @@ public partial class FolderCompareView : UserControl
             if (DataContext is FolderCompareViewModel model)
             {
                 model.Confirm = ConfirmAsync;
+                model.Prompt = PromptAsync;
                 model.Clipboard = text =>
                 {
                     var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
@@ -83,6 +84,81 @@ public partial class FolderCompareView : UserControl
 
         yes.Click += (_, _) => { answer = true; dialog.Close(); };
         no.Click += (_, _) => dialog.Close();
+
+        await dialog.ShowDialog(owner);
+        return answer;
+    }
+
+    /// <summary>
+    /// 名前を入力してもらう。取り消したら null。
+    ///
+    /// **元の名前を初めから入れておく。** 付け直すのはたいてい一部だけで、
+    /// 空欄から打ち直させると打ち間違いが増える。
+    /// </summary>
+    private async Task<string?> PromptAsync(string message, string initial)
+    {
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner is null)
+        {
+            return null;
+        }
+
+        string? answer = null;
+        var box = new TextBox { Text = initial, MinWidth = 320 };
+        var ok = new Button { Content = "決定", Classes = { "accent" }, MinWidth = 90 };
+        var cancel = new Button { Content = "やめる", MinWidth = 90 };
+
+        var dialog = new Window
+        {
+            Title = "名前",
+            SizeToContent = SizeToContent.WidthAndHeight,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            CanResize = false,
+            Content = new StackPanel
+            {
+                Margin = new Thickness(20),
+                Spacing = 16,
+                Children =
+                {
+                    new TextBlock { Text = message, MaxWidth = 380, TextWrapping = TextWrapping.Wrap },
+                    box,
+                    new StackPanel
+                    {
+                        Orientation = Avalonia.Layout.Orientation.Horizontal,
+                        Spacing = 8,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+                        Children = { cancel, ok },
+                    },
+                },
+            },
+        };
+
+        void Accept()
+        {
+            // **空のまま決定させない。** 空の名前でファイルは作れない。
+            if (box.Text is { Length: > 0 } text && text.Trim().Length > 0)
+            {
+                answer = text.Trim();
+                dialog.Close();
+            }
+        }
+
+        ok.Click += (_, _) => Accept();
+        cancel.Click += (_, _) => dialog.Close();
+        // **Enter で決められるようにする。** 名前を打った直後の自然な動き。
+        box.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter)
+            {
+                Accept();
+            }
+        };
+
+        dialog.Opened += (_, _) =>
+        {
+            box.Focus();
+            box.SelectAll();
+        };
 
         await dialog.ShowDialog(owner);
         return answer;

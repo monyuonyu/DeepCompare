@@ -194,6 +194,16 @@ public sealed class FolderCompareViewModel : ViewModelBase
             row => !row.Entry.IsDirectory && row.HasLeft);
         CopyToLeftCommand = new RelayCommand<FolderRowView>(row => CopyFileAsync(row, toRight: false),
             row => !row.Entry.IsDirectory && row.HasRight);
+        RenameLeftCommand = new RelayCommand<FolderRowView>(row => RenameAsync(row, left: true),
+            row => row.HasLeft);
+        RenameRightCommand = new RelayCommand<FolderRowView>(row => RenameAsync(row, left: false),
+            row => row.HasRight);
+        MoveToRightCommand = new RelayCommand<FolderRowView>(row => MoveAsync(row, toRight: true),
+            row => row.HasLeft);
+        MoveToLeftCommand = new RelayCommand<FolderRowView>(row => MoveAsync(row, toRight: false),
+            row => row.HasRight);
+        NewFolderLeftCommand = new RelayCommand(() => NewFolderAsync(left: true));
+        NewFolderRightCommand = new RelayCommand(() => NewFolderAsync(left: false));
         // BC の Actions の残り。**どれも戻せないので必ず確認を出す。**
         DeleteLeftCommand = new RelayCommand<FolderRowView>(row => DeleteAsync(row, left: true),
             row => row.HasLeft);
@@ -303,6 +313,107 @@ public sealed class FolderCompareViewModel : ViewModelBase
     /// **必ず確認を出す。** 上書きと違い、こちらは元の場所ごと消える。
     /// フォルダーは中身ごと消えるので、その旨も文に入れる。
     /// </summary>
+    public RelayCommand<FolderRowView> RenameLeftCommand { get; }
+    public RelayCommand<FolderRowView> RenameRightCommand { get; }
+    public RelayCommand<FolderRowView> MoveToRightCommand { get; }
+    public RelayCommand<FolderRowView> MoveToLeftCommand { get; }
+    public RelayCommand NewFolderLeftCommand { get; }
+    public RelayCommand NewFolderRightCommand { get; }
+
+    /// <summary>
+    /// 名前を変える（BC の Rename）。
+    ///
+    /// **片側だけ変える。** 両方まとめて変えると、名前が違うから別物として
+    /// 並んでいるのか、揃えたから同じ行に来たのかが分からなくなる。
+    /// </summary>
+    private async Task RenameAsync(FolderRowView row, bool left)
+    {
+        if (Prompt is null)
+        {
+            return;
+        }
+
+        var (l, r) = PathsOf(row);
+        var target = left ? l : r;
+        var oldName = Path.GetFileName(target);
+
+        var newName = await Prompt($"{oldName} の新しい名前", oldName);
+        if (newName is null)
+        {
+            return;
+        }
+
+        var result = FolderOperations.Rename(target, newName, row.Entry.IsDirectory);
+        StatusText = result.Message;
+        if (result.Ok)
+        {
+            await RunAsync();
+        }
+    }
+
+    /// <summary>
+    /// 反対側へ移す（BC の Move）。**元からは消える。**
+    ///
+    /// 複製（Copy）と違い戻せないので、**必ず確認を出す。**
+    /// </summary>
+    private async Task MoveAsync(FolderRowView row, bool toRight)
+    {
+        if (Confirm is null)
+        {
+            return;
+        }
+
+        var (l, r) = PathsOf(row);
+        var source = toRight ? l : r;
+        var destination = toRight ? r : l;
+        var name = Path.GetFileName(source);
+
+        var exists = File.Exists(destination) || Directory.Exists(destination);
+        var message = exists
+            ? $"{name} を移します。移す先の同じ名前のものは上書きされ、元からは消えます。"
+            : $"{name} を移します。元からは消えます。";
+        if (!await Confirm(message))
+        {
+            return;
+        }
+
+        var result = FolderOperations.Move(source, destination, row.Entry.IsDirectory);
+        StatusText = result.Message;
+        if (result.Ok)
+        {
+            await RunAsync();
+        }
+    }
+
+    /// <summary>
+    /// フォルダーを作る（BC の New Folder）。
+    ///
+    /// **選んでいる行の中ではなく、比較している場所の直下に作る。**
+    /// 選択によって作られる場所が変わると、どこにできたのか分からなくなる。
+    /// </summary>
+    private async Task NewFolderAsync(bool left)
+    {
+        if (Prompt is null)
+        {
+            return;
+        }
+
+        var root = left ? LeftRoot : RightRoot;
+        var name = await Prompt(
+            $"{(left ? "左" : "右")}に作るフォルダーの名前", "新しいフォルダー");
+        if (name is null)
+        {
+            return;
+        }
+
+        var result = FolderOperations.NewFolder(root, name);
+        StatusText = result.Message;
+        if (result.Ok)
+        {
+            await RunAsync();
+        }
+    }
+
     private async Task DeleteAsync(FolderRowView row, bool left)
     {
         var (l, r) = PathsOf(row);
@@ -390,6 +501,12 @@ public sealed class FolderCompareViewModel : ViewModelBase
     /// 出すと、試験ができなくなるうえ、画面のない経路（CLI）で使えなくなる。
     /// </summary>
     public Func<string, Task<bool>>? Confirm { get; set; }
+
+    /// <summary>
+    /// 名前を入力してもらう。取り消したら null。
+    /// **画面側が差し込む** — ViewModel から窓を開かない。
+    /// </summary>
+    public Func<string, string, Task<string?>>? Prompt { get; set; }
 
     private async Task CopyFileAsync(FolderRowView row, bool toRight)
     {

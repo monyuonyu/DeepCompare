@@ -30,6 +30,19 @@
           <Path Classes="icon" Data="{StaticResource IconRefresh}" />
         </Button>
         <!--
+          **新しいフォルダーは行に紐づかないので、ここに置く。**
+          右クリックの中に混ぜると、選んだ行の中に作られると読まれる。
+        -->
+        <Button Classes="icon" Command="{Binding NewFolderLeftCommand}"
+                ToolTip.Tip="左に新しいフォルダーを作る">
+          <Path Classes="icon" Data="{StaticResource IconNewFolderLeft}" />
+        </Button>
+        <Button Classes="icon" Command="{Binding NewFolderRightCommand}"
+                ToolTip.Tip="右に新しいフォルダーを作る">
+          <Path Classes="icon" Data="{StaticResource IconNewFolderRight}" />
+        </Button>
+        <Border Classes="vsep" />
+        <!--
           絞り込み。**「左だけ」「右だけ」を単独で見たい場面は多い。**
           移行漏れや消し忘れを探す作業がそれで、差異全部の中から目で拾うのは
           数が増えると現実的でなくなる。

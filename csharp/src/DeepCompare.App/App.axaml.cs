@@ -24,6 +24,9 @@ public partial class App : Application
     /// <summary>写しの画面を出して起動する。</summary>
     public static bool StartSnapshot { get; set; }
 
+    /// <summary>上下に並べた状態で開く（`--over-under`）。</summary>
+    public static bool StartOverUnder { get; set; }
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
@@ -31,7 +34,8 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow = new MainWindow(
-                StartupFiles, StartStructured, StartGit, StartMerge, StartVersion, StartSnapshot);
+                StartupFiles, StartStructured, StartGit, StartMerge, StartVersion,
+                StartSnapshot, StartOverUnder);
         }
         base.OnFrameworkInitializationCompleted();
     }

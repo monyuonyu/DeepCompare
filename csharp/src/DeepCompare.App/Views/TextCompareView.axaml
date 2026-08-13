@@ -77,6 +77,14 @@
                         ToolTip.Tip="変更のある行だけを出す">
             <Path Classes="icon" Data="{StaticResource IconFilterDiff}" />
           </ToggleButton>
+          <!--
+            上下に並べる（BC の over-under layout）。
+            **横に長い行のときに効く。** 左右だと 1 行の幅が半分になる。
+          -->
+          <ToggleButton Classes="filter" IsChecked="{Binding OverUnder}"
+                        ToolTip.Tip="上下に並べる（横に長い行を読むとき）">
+            <Path Classes="icon" Data="{StaticResource IconOverUnder}" />
+          </ToggleButton>
           <ToggleButton Classes="filter" IsChecked="{Binding ShowWhitespace}"
                         ToolTip.Tip="空白・タブを記号で見せる">
             <Path Classes="icon" Data="{StaticResource IconWhitespace}" />
@@ -282,6 +290,14 @@
         <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8"
                     Margin="2,0,0,3">
           <TextBlock Text="{Binding DetailLeftLabel}" Classes="hint" VerticalAlignment="Center" />
+          <!--
+            文字の対応で見る（BC の Alignment Details）。
+            **色だけでは、片方にしか無い文字があると桁がずれて読めない。**
+          -->
+          <ToggleButton Classes="filter" IsChecked="{Binding DetailAsAlignment}"
+                        ToolTip.Tip="下の帯で、左右の文字の対応を桁を揃えて見る">
+            <Path Classes="icon" Data="{StaticResource IconAlignment}" />
+          </ToggleButton>
           <ToggleButton Classes="filter" IsChecked="{Binding DetailAsHex}"
                         Padding="6,2" MinHeight="18"
                         ToolTip.Tip="バイトで見る（空白でも分からないときの最後の拠り所）">
@@ -295,12 +311,12 @@
         <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding DetailLeft}"
                  FontFamily="{DynamicResource MonoFont}" FontSize="13"
                  IsEnabled="{Binding CanEditLeftDetail}"
-                 IsVisible="{Binding !DetailAsHex}"
+                 IsVisible="{Binding DetailShowsText}"
                  AcceptsReturn="False" />
         <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding DetailRight}"
                  FontFamily="{DynamicResource MonoFont}" FontSize="13"
                  IsEnabled="{Binding CanEditRightDetail}"
-                 IsVisible="{Binding !DetailAsHex}"
+                 IsVisible="{Binding DetailShowsText}"
                  AcceptsReturn="False" />
 
         <!-- バイトで見る（読むだけ。ここから直すのは危ないので許さない） -->
@@ -311,9 +327,20 @@
                  FontFamily="{DynamicResource MonoFont}" FontSize="12"
                  IsReadOnly="True" IsVisible="{Binding DetailAsHex}" />
 
+        <!--
+          文字の対応（BC の Alignment Details）。
+          **左右をまたいで 1 つの欄に出す。** 桁を揃えて見せるのが目的なので、
+          左右の欄に分けると意味が無い。
+        -->
+        <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+                 Text="{Binding DetailAlignment}"
+                 FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                 IsReadOnly="True" IsVisible="{Binding DetailAsAlignment}"
+                 AcceptsReturn="True" />
+
         <Button Grid.Row="1" Grid.Column="3" Classes="accent" Margin="8,0,0,0"
                 Content="直す" Command="{Binding ApplyDetailCommand}"
-                IsVisible="{Binding !DetailAsHex}"
+                IsVisible="{Binding DetailShowsText}"
                 ToolTip.Tip="直した内容を本文へ戻す。取り消しで元に戻せる" />
       </Grid>
     </Border>
@@ -381,6 +408,8 @@
                IsVisible="{Binding !ShowPlaceholder}"
                SelectedIndex="{Binding SelectedRowIndex}"
                AutoScrollToSelectedItem="True"
+               x:Name="RowList"
+               SelectionMode="Multiple"
                Background="Transparent" BorderThickness="0"
                ScrollViewer.HorizontalScrollBarVisibility="Auto"
                ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -388,7 +417,12 @@
           <Style Selector="ListBoxItem">
             <Setter Property="Padding" Value="0" />
             <Setter Property="MinHeight" Value="0" />
-            <Setter Property="Height" Value="20" />
+            <!--
+              **高さは可変にする。** 上下に並べるときは 2 段ぶん要る。
+              固定のままだと、下の段が切れて見えなくなる。
+            -->
+            <Setter Property="Height"
+                    Value="{Binding $parent[ItemsControl].((vm:TextCompareViewModel)DataContext).RowHeight}" />
           </Style>
         </ListBox.Styles>
         <ListBox.ItemTemplate>
@@ -428,7 +462,8 @@
               </Grid>
             </Button>
 
-            <Border Background="{Binding Background}" Height="20"
+            <Border Background="{Binding Background}"
+                    Height="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).RowHeight}"
                     IsVisible="{Binding !IsFoldBand}">
               <Border.ContextMenu>
                 <ContextMenu>
@@ -462,11 +497,27 @@
                   <MenuItem Header="左の行を写す"
                             Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyLineCommand}"
                             CommandParameter="{Binding}" />
+                  <!--
+                    選んだ範囲をまとめて写す（BC の行単位の選択・切り貼り）。
+                    **画面の順序で写す。** 飛び飛びに選んでも、貼り付けたときに
+                    元の並びでないと読めない。
+                  -->
+                  <MenuItem Header="選んだ行を写す"
+                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopySelectedLeftCommand}" />
+                  <MenuItem Header="選んだ行を左右のタブ区切りで写す"
+                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopySelectedBothCommand}" />
                   <MenuItem Header="左右をタブ区切りで写す"
                             Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyBothLinesCommand}"
                             CommandParameter="{Binding}" />
                 </ContextMenu>
               </Border.ContextMenu>
+              <!--
+                **左右の一式を分けて、外側の向きだけ切り替える。**
+                Horizontal なら横に並び、Vertical なら上下に並ぶ（BC の
+                over-under layout）。テンプレートを 2 つに複製すると、
+                以降どちらか片方だけ直す事故が必ず起きる。
+              -->
+              <StackPanel Orientation="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).RowOrientation}">
               <StackPanel Orientation="Horizontal">
                 <!--
                   折りたたみの柱（Excel のアウトライン）。
@@ -557,6 +608,16 @@
                   </Panel>
                 </Border>
 
+              </StackPanel>
+
+              <StackPanel Orientation="Horizontal">
+                <!--
+                  上下に並べるとき、右の行を左と同じ位置から始める。
+                  **アウトラインの柱の幅ぶんだけ空ける** — 揃っていないと、
+                  左右で桁がずれて読みにくい。
+                -->
+                <Panel Width="18" />
+
                 <TextBlock Classes="cell gutter" Text="{Binding RightNumber}" />
 
                 <Panel Width="22">
@@ -603,6 +664,7 @@
                 <TextBlock Classes="cell" Width="52" Text="{Binding MovedText}"
                            Foreground="{DynamicResource FgMoved}" FontSize="11"
                            ToolTip.Tip="このブロックは相手側のこの行へ移動している" />
+              </StackPanel>
               </StackPanel>
             </Border>
             </Panel>

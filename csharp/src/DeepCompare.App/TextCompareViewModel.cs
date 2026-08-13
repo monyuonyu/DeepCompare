@@ -136,6 +136,11 @@ public sealed class TextCompareViewModel : ViewModelBase
             row => UnlinkAsync(row), row => row.Row is { Left: not null, Right: not null });
         ClearManualCommand = new RelayCommand(
             ClearManualAsync, () => !Manual.IsEmpty);
+
+        CopySelectedLeftCommand = new RelayCommand(
+            () => CopySelectionAsync(both: false), () => SelectedRows.Count > 0);
+        CopySelectedBothCommand = new RelayCommand(
+            () => CopySelectionAsync(both: true), () => SelectedRows.Count > 0);
     }
 
     public ObservableCollection<RowView> VisibleRows { get; } = [];
@@ -347,6 +352,60 @@ public sealed class TextCompareViewModel : ViewModelBase
     private Task CopyTextAsync(RowView row, bool both)
     {
         Clipboard?.Invoke(both ? $"{row.LeftText}\t{row.RightText}" : row.LeftText);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// いま選んでいる行。**画面側が入れる**（ListBox の複数選択）。
+    /// 1 行だけのときも入るので、写しの操作はこちらに寄せられる。
+    /// </summary>
+    public System.Collections.IList SelectedRows { get; } = new List<object>();
+
+    public RelayCommand CopySelectedLeftCommand { get; }
+    public RelayCommand CopySelectedBothCommand { get; }
+
+    /// <summary>選択が変わったことを画面から知らせてもらう。</summary>
+    public void SelectionChanged()
+    {
+        CopySelectedLeftCommand.Raise();
+        CopySelectedBothCommand.Raise();
+        OnPropertyChanged(nameof(SelectionSummary));
+        OnPropertyChanged(nameof(HasSelection));
+    }
+
+    /// <summary>選んでいる行数。**0 行と 1 行は出さない** — 常に出ると読まなくなる。</summary>
+    public string SelectionSummary
+        => SelectedRows.Count > 1 ? $"{SelectedRows.Count} 行を選択中" : string.Empty;
+
+    public bool HasSelection => SelectedRows.Count > 1;
+
+    /// <summary>
+    /// 選んだ行をまとめて写す。
+    ///
+    /// **畳んだ帯は飛ばす。** 帯には本文が無いので、写すと空行が混ざる。
+    /// **画面の順序で写す。** 選んだ順ではない（Ctrl を押しながら飛び飛びに
+    /// 選ぶと、貼り付けたとき元の順序でないと読めない）。
+    /// </summary>
+    private Task CopySelectionAsync(bool both)
+    {
+        var chosen = SelectedRows.OfType<RowView>().ToHashSet();
+        if (chosen.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var text = new System.Text.StringBuilder();
+        foreach (var row in VisibleRows)
+        {
+            if (!chosen.Contains(row) || row.IsFoldBand)
+            {
+                continue;
+            }
+            text.AppendLine(both ? $"{row.LeftText}\t{row.RightText}" : row.LeftText);
+        }
+
+        Clipboard?.Invoke(text.ToString());
+        StatusText = $"{chosen.Count} 行を写しました。";
         return Task.CompletedTask;
     }
 
@@ -685,7 +744,11 @@ public sealed class TextCompareViewModel : ViewModelBase
         //
         // 左右は必ず半分ずつにする。長い行は横スクロールで見る（左右が同時に
         // 動くので、対応する行が画面から外れない）。
-        TextWidth = Math.Max(300, (_viewportWidth - GutterWidth) / 2);
+        // **上下に並べるときは分け合わない。** 1 行が全幅を使えるのが
+        // この配置の目的で、半分にしたら横に並べるのと変わらない。
+        TextWidth = OverUnder
+            ? Math.Max(300, _viewportWidth - GutterWidth / 2)
+            : Math.Max(300, (_viewportWidth - GutterWidth) / 2);
     }
 
     private async Task PickAsync(bool left)
@@ -1142,6 +1205,40 @@ public sealed class TextCompareViewModel : ViewModelBase
         await RecompareAsync();
     }
 
+    private bool _overUnder;
+
+    /// <summary>
+    /// 上下に並べるか（BC の over-under layout）。
+    ///
+    /// **横に長い行のときに効く。** 左右に並べると 1 行あたりの幅が半分に
+    /// なるので、長い行は横スクロールしないと読めない。上下なら全幅を使える。
+    /// </summary>
+    public bool OverUnder
+    {
+        get => _overUnder;
+        set
+        {
+            if (Set(ref _overUnder, value))
+            {
+                OnPropertyChanged(nameof(RowOrientation));
+                OnPropertyChanged(nameof(RowHeight));
+                // **幅の基準も変わる。** 上下なら 1 行が全幅を使える。
+                UpdateTextWidth();
+            }
+        }
+    }
+
+    /// <summary>行の中で左右を並べる向き。</summary>
+    public Avalonia.Layout.Orientation RowOrientation
+        => OverUnder ? Avalonia.Layout.Orientation.Vertical
+                     : Avalonia.Layout.Orientation.Horizontal;
+
+    /// <summary>
+    /// 1 行の高さ。**上下配置では 2 段ぶん要る。**
+    /// 固定にしているのは、仮想化のために高さが先に決まっている必要があるため。
+    /// </summary>
+    public double RowHeight => OverUnder ? 40 : 20;
+
     private bool _detailAsHex;
 
     /// <summary>
@@ -1160,8 +1257,143 @@ public sealed class TextCompareViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(DetailLeftHex));
                 OnPropertyChanged(nameof(DetailRightHex));
+                OnPropertyChanged(nameof(DetailShowsText));
+                // **同時に出さない。** 下の帯は 1 つで、3 つの見せ方を切り替える。
+                if (value)
+                {
+                    DetailAsAlignment = false;
+                }
             }
         }
+    }
+
+    private bool _detailAsAlignment;
+
+    /// <summary>
+    /// 下の帯を「文字の対応」で見せるか（BC の Alignment Details）。
+    ///
+    /// **行内差分の色だけでは足りない場面がある。** 片方にしか無い文字が
+    /// あると桁がずれ、どの文字がどれに対応しているのかが読み取れない。
+    /// </summary>
+    public bool DetailAsAlignment
+    {
+        get => _detailAsAlignment;
+        set
+        {
+            if (Set(ref _detailAsAlignment, value))
+            {
+                OnPropertyChanged(nameof(DetailAlignment));
+                OnPropertyChanged(nameof(DetailShowsText));
+                if (value)
+                {
+                    DetailAsHex = false;
+                }
+            }
+        }
+    }
+
+    /// <summary>下の帯が本文（直せる状態）を出しているか。</summary>
+    public bool DetailShowsText => !DetailAsHex && !DetailAsAlignment;
+
+    /// <summary>
+    /// 選んだ行の、文字の対応（BC の Alignment Details）。
+    ///
+    /// **左右を上下に並べ、対応する位置を桁で揃える。** 行内差分は色で
+    /// 「どこが違うか」を示すが、**片方にしか無い文字があると桁がずれる**ので、
+    /// 「この文字がどれに対応しているか」までは読み取れない。
+    /// 消えた側に空きを入れて、位置を合わせて見せる。
+    ///
+    /// 例（`abc` と `axbc`）:
+    ///   左  a b c
+    ///   右  a x b c
+    ///          ^ 増えた
+    /// </summary>
+    public string DetailAlignment
+    {
+        get
+        {
+            if (_detailRow is null || DetailLeft.Length == 0 || DetailRight.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            var (left, right) = InlineDiff.Compute(DetailLeft, DetailRight);
+
+            var top = new System.Text.StringBuilder();
+            var bottom = new System.Text.StringBuilder();
+            var marks = new System.Text.StringBuilder();
+
+            var li = 0;
+            var ri = 0;
+
+            // **両側の範囲を同時に進める。** 片方ずつ書くと桁が合わない。
+            while (li < left.Count || ri < right.Count)
+            {
+                var l = li < left.Count ? left[li] : default;
+                var r = ri < right.Count ? right[ri] : default;
+
+                var hasL = li < left.Count;
+                var hasR = ri < right.Count;
+
+                // 両方が「同じ」なら、そのまま並べる。
+                if (hasL && hasR && l.Kind == SpanKind.Equal && r.Kind == SpanKind.Equal)
+                {
+                    var text = DetailLeft.Substring(l.Start, l.Length);
+                    Append(top, bottom, marks, text, text, same: true);
+                    li++;
+                    ri++;
+                    continue;
+                }
+
+                // 片側だけ「同じ」なら、もう片方の変更を先に出す（増えた／消えた）。
+                if (hasL && l.Kind != SpanKind.Equal)
+                {
+                    var text = DetailLeft.Substring(l.Start, l.Length);
+                    Append(top, bottom, marks, text, new string(' ', text.Length), same: false);
+                    li++;
+                    continue;
+                }
+                if (hasR && r.Kind != SpanKind.Equal)
+                {
+                    var text = DetailRight.Substring(r.Start, r.Length);
+                    Append(top, bottom, marks, new string(' ', text.Length), text, same: false);
+                    ri++;
+                    continue;
+                }
+
+                // ここへ来るのは片側が尽きたとき。残りをそのまま出す。
+                if (hasL)
+                {
+                    var text = DetailLeft.Substring(l.Start, l.Length);
+                    Append(top, bottom, marks, text, new string(' ', text.Length), same: false);
+                    li++;
+                }
+                else if (hasR)
+                {
+                    var text = DetailRight.Substring(r.Start, r.Length);
+                    Append(top, bottom, marks, new string(' ', text.Length), text, same: false);
+                    ri++;
+                }
+            }
+
+            return $"左 {top}{Environment.NewLine}   {marks}{Environment.NewLine}右 {bottom}";
+        }
+    }
+
+    /// <summary>
+    /// 対応の 1 区間を書き足す。
+    ///
+    /// **印は違うところにだけ付ける。** 全部に付けると、どこを見ればいいのか
+    /// 分からなくなる。
+    /// </summary>
+    private static void Append(
+        System.Text.StringBuilder top, System.Text.StringBuilder bottom,
+        System.Text.StringBuilder marks, string left, string right, bool same)
+    {
+        var width = Math.Max(left.Length, right.Length);
+        top.Append(left.PadRight(width));
+        bottom.Append(right.PadRight(width));
+        marks.Append(same ? new string(' ', width) : new string('^', width));
     }
 
     /// <summary>
@@ -1238,6 +1470,9 @@ public sealed class TextCompareViewModel : ViewModelBase
         DetailRight = row?.RightText ?? string.Empty;
         OnPropertyChanged(nameof(DetailLeftHex));
         OnPropertyChanged(nameof(DetailRightHex));
+        // **行を選び直したら対応も測り直す。** 前の行の対応が残ると、
+        // いま選んでいる行のものだと読まれる。
+        OnPropertyChanged(nameof(DetailAlignment));
         OnPropertyChanged(nameof(DetailLeftLabel));
         OnPropertyChanged(nameof(DetailRightLabel));
         OnPropertyChanged(nameof(CanEditLeftDetail));

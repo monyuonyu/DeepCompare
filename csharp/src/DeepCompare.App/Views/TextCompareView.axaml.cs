@@ -16,6 +16,28 @@ public partial class TextCompareView : UserControl
     {
         AvaloniaXamlLoader.Load(this);
 
+        // 選んだ行を ViewModel へ渡す。**ListBox の SelectedItems は
+        // 画面側にしかない。** ViewModel から画面に触らせず、ここで写す。
+        if (this.FindControl<ListBox>("RowList") is { } list)
+        {
+            list.SelectionChanged += (_, _) =>
+            {
+                if (DataContext is not TextCompareViewModel model)
+                {
+                    return;
+                }
+                model.SelectedRows.Clear();
+                foreach (var item in list.SelectedItems ?? Array.Empty<object>())
+                {
+                    if (item is not null)
+                    {
+                        model.SelectedRows.Add(item);
+                    }
+                }
+                model.SelectionChanged();
+            };
+        }
+
         // 本文列の幅は「内容に必要な幅」と「画面を分け合った幅」の大きい方にする。
         // 画面幅は表示側にしか分からないので、変わるたびに知らせる。
         this.GetObservable(BoundsProperty).Subscribe(new AnonymousObserver<Rect>(bounds =>

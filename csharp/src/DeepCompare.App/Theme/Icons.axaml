@@ -31,6 +31,16 @@
   <!-- 構造比較: 木。節から枝が伸びる -->
   <StreamGeometry x:Key="IconStructure">M5,3.5 v15 M5,7.5 h5 M5,13 h5 M5,18.5 h5 M11.5,5.5 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M11.5,13 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M11.5,18.5 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M17,5.5 h4 M17,13 h4 M17,18.5 h4</StreamGeometry>
 
+  <!-- 新しいフォルダー（左/右）: フォルダーに + を添え、向きは矢印で示す -->
+  <StreamGeometry x:Key="IconNewFolderLeft">M3,6 h5 l2,2 h6 v9 h-13 z M11,10.5 v4 M9,12.5 h4 M20,12.5 h-3 M18.5,11 l-1.5,1.5 l1.5,1.5</StreamGeometry>
+  <StreamGeometry x:Key="IconNewFolderRight">M10,6 h5 l2,2 h4 v9 h-11 z M15,10.5 v4 M13,12.5 h4 M3,12.5 h3 M4.5,11 l1.5,1.5 l-1.5,1.5</StreamGeometry>
+
+  <!-- 文字の対応: 上下の点を線で結ぶ -->
+  <StreamGeometry x:Key="IconAlignment">M4,7 h16 M4,17 h16 M7,7 v10 M12,7 v10 M17,7 v10</StreamGeometry>
+
+  <!-- 上下に並べる: 横長の枠が 2 段 -->
+  <StreamGeometry x:Key="IconOverUnder">M3,5 h18 v6 h-18 z M3,13 h18 v6 h-18 z</StreamGeometry>
+
   <!-- 表: 格子。行と列があることが一目で分かる形にする -->
   <StreamGeometry x:Key="IconTable">M3,4.5 h18 v15 h-18 z M3,9.5 h18 M3,14.5 h18 M9,4.5 v15 M15,4.5 v15</StreamGeometry>
 

@@ -9,16 +9,20 @@ public partial class MainWindow : Window
 {
     private readonly ShellViewModel _shell;
 
-    public MainWindow() : this([], false, false, false, false, false)
+    public MainWindow() : this([], false, false, false, false, false, false)
     {
     }
 
     public MainWindow(
         string[] startupPaths, bool structured = false, bool git = false,
-        bool merge = false, bool version = false, bool snapshot = false)
+        bool merge = false, bool version = false, bool snapshot = false,
+        bool overUnder = false)
     {
         InitializeComponent();
-        _shell = new ShellViewModel(PickPathAsync, PickSavePathAsync);
+        _shell = new ShellViewModel(PickPathAsync, PickSavePathAsync)
+        {
+            DefaultOverUnder = overUnder,
+        };
         DataContext = _shell;
 
         AddHandler(DragDrop.DropEvent, OnDrop);
