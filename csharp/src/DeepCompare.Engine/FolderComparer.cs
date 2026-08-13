@@ -248,6 +248,7 @@ public static class FolderComparer
                     (null, not null) => EntryStatus.RightOnly,
                     _ => EntryStatus.Identical,
                 };
+                var directoryAt = entries.Count;
                 entries.Add(new FolderEntry(
                     childRelative, name, depth, true, status,
                     null, null, left?.LastWriteTime, right?.LastWriteTime));
@@ -258,6 +259,18 @@ public static class FolderComparer
                         leftIsDir ? left!.FullName : null,
                         rightIsDir ? right!.FullName : null,
                         childRelative, depth + 1, options, entries, counters, progress, cancellationToken);
+                }
+
+                // **中に何も残らなかった一致フォルダーは落とす。**
+                // 差異だけを見に来たのに「同じ」フォルダーの行が並ぶのは雑音でしかない
+                // （空のフォルダーと、中身が全部一致しているフォルダーの両方が当たる）。
+                // 片側にしか無いフォルダーは、それ自体が差異なので残す。
+                if (!options.IncludeIdentical
+                    && status == EntryStatus.Identical
+                    && entries.Count == directoryAt + 1)
+                {
+                    entries.RemoveAt(directoryAt);
+                    counters.Directories--;
                 }
                 continue;
             }

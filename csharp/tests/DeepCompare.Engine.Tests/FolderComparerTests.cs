@@ -164,6 +164,60 @@ public class FolderComparerTests : IDisposable
     }
 
     [Fact]
+    public void 差異だけを出すとき中身が全部一致するフォルダーは落とす()
+    {
+        // **差異を見に来たのに「同じ」フォルダーの行が並ぶのは雑音でしかない。**
+        Write("left", "同じ/a.txt", "x");
+        Write("right", "同じ/a.txt", "x");
+        Write("left", "違う/b.txt", "y");
+        Write("right", "違う/b.txt", "z");
+
+        var entries = Run(new FolderCompareOptions { IncludeIdentical = false }).Entries;
+
+        // 差異への道筋としてのフォルダーは残す。
+        Assert.Equal(["違う", "違う/b.txt"], entries.Select(e => e.RelativePath));
+    }
+
+    [Fact]
+    public void 差異だけを出すとき空のフォルダーは落とす()
+    {
+        Directory.CreateDirectory(Path.Combine(Left, "空っぽ"));
+        Directory.CreateDirectory(Path.Combine(Right, "空っぽ"));
+        Write("left", "違う.txt", "y");
+        Write("right", "違う.txt", "z");
+
+        var entries = Run(new FolderCompareOptions { IncludeIdentical = false }).Entries;
+
+        Assert.Equal("違う.txt", Assert.Single(entries).RelativePath);
+    }
+
+    [Fact]
+    public void 片側にしか無いフォルダーは差異だけのときも残す()
+    {
+        // それ自体が差異。**落とすと、移行漏れが見えなくなる。**
+        Directory.CreateDirectory(Path.Combine(Left, "左だけ"));
+        Write("left", "a.txt", "x");
+        Write("right", "a.txt", "x");
+
+        var entries = Run(new FolderCompareOptions { IncludeIdentical = false }).Entries;
+
+        Assert.Equal("左だけ", Assert.Single(entries).RelativePath);
+        Assert.Equal(EntryStatus.LeftOnly, entries[0].Status);
+    }
+
+    [Fact]
+    public void 全部出すときはフォルダーもそのまま残る()
+    {
+        // 既定の振る舞いを変えない。
+        Write("left", "同じ/a.txt", "x");
+        Write("right", "同じ/a.txt", "x");
+
+        var entries = Run().Entries;
+
+        Assert.Equal(["同じ", "同じ/a.txt"], entries.Select(e => e.RelativePath));
+    }
+
+    [Fact]
     public void SizesAndTimestampsAreReported()
     {
         Write("left", "a.txt", "12345");
