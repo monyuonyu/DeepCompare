@@ -550,6 +550,24 @@ public sealed class GitRepository
     public string CommitBody(string revision)
         => Run(["log", "-1", "--format=%B", revision]).StandardOutput.TrimEnd('\n', '\r');
 
+    /// <summary>
+    /// 競合しているファイルの、索引に積まれた 3 つの中身。
+    ///
+    /// <paramref name="stage"/> は 1=共通の祖先、2=こちら（ours）、3=むこう（theirs）。
+    ///
+    /// **無いことは異常ではない。** 片側で追加され、もう片側でも別の中身で
+    /// 追加された競合には祖先が無く、stage 1 が存在しない。空を返す。
+    /// </summary>
+    public byte[] ConflictStage(string path, int stage)
+    {
+        if (stage is < 1 or > 3)
+        {
+            throw new ArgumentOutOfRangeException(nameof(stage), stage, "1〜3 です。");
+        }
+        var result = RunRaw(["show", $":{stage}:{ToRelative(path)}"]);
+        return result.ExitCode == 0 ? result.StandardOutputBytes : [];
+    }
+
     /// <summary>その時点にファイルが存在したか。</summary>
     public bool Exists(string revision, string path)
         => RunRaw(["cat-file", "-e", $"{revision}:{ToRelative(path)}"]).ExitCode == 0;

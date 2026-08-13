@@ -279,6 +279,32 @@ public sealed class ShellViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// git の競合を解く。
+    ///
+    /// 索引に積まれた 3 つ（祖先・こちら・むこう）をそのまま渡す。
+    /// **一時ファイルは作らない。** 中身の供給を差し替えられるので要らない。
+    /// </summary>
+    public void ShowGitConflict(
+        string relativePath,
+        Func<string, byte[]> loader,
+        Func<IReadOnlyList<string>, Task> save)
+    {
+        // 名前は「どの側か」が分かる形にする。パスだけだと 3 つとも同じになる。
+        var model = new MergeViewModel(this)
+        {
+            BasePath = $"共通の祖先:{relativePath}",
+            LeftPath = $"こちら:{relativePath}",
+            RightPath = $"むこう:{relativePath}",
+            ContentLoader = loader,
+            SaveHandler = save,
+            SaveLabel = "解決したことにする",
+        };
+        var tab = Add($"競合 {System.IO.Path.GetFileName(relativePath)}", model, relativePath);
+        model.Tab = tab;
+        model.MergeCommand.Execute(null);
+    }
+
+    /// <summary>
     /// クリップボードの中身と比べる（BC の File &gt; Open Clipboard）。
     ///
     /// **一時ファイルを作らない。** 読み込み方を差し替える仕掛けが既にあるので、

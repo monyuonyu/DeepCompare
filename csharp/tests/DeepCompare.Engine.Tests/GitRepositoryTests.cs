@@ -76,6 +76,26 @@ public sealed class GitRepositoryTests : IDisposable
         }
     }
 
+    /// <summary>失敗しても続ける git。競合するマージのように、0 でない終了が正常な場合に使う。</summary>
+    private void GitAllowFailure(params string[] arguments)
+    {
+        var info = new ProcessStartInfo("git")
+        {
+            WorkingDirectory = _root,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        foreach (var argument in arguments)
+        {
+            info.ArgumentList.Add(argument);
+        }
+        using var process = Process.Start(info)!;
+        process.StandardError.ReadToEnd();
+        process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+    }
+
     private void WriteFile(string name, string content)
     {
         var path = Path.Combine(_root, name);
@@ -244,6 +264,72 @@ public sealed class GitRepositoryTests : IDisposable
         var root = log[^1];
         Assert.Contains(root.Refs, r => r.Kind == GitRefKind.Tag && r.Name == "v1.0");
         Assert.Contains(root.Refs, r => r.Kind == GitRefKind.Local && r.Name is "main" or "master");
+    }
+
+    [Fact]
+    public void 競合している三つの中身を取る()
+    {
+        WriteFile("a.txt", "祖先\n");
+        Git("add", "-A");
+        Git("commit", "-m", "最初");
+
+        Git("switch", "-c", "むこう");
+        WriteFile("a.txt", "むこう\n");
+        Git("add", "-A");
+        Git("commit", "-m", "むこうの変更");
+
+        Git("switch", "-");
+        WriteFile("a.txt", "こちら\n");
+        Git("add", "-A");
+        Git("commit", "-m", "こちらの変更");
+
+        GitAllowFailure("merge", "むこう");   // 競合して 0 以外で終わるのが正常
+
+        var repository = Open();
+        var text = (int stage) =>
+            new UTF8Encoding(false).GetString(repository.ConflictStage("a.txt", stage));
+
+        Assert.Equal("祖先\n", text(1));
+        Assert.Equal("こちら\n", text(2));
+        Assert.Equal("むこう\n", text(3));
+    }
+
+    [Fact]
+    public void 祖先の無い競合では空を返す()
+    {
+        // 両側で別々に同じ名前のファイルを作った競合。**祖先が存在しない。**
+        // ここで例外を投げると、その形の競合が画面から解けなくなる。
+        WriteFile("土台.txt", "x\n");
+        Git("add", "-A");
+        Git("commit", "-m", "最初");
+
+        Git("switch", "-c", "むこう");
+        WriteFile("新しい.txt", "むこうが作った\n");
+        Git("add", "-A");
+        Git("commit", "-m", "むこうで追加");
+
+        Git("switch", "-");
+        WriteFile("新しい.txt", "こちらが作った\n");
+        Git("add", "-A");
+        Git("commit", "-m", "こちらで追加");
+
+        GitAllowFailure("merge", "むこう");
+
+        var repository = Open();
+        Assert.Empty(repository.ConflictStage("新しい.txt", 1));
+        Assert.NotEmpty(repository.ConflictStage("新しい.txt", 2));
+        Assert.NotEmpty(repository.ConflictStage("新しい.txt", 3));
+    }
+
+    [Fact]
+    public void 競合していないファイルの段は空()
+    {
+        WriteFile("a.txt", "1\n");
+        Git("add", "-A");
+        Git("commit", "-m", "最初");
+
+        // 競合していなければ索引に段は無い。例外ではなく空。
+        Assert.Empty(Open().ConflictStage("a.txt", 2));
     }
 
     [Fact]

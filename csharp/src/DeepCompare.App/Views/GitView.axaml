@@ -103,6 +103,21 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="0">
+                      <!--
+                        競合しているファイルにだけ出す。**押せない状態で置かない。**
+                        3 方向マージの画面をそのまま器にする。
+                      -->
+                      <Button Classes="accent" Padding="7,2" Margin="0,0,4,0"
+                              IsVisible="{Binding Status.IsConflicted}"
+                              ToolTip.Tip="祖先・こちら・むこうを並べて解決します"
+                              Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).ResolveCommand}"
+                              CommandParameter="{Binding}">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                          <Path Classes="icon" Data="{StaticResource IconMerge}"
+                                Width="13" Height="13" VerticalAlignment="Center" />
+                          <TextBlock Text="解決" FontSize="11" VerticalAlignment="Center" />
+                        </StackPanel>
+                      </Button>
                       <Button Classes="icon" ToolTip.Tip="HEAD と作業ツリーを比べる"
                               Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).OpenFileCommand}"
                               CommandParameter="{Binding}">

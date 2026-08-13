@@ -299,6 +299,9 @@ public sealed class GitViewModel : ViewModelBase
             row => WriteAsync(
                 $"{row.ShortHash} の変更をいまの枝に載せました",
                 r => r.CherryPick(row.Commit.Hash)));
+        ResolveCommand = new RelayCommand<GitFileRow>(
+            row => { Resolve(row); return Task.CompletedTask; },
+            row => row.Status.IsConflicted);
         CopyHashCommand = new RelayCommand<GitCommitRow>(row => Copy(row.Commit.Hash));
         CopySubjectCommand = new RelayCommand<GitCommitRow>(row => Copy(row.Subject));
     }
@@ -373,6 +376,7 @@ public sealed class GitViewModel : ViewModelBase
     public RelayCommand<GitFileRow> UnstageCommand { get; }
     public RelayCommand<GitCommitRow> OpenCommitCommand { get; }
     public RelayCommand<GitCommitFileRow> OpenCommitFileCommand { get; }
+    public RelayCommand<GitFileRow> ResolveCommand { get; }
     public RelayCommand<GitCommitRow> CheckoutCommand { get; }
     public RelayCommand<GitCommitRow> BranchHereCommand { get; }
     public RelayCommand<GitCommitRow> RevertCommand { get; }
@@ -705,6 +709,46 @@ public sealed class GitViewModel : ViewModelBase
                 ? repository.Show("HEAD", path[5..])
                 : File.ReadAllBytes(path),
             leftReadOnly: true, rightReadOnly: false);
+    }
+
+    /// <summary>
+    /// 競合を解く画面を開く。
+    ///
+    /// 索引に積まれた 3 つ（祖先・こちら・むこう）を渡す。**作業ツリーの
+    /// ファイルは使わない。** そこには git が書いた印（&lt;&lt;&lt;&lt;&lt;&lt;&lt;）が
+    /// 混ざっており、それを 3 方向マージに掛けても意味がない。
+    /// </summary>
+    private void Resolve(GitFileRow row)
+    {
+        if (_repository is not { } repository)
+        {
+            return;
+        }
+
+        var relative = row.Status.Path;
+        var absolute = System.IO.Path.Combine(repository.Root, relative);
+
+        _shell.ShowGitConflict(
+            relative,
+            name => repository.ConflictStage(relative, name switch
+            {
+                var n when n.StartsWith("共通の祖先:", StringComparison.Ordinal) => 1,
+                var n when n.StartsWith("こちら:", StringComparison.Ordinal) => 2,
+                _ => 3,
+            }),
+            async lines =>
+            {
+                // 改行は「こちら」に合わせる。祖先が無い競合（両側で追加）もある。
+                var reference = TextDecoder.Decode(repository.ConflictStage(relative, 2));
+                await File.WriteAllBytesAsync(absolute, TextEncoder.Encode(lines, reference));
+
+                // **書いたら索引へ載せるところまでやる。** git は索引に載って
+                // 初めて「解決した」と見なす。書くだけで止めると、競合したまま
+                // に見え続ける。
+                await Task.Run(() => repository.Stage(relative));
+                Message = $"{relative} を解決して索引へ載せました。";
+                await RefreshAsync();
+            });
     }
 
     /// <summary>

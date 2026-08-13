@@ -50,8 +50,9 @@
             <Path Classes="icon" Data="{StaticResource IconToRight}" />
           </Button>
           <Border Classes="vsep" />
+          <!-- 用途で意味が変わる（書き出す／解決したことにする）ので、言葉も添える -->
           <Button Classes="icon" Command="{Binding SaveCommand}"
-                  ToolTip.Tip="結果を書き出す。決めていない競合は印を付けて残します">
+                  ToolTip.Tip="{Binding SaveLabel}">
             <Path Classes="icon" Data="{StaticResource IconExport}" />
           </Button>
           <ToggleButton Classes="filter" IsChecked="{Binding ShowUnchanged}"

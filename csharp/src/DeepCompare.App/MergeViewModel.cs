@@ -218,6 +218,31 @@ public sealed class MergeViewModel : ViewModelBase
 
     private ThreeWayResult? _result;
 
+    /// <summary>
+    /// 中身の供給。null ならファイルとして読む。
+    ///
+    /// **git の競合を解くために要る。** 索引に積まれた 3 つの中身は
+    /// ファイルとして存在しないので、一時ファイルへ書き出すことになる。
+    /// そうすると後始末が要るうえ、画面にその名前が出てしまう。
+    /// </summary>
+    public Func<string, byte[]>? ContentLoader { get; set; }
+
+    /// <summary>
+    /// 書き出し先が決まっているときの受け取り手。null なら保存先を尋ねる。
+    ///
+    /// git の競合では、書き出す場所は競合しているファイルそのもので、
+    /// 書いた後に索引へ載せるところまでが一続きになる。
+    /// </summary>
+    public Func<IReadOnlyList<string>, Task>? SaveHandler { get; set; }
+
+    /// <summary>書き出しのボタンに出す言葉。用途で変わる。</summary>
+    private string _saveLabel = "書き出す";
+    public string SaveLabel
+    {
+        get => _saveLabel;
+        set => Set(ref _saveLabel, value);
+    }
+
     private async Task MergeAsync()
     {
         if (BasePath.Length == 0 || LeftPath.Length == 0 || RightPath.Length == 0)
@@ -235,9 +260,10 @@ public sealed class MergeViewModel : ViewModelBase
             var (basePath, leftPath, rightPath) = (BasePath, LeftPath, RightPath);
             var result = await Task.Run(() =>
             {
-                var ancestor = TextDecoder.Decode(File.ReadAllBytes(basePath));
-                var left = TextDecoder.Decode(File.ReadAllBytes(leftPath));
-                var right = TextDecoder.Decode(File.ReadAllBytes(rightPath));
+                var load = ContentLoader ?? File.ReadAllBytes;
+                var ancestor = TextDecoder.Decode(load(basePath));
+                var left = TextDecoder.Decode(load(leftPath));
+                var right = TextDecoder.Decode(load(rightPath));
                 // 埋め込みは使わない。マージの判定は git と揃えたいので、
                 // 意味的な対応付けを持ち込むと結果が食い違う。
                 return (ancestor, merged: ThreeWayMerge.Merge(ancestor, left, right));
@@ -331,10 +357,15 @@ public sealed class MergeViewModel : ViewModelBase
         // 黙って片方を採ると、決めていないことが結果から消える。
         var undecided = Regions.Count(r => r.IsConflict && !r.IsDecided);
 
-        var path = await _shell.PickSavePath("マージ結果を書き出す", "merged.txt");
-        if (path is null)
+        // 書き出し先が決まっている場合（git の競合）は尋ねない。
+        string? path = null;
+        if (SaveHandler is null)
         {
-            return;
+            path = await _shell.PickSavePath("マージ結果を書き出す", "merged.txt");
+            if (path is null)
+            {
+                return;
+            }
         }
 
         var lines = new List<string>();
@@ -363,11 +394,24 @@ public sealed class MergeViewModel : ViewModelBase
             lines.Add(">>>>>>> 右");
         }
 
+        if (SaveHandler is { } handler)
+        {
+            // **未決が残ったまま索引へ載せない。** 印の付いた行がそのまま
+            // コミットに入る事故は、git を使っていて一番起きやすい失敗。
+            if (undecided > 0)
+            {
+                Message = $"**未決の競合が {undecided} 件あります。** 全部決めてから確定してください。";
+                return;
+            }
+            await handler(lines);
+            return;
+        }
+
         // 符号化と改行は祖先に合わせる。読んだときの形を保つ。
         var bytes = _baseSource is { } source
             ? TextEncoder.Encode(lines, source)
             : new UTF8Encoding(false).GetBytes(string.Join('\n', lines));
-        await File.WriteAllBytesAsync(path, bytes);
+        await File.WriteAllBytesAsync(path!, bytes);
 
         Message = undecided > 0
             ? $"{path} へ書き出しました。**未決の競合 {undecided} 件は印を付けたまま残しています。**"
