@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <!--
+    **Engine を参照しない。**
+
+    「比較エンジンは通信しない」を、注意書きではなくコードの構造で示す。
+    Engine から見て Assist は存在しないので、比較の経路に通信が紛れ込む
+    余地が構造として無い。受け渡しはアプリ側が組み立てた文字列で行う。
+
+    外部 SDK も参照しない。OpenAI 互換のエンドポイントへ HTTP を投げるだけで、
+    HttpClient と System.Text.Json で足りる。
+  -->
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DeepCompare.Assist.Tests" />
+  </ItemGroup>
+
+</Project>

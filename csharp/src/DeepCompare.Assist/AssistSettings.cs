@@ -1,0 +1,73 @@
+namespace DeepCompare.Assist;
+
+/// <summary>
+/// LLM 支援の設定。
+///
+/// **既定で無効。** <see cref="Endpoint"/> が空なら機能そのものを出さない。
+/// 起動時に接続を試みることもしない（居ない相手を待って固まるのが一番困る）。
+/// </summary>
+public sealed record AssistSettings
+{
+    /// <summary>
+    /// OpenAI 互換のエンドポイント。Ollama なら
+    /// <c>http://localhost:11434/v1</c>、LM Studio なら
+    /// <c>http://localhost:1234/v1</c>。
+    ///
+    /// **既定は空。** 入れた人だけが使う。
+    /// </summary>
+    public string Endpoint { get; init; } = string.Empty;
+
+    /// <summary>使うモデルの名前。</summary>
+    public string Model { get; init; } = string.Empty;
+
+    /// <summary>
+    /// 鍵。**ローカルのサーバーには要らない。**
+    /// 外部の API を使うときだけ入る。
+    /// </summary>
+    public string? ApiKey { get; init; }
+
+    /// <summary>
+    /// 待つ上限。
+    ///
+    /// **短くする。** 支援は「あると助かる」ものであって、比較の邪魔をして
+    /// よいものではない。繋がらない相手を延々待つくらいなら出さない方がよい。
+    /// </summary>
+    public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// 繋がるかを確かめるときの上限。**さらに短く。**
+    /// 設定画面で「試す」を押したときに何十秒も待たせない。
+    /// </summary>
+    public TimeSpan ProbeTimeout { get; init; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// 解決案（生成）まで出してよいか。
+    ///
+    /// **既定は false。** 説明や分類と違い、解決案は意味を取り違えると
+    /// 害になる生成で、8B 級のモデルは**もっともらしく間違える**。
+    /// ビルドが通るぶんだけ発見が遅れる。
+    ///
+    /// 信頼度を返させて閾値で切る手は取らない。**弱いモデルは自信も
+    /// 較正されていない。** モデルの素性で決める方が確実。
+    /// </summary>
+    public bool AllowResolutionProposals { get; init; }
+
+    /// <summary>使える状態か。**空なら機能を出さない。**</summary>
+    public bool IsConfigured
+        => Endpoint.Length > 0 && Model.Length > 0;
+
+    /// <summary>
+    /// 送り先の URL を組み立てる。末尾の <c>/</c> の有無に左右されないようにする。
+    /// </summary>
+    public string UrlFor(string path)
+        => $"{Endpoint.TrimEnd('/')}/{path.TrimStart('/')}";
+
+    /// <summary>
+    /// 表に出してよい形。**鍵を伏せる。**
+    /// 設定を書き出す場所すべてでこれを通す。
+    /// </summary>
+    public string Redacted()
+        => ApiKey is { Length: > 0 }
+            ? $"{Endpoint} ({Model}, 鍵あり)"
+            : $"{Endpoint} ({Model})";
+}
