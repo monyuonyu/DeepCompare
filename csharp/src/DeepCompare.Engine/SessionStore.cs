@@ -163,11 +163,22 @@ public sealed class SessionStore
         File.Move(temporary, _path, overwrite: true);
     }
 
-    /// <summary>同じ名前があれば置き換え、無ければ足す。</summary>
+    /// <summary>
+    /// 同じ名前があれば置き換え、無ければ足す。
+    ///
+    /// **合言葉は保存しない。** 場所の文字列に書かれた合言葉をそのまま
+    /// 設定ファイルへ落とすと、平文で残り続ける（そして本人も忘れる）。
+    /// 伏せた形で保存し、使うときに改めて聞く。
+    /// </summary>
     public List<Session> Upsert(Session session)
     {
         var sessions = Load();
         sessions.RemoveAll(s => string.Equals(s.Name, session.Name, StringComparison.OrdinalIgnoreCase));
+        session = session with
+        {
+            LeftPath = RemoteLocation.Redact(session.LeftPath),
+            RightPath = RemoteLocation.Redact(session.RightPath),
+        };
         sessions.Insert(0, session with { LastUsed = DateTime.UtcNow });
         Save(sessions);
         return sessions;

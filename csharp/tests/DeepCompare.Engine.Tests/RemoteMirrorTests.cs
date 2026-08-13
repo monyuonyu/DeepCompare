@@ -283,3 +283,30 @@ public sealed class RemoteLocationTests
         Assert.DoesNotContain("SECRET", error.Message);
     }
 }
+
+public sealed class SessionRedactionTests : IDisposable
+{
+    private readonly string _path =
+        Path.Combine(Path.GetTempPath(), "dc-session-" + Guid.NewGuid().ToString("N")[..8] + ".json");
+
+    public void Dispose() => File.Delete(_path);
+
+    [Fact]
+    public void 合言葉を保存しない()
+    {
+        // **平文で残り続ける（そして本人も忘れる）。**
+        var store = new SessionStore(_path);
+        store.Upsert(new Session
+        {
+            Name = "本番",
+            LeftPath = "/手元",
+            RightPath = "ftps://利用者:ひみつ@主機/場所",
+        });
+
+        var saved = store.Load().Single();
+        Assert.Equal("ftps://利用者:***@主機/場所", saved.RightPath);
+
+        // ファイルの中身にも残っていない。
+        Assert.DoesNotContain("ひみつ", File.ReadAllText(_path));
+    }
+}

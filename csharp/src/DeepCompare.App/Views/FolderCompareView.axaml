@@ -116,6 +116,13 @@
         <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource FgDim}" />
         <TextBlock Text="{Binding RenameText}" IsVisible="{Binding HasRenames}"
                    FontSize="11" Foreground="{DynamicResource FgMoved}" />
+        <!--
+          リモートから取ってきたときの知らせ。**上限で切ったことを黙らない。**
+          取っていないものがあるのに「差異なし」と出すのは嘘に近い。
+        -->
+        <TextBlock Text="{Binding MirrorNote}" IsVisible="{Binding HasMirrorNote}"
+                   FontSize="11" Foreground="{DynamicResource FgWarning}"
+                   TextWrapping="Wrap" />
       </StackPanel>
     </Border>
 

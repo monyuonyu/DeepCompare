@@ -166,7 +166,12 @@ public sealed class ShellViewModel : ViewModelBase
 
     private CompareTab Add(string title, object content, string tooltip = "")
     {
-        var tab = new CompareTab(title, content) { Tooltip = tooltip };
+        // **合言葉を伏せる。** 見出しもツールチップも画面に出たままになるので、
+        // 場所を含む文字列はここを通す。
+        var tab = new CompareTab(RemoteLocation.Redact(title), content)
+        {
+            Tooltip = RemoteLocation.Redact(tooltip),
+        };
         Tabs.Add(tab);
         Selected = tab;
         return tab;
@@ -200,13 +205,37 @@ public sealed class ShellViewModel : ViewModelBase
     /// <summary>左右のファイル名から見出しを作る。同じ名前なら 1 つで足りる。</summary>
     private static string TitleFor(string left, string right)
     {
-        var l = System.IO.Path.GetFileName(left.TrimEnd('/', '\\'));
-        var r = System.IO.Path.GetFileName(right.TrimEnd('/', '\\'));
+        // **リモートは合言葉を落としてから名前を採る。** そうしないと
+        // 見出しが「利用者:合言葉@主機」になる。
+        var l = ShortName(left);
+        var r = ShortName(right);
         if (l.Length == 0 && r.Length == 0)
         {
             return "比較";
         }
         return string.Equals(l, r, StringComparison.Ordinal) ? l : $"{l} ↔ {r}";
+    }
+
+    /// <summary>見出しに使う短い名前。リモートなら主機と場所の末尾。</summary>
+    private static string ShortName(string location)
+    {
+        if (!RemoteLocation.IsRemote(location))
+        {
+            return System.IO.Path.GetFileName(location.TrimEnd('/', '\\'));
+        }
+
+        var scheme = location.IndexOf("://", StringComparison.Ordinal);
+        var rest = location[(scheme + 3)..];
+        var at = rest.LastIndexOf('@');
+        if (at >= 0)
+        {
+            rest = rest[(at + 1)..];
+        }
+
+        var trimmed = rest.TrimEnd('/');
+        var slash = trimmed.LastIndexOf('/');
+        var tail = slash >= 0 ? trimmed[(slash + 1)..] : trimmed;
+        return tail.Length > 0 ? tail : trimmed;
     }
 
     /// <summary>

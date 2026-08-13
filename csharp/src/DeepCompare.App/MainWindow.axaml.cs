@@ -65,7 +65,11 @@ public partial class MainWindow : Window
                 {
                     _shell.ShowVersionInfo(left, right);
                 }
-                else if (Directory.Exists(left) && Directory.Exists(right))
+                // **リモートはフォルダーとして扱う。** Directory.Exists は
+                // リモートに対して必ず false なので、これが無いと
+                // s3:// や ftp:// がテキスト比較で開かれる。
+                else if ((Directory.Exists(left) || DeepCompare.Engine.RemoteLocation.IsRemote(left))
+                         && (Directory.Exists(right) || DeepCompare.Engine.RemoteLocation.IsRemote(right)))
                 {
                     _shell.ShowFolders(left, right);
                 }

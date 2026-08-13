@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Media;
+using Avalonia.Threading;
 using DeepCompare.Engine;
 
 namespace DeepCompare.App;
@@ -171,6 +172,7 @@ public sealed class FolderCompareViewModel : ViewModelBase
     private bool _ignoreDst;
     private bool _detectRenames;
     private string _renameText = string.Empty;
+    private string _mirrorNote = string.Empty;
 
     public FolderCompareViewModel(ShellViewModel shell)
     {
@@ -538,6 +540,26 @@ public sealed class FolderCompareViewModel : ViewModelBase
 
     public bool HasRenames => RenameText.Length > 0;
 
+    /// <summary>
+    /// リモートから取ってきたときの知らせ。
+    ///
+    /// **上限で切ったことを黙らない。** 取っていないものがあるのに
+    /// 「差異なし」と出すのは嘘に近い。
+    /// </summary>
+    public string MirrorNote
+    {
+        get => _mirrorNote;
+        private set
+        {
+            if (Set(ref _mirrorNote, value))
+            {
+                OnPropertyChanged(nameof(HasMirrorNote));
+            }
+        }
+    }
+
+    public bool HasMirrorNote => MirrorNote.Length > 0;
+
     /// <summary>画面の設定から走査の指定を作る。</summary>
     private FolderCompareOptions BuildOptions()
     {
@@ -637,17 +659,38 @@ public sealed class FolderCompareViewModel : ViewModelBase
             var right = RightRoot;
             var options = BuildOptions();
             var detectRenames = DetectRenames;
-            var (result, renames) = await Task.Run(() =>
+            // リモートは一時領域へ取ってくる。**絞り込みをそのまま渡す** —
+            // 渡さないと、除外したはずのものまで回線を使って取ってくる。
+            var mirrorOptions = new MirrorOptions { Filter = options.Filter };
+
+            // **取っている最中を出す。** 黙って何分も待たせない。
+            void Fetching(string name) => Dispatcher.UIThread.Post(
+                () => StatusText = $"取ってきています… {name}");
+
+            var (result, renames, notes) = await Task.Run(() =>
             {
-                // 書庫なら一時領域へ展開する。走査が終わったら消す。
-                using var leftSource = ArchiveSource.Open(left);
-                using var rightSource = ArchiveSource.Open(right);
+                // 書庫なら一時領域へ展開し、リモートなら取ってくる。
+                // 走査が終わったら消す。
+                using var leftSource = ArchiveSource.Open(left, mirrorOptions, Fetching);
+                using var rightSource = ArchiveSource.Open(right, mirrorOptions, Fetching);
                 var comparison = FolderComparer.Compare(leftSource.Path, rightSource.Path, options);
                 var found = detectRenames
                     ? RenameDetector.Detect(comparison, leftSource.Path, rightSource.Path)
                     : [];
-                return (comparison, found);
+
+                // **上限で切ったことを黙らない。**
+                var messages = new List<string>();
+                foreach (var mirror in new[] { leftSource.Mirror, rightSource.Mirror })
+                {
+                    if (mirror is { Result.HasSkipped: true })
+                    {
+                        messages.Add(mirror.Describe());
+                    }
+                }
+                return (comparison, found, messages);
             });
+
+            MirrorNote = string.Join("  ", notes);
 
             RenameText = renames.Count == 0
                 ? string.Empty
@@ -668,7 +711,8 @@ public sealed class FolderCompareViewModel : ViewModelBase
         {
             _allRows = [];
             Rows.Clear();
-            StatusText = $"エラー: {error.Message}";
+            // **合言葉を出さない。** 場所を含む知らせがそのまま画面に残る。
+            StatusText = $"エラー: {RemoteLocation.Redact(error.Message)}";
         }
         finally
         {
