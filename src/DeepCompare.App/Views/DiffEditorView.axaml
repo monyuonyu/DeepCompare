@@ -17,15 +17,26 @@
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="*" MinWidth="80" />
       <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="Auto" />
+      <ColumnDefinition Width="Auto" />
       <ColumnDefinition Width="*" MinWidth="80" />
     </Grid.ColumnDefinitions>
 
     <views:DiffEditorPane x:Name="LeftPane" Grid.Column="0" />
 
-    <GridSplitter Grid.Column="1" Width="4" MinWidth="4"
+    <!--
+      写しの矢印。**左右それぞれの脇に置く。**
+      左の脇のものは「右へ写す」、右の脇のものは「左へ写す」。
+      行に貼り付いて動く（中で位置を測っている）。
+    -->
+    <ContentControl x:Name="LeftArrows" Grid.Column="1" />
+
+    <GridSplitter Grid.Column="2" Width="4" MinWidth="4"
                   Background="{DynamicResource DividerStrong}"
                   ResizeDirection="Columns" />
 
-    <views:DiffEditorPane x:Name="RightPane" Grid.Column="2" />
+    <ContentControl x:Name="RightArrows" Grid.Column="3" />
+
+    <views:DiffEditorPane x:Name="RightPane" Grid.Column="4" />
   </Grid>
 </UserControl>

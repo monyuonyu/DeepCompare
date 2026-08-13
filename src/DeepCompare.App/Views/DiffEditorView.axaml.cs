@@ -16,13 +16,35 @@ public partial class DiffEditorView : UserControl
         // 呼ぶと x:Name のフィールドが埋まらず、直後の組み立てで落ちる。
         InitializeComponent();
 
-        // **縦だけ同期する。** 横は片方だけ長い行があるので、
-        // まとめて動かすと読みたい側が動かせない。
+        // **縦も横も同じだけ動かす。**
+        // 同じ行を見比べるのが目的なので、縦が揃っていないと意味が無い。
+        // 横も、片方だけ動くと同じ桁を見比べられない（Beyond Compare も
+        // 両方そろえる）。
+        //
+        // **スクロールバーの位置で合わせる。** TextView の ScrollOffset は
+        // 読むだけの値で、代入しても動かない。
         LeftPane.Editor.TextArea.TextView.ScrollOffsetChanged +=
             (_, _) => Sync(from: LeftPane, to: RightPane);
         RightPane.Editor.TextArea.TextView.ScrollOffsetChanged +=
             (_, _) => Sync(from: RightPane, to: LeftPane);
+
+        // 写しの矢印。**位置は本文から測る。**
+        _leftArrows.ToRight = true;
+        _leftArrows.Attach(LeftPane.Editor.TextArea.TextView);
+        _leftArrows.Apply = block => ApplyBlock?.Invoke(block, true);
+        LeftArrows.Content = _leftArrows;
+
+        _rightArrows.ToRight = false;
+        _rightArrows.Attach(RightPane.Editor.TextArea.TextView);
+        _rightArrows.Apply = block => ApplyBlock?.Invoke(block, false);
+        RightArrows.Content = _rightArrows;
     }
+
+    private readonly ApplyArrowColumn _leftArrows = new();
+    private readonly ApplyArrowColumn _rightArrows = new();
+
+    /// <summary>塊を写す。引数は（塊の番号, 右へ写すか）。</summary>
+    public Action<int, bool>? ApplyBlock { get; set; }
 
     /// <summary>打たれたことを外へ伝える。左右どちらかは呼ぶ側が見る。</summary>
     public event EventHandler? LeftChanged
@@ -43,6 +65,8 @@ public partial class DiffEditorView : UserControl
     {
         LeftPane.Fill(left, leftReadOnly);
         RightPane.Fill(right, rightReadOnly);
+        _leftArrows.Update(left.Lines);
+        _rightArrows.Update(right.Lines);
 
         // **入れ直した直後に揃える。** 片方だけ位置が残っていると、
         // 開いた瞬間から左右が別の場所を向いている。
@@ -63,10 +87,16 @@ public partial class DiffEditorView : UserControl
         _syncing = true;
         try
         {
-            var y = from.Editor.TextArea.TextView.VerticalOffset;
-            if (Math.Abs(to.Editor.TextArea.TextView.VerticalOffset - y) > 0.5)
+            var source = from.Editor.TextArea.TextView;
+            var target = to.Editor.TextArea.TextView;
+
+            if (Math.Abs(target.VerticalOffset - source.VerticalOffset) > 0.5)
             {
-                to.Editor.ScrollToVerticalOffset(y);
+                to.Editor.ScrollToVerticalOffset(source.VerticalOffset);
+            }
+            if (Math.Abs(target.HorizontalOffset - source.HorizontalOffset) > 0.5)
+            {
+                to.Editor.ScrollToHorizontalOffset(source.HorizontalOffset);
             }
         }
         finally

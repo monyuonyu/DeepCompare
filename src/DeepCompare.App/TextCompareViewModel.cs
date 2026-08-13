@@ -512,6 +512,34 @@ public sealed class TextCompareViewModel : ViewModelBase
     public bool ActiveIsLeft { get; set; } = true;
 
     /// <summary>
+    /// エディタで打たれた行の並びを本文へ入れる。
+    ///
+    /// **全体を 1 回の操作として積む。** 打った文字ごとに履歴へ積むと、
+    /// 取り消しが 1 文字ずつになって使い物にならない。
+    /// </summary>
+    public async Task ApplyEditedLinesAsync(IReadOnlyList<string> lines, bool left)
+    {
+        var document = left ? _leftDocument : _rightDocument;
+        var readOnly = left ? LeftReadOnly : RightReadOnly;
+        if (document is null || readOnly)
+        {
+            return;
+        }
+
+        // 変わっていなければ何もしない（比べ直しも起こさない）。
+        if (document.Lines.SequenceEqual(lines))
+        {
+            return;
+        }
+
+        document.Replace(0, document.Lines.Count, lines);
+        _undoSides.Push(!left);
+        _redoSides.Clear();
+        RaiseEditState();
+        await RecompareAsync();
+    }
+
+    /// <summary>
     /// 選んだ行をまとめて消す。
     ///
     /// **読み取り専用の側は触らない。** 取り消しで戻せる。
@@ -2160,6 +2188,21 @@ public sealed class TextCompareViewModel : ViewModelBase
         await RecompareAsync();
     }
 
+    /// <summary>
+    /// 塊の番号で写す。**エディタ側の矢印から呼ぶ。**
+    /// 行を並べたリストの側は行から塊を引くが、エディタ側は
+    /// 素性に番号を持たせてあるので、そのまま渡せる。
+    /// </summary>
+    public async Task ApplyBlockAsync(int blockIndex, bool toRight)
+    {
+        if (_leftDocument is null || _rightDocument is null
+            || blockIndex < 0 || blockIndex >= _blocks.Count)
+        {
+            return;
+        }
+        await ApplyBlockCoreAsync(blockIndex, toRight);
+    }
+
     private async Task ApplyBlockAsync(RowView row, bool toRight)
     {
         if (_leftDocument is null || _rightDocument is null
@@ -2167,8 +2210,17 @@ public sealed class TextCompareViewModel : ViewModelBase
         {
             return;
         }
+        await ApplyBlockCoreAsync(row.BlockIndex, toRight);
+    }
 
-        var block = _blocks[row.BlockIndex];
+    private async Task ApplyBlockCoreAsync(int blockIndex, bool toRight)
+    {
+        if (_leftDocument is null || _rightDocument is null)
+        {
+            return;
+        }
+
+        var block = _blocks[blockIndex];
         if (toRight)
         {
             _rightDocument.Replace(

@@ -20,7 +20,19 @@ public sealed record AlignedLine(
     bool IsChanged,
     bool IsOnlyHere,
     bool IsEdited,
-    IReadOnlyList<EngineSpan> Spans);
+    IReadOnlyList<EngineSpan> Spans)
+{
+    /// <summary>
+    /// 差分の塊の何番目か。塊でなければ -1。
+    ///
+    /// **写す単位は塊。** 1 行ずつ写させると、5 行まとめて書き換えた
+    /// 場所で 5 回押すことになる。
+    /// </summary>
+    public int BlockIndex { get; init; } = -1;
+
+    /// <summary>塊の先頭の行か。**ここにだけ矢印を出す。**</summary>
+    public bool IsBlockStart { get; init; }
+}
 
 /// <summary>
 /// 行の地を塗る。

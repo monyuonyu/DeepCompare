@@ -60,6 +60,21 @@ public partial class TextCompareView : UserControl
                 model.AlignedChanged -= OnAlignedChanged;
                 model.AlignedChanged += OnAlignedChanged;
                 OnAlignedChanged(model, EventArgs.Empty);
+
+                // 矢印を押したら、その塊を写す。
+                Editors.ApplyBlock = async (block, toRight) =>
+                {
+                    if (DataContext is TextCompareViewModel current)
+                    {
+                        await current.ApplyBlockAsync(block, toRight);
+                    }
+                };
+
+                // **打った内容を本文へ戻す。** 詰め物は除いてから渡す。
+                Editors.LeftChanged -= OnLeftEdited;
+                Editors.LeftChanged += OnLeftEdited;
+                Editors.RightChanged -= OnRightEdited;
+                Editors.RightChanged += OnRightEdited;
             }
         };
 
@@ -160,6 +175,43 @@ public partial class TextCompareView : UserControl
         Editors.Fill(
             model.AlignedLeft, model.AlignedRight,
             model.LeftReadOnly, model.RightReadOnly);
+    }
+
+    /// <summary>
+    /// エディタで打たれた内容を本文へ戻す。
+    ///
+    /// **打つたびに比べ直さない。** 一文字ごとに組み直すと、書いている
+    /// 途中で行が動いてカーソルを見失う。少し待ってから比べる。
+    /// </summary>
+    private void OnLeftEdited(object? sender, EventArgs e) => ScheduleApply(left: true);
+
+    private void OnRightEdited(object? sender, EventArgs e) => ScheduleApply(left: false);
+
+    private CancellationTokenSource? _editDelay;
+
+    private void ScheduleApply(bool left)
+    {
+        _editDelay?.Cancel();
+        _editDelay = new CancellationTokenSource();
+        var token = _editDelay.Token;
+
+        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            try
+            {
+                // 打鍵が止まるのを待つ。**止まらないうちは比べない。**
+                await Task.Delay(400, token);
+            }
+            catch (TaskCanceledException)
+            {
+                return;
+            }
+            if (DataContext is TextCompareViewModel model)
+            {
+                await model.ApplyEditedLinesAsync(
+                    left ? Editors.LeftLines() : Editors.RightLines(), left);
+            }
+        });
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)

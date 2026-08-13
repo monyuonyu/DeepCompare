@@ -33,22 +33,36 @@ public sealed record AlignedDocument(string Text, IReadOnlyList<AlignedLine> Lin
         var leftInfo = new List<AlignedLine>(rows.Count);
         var rightInfo = new List<AlignedLine>(rows.Count);
 
+        // 塊に番号を振る。**続いた差分行を 1 つと数える。**
+        var blockIndex = -1;
+        var inBlock = false;
+
         for (var i = 0; i < rows.Count; i++)
         {
             var row = rows[i];
             var changed = row is { Left: not null, Right: not null } && !row.IsUnchanged;
+            var differs = changed || row.Left is null || row.Right is null;
+
+            var start = false;
+            if (differs && !inBlock)
+            {
+                blockIndex++;
+                start = true;
+            }
+            inBlock = differs;
+            var block = differs ? blockIndex : -1;
 
             AppendSide(
                 leftText, leftInfo, row.Left, leftLines, row.LeftSpans,
                 changed, onlyHere: row.Left is not null && row.Right is null,
                 edited: row.Left is { } l && leftEdited?.Contains(l) == true,
-                last: i == rows.Count - 1);
+                last: i == rows.Count - 1, block: block, start: start);
 
             AppendSide(
                 rightText, rightInfo, row.Right, rightLines, row.RightSpans,
                 changed, onlyHere: row.Right is not null && row.Left is null,
                 edited: row.Right is { } r && rightEdited?.Contains(r) == true,
-                last: i == rows.Count - 1);
+                last: i == rows.Count - 1, block: block, start: start);
         }
 
         return (new AlignedDocument(leftText.ToString(), leftInfo),
@@ -64,18 +78,28 @@ public sealed record AlignedDocument(string Text, IReadOnlyList<AlignedLine> Lin
         bool changed,
         bool onlyHere,
         bool edited,
-        bool last)
+        bool last,
+        int block,
+        bool start)
     {
         if (source is { } at && at < lines.Count)
         {
             text.Append(lines[at]);
-            info.Add(new AlignedLine(at, false, changed, onlyHere, edited, spans));
+            info.Add(new AlignedLine(at, false, changed, onlyHere, edited, spans)
+            {
+                BlockIndex = block,
+                IsBlockStart = start,
+            });
         }
         else
         {
             // 詰め物。**中身は空。** 何か文字を入れると、選んで写したときに
             // 元のファイルに無いものが混ざる。
-            info.Add(new AlignedLine(null, true, false, false, false, []));
+            info.Add(new AlignedLine(null, true, false, false, false, [])
+            {
+                BlockIndex = block,
+                IsBlockStart = start,
+            });
         }
 
         if (!last)
