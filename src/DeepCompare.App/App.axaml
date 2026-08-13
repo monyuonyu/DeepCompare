@@ -109,6 +109,11 @@
           <SolidColorBrush x:Key="BgInline">#FFC9C9</SolidColorBrush>
           <!-- 自分が直した行の印。**差分の色と混ざらない色**にする -->
           <SolidColorBrush x:Key="EditedMark">#E5A400</SolidColorBrush>
+          <!--
+            詰め物（相手にしか行が無い所）。**薄い灰色。**
+            差分の色と混ぜない — ここは「無い」のであって「違う」のではない。
+          -->
+          <SolidColorBrush x:Key="GapBg">#F0F1F3</SolidColorBrush>
           <SolidColorBrush x:Key="FgUnimportant">#8C959F</SolidColorBrush>
           <SolidColorBrush x:Key="FgWarning">#9A6700</SolidColorBrush>
           <SolidColorBrush x:Key="FgMoved">#1A7F37</SolidColorBrush>
@@ -219,6 +224,7 @@
           <SolidColorBrush x:Key="FgInline">#FFA500</SolidColorBrush>
           <SolidColorBrush x:Key="BgInline">#6E2F35</SolidColorBrush>
           <SolidColorBrush x:Key="EditedMark">#D9A22B</SolidColorBrush>
+          <SolidColorBrush x:Key="GapBg">#1C1C1C</SolidColorBrush>
           <SolidColorBrush x:Key="FgUnimportant">#6E7488</SolidColorBrush>
           <SolidColorBrush x:Key="FgWarning">#E0A060</SolidColorBrush>
           <SolidColorBrush x:Key="FgMoved">#8FBF6F</SolidColorBrush>

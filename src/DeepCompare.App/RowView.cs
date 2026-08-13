@@ -134,10 +134,10 @@ public sealed class RowView : ViewModelBase
         }
 
         var (leftSpans, rightSpans) = InlineDiff.Compute(left, right, _language);
-        LeftInlines = Build(left, leftSpans, _language, _leftState);
-        RightInlines = Build(right, rightSpans, _language, _rightState);
-        OnPropertyChanged(nameof(LeftInlines));
-        OnPropertyChanged(nameof(RightInlines));
+        LeftRuns = Build(left, leftSpans, _language, _leftState);
+        RightRuns = Build(right, rightSpans, _language, _rightState);
+        OnPropertyChanged(nameof(LeftRuns));
+        OnPropertyChanged(nameof(RightRuns));
     }
 
     /// <summary>その側に行があるときだけ直せる。無い行は作れない。</summary>
@@ -215,8 +215,13 @@ public sealed class RowView : ViewModelBase
     /// 描く中身。**差し替えられるようにしてある**（打っている最中に
     /// 相手側を塗り直すため）。
     /// </summary>
-    public InlineCollection LeftInlines { get; private set; }
-    public InlineCollection RightInlines { get; private set; }
+    /// <summary>
+    /// 描く材料。**InlineCollection をそのまま渡さない。**
+    /// あれは 1 つの TextBlock にしか属せないので、仮想化した一覧で
+    /// 入れ物が使い回されると前の行から取り上げられ、そこが空白になる。
+    /// </summary>
+    public IReadOnlyList<RunSpec> LeftRuns { get; private set; } = [];
+    public IReadOnlyList<RunSpec> RightRuns { get; private set; } = [];
 
     /// <summary>
     /// 空白を記号で見せるか。
@@ -282,8 +287,8 @@ public sealed class RowView : ViewModelBase
 
         LeftText = row.Left is { } li ? left.Lines[li] : string.Empty;
         RightText = row.Right is { } ri ? right.Lines[ri] : string.Empty;
-        LeftInlines = Build(row.Left is null ? null : LeftText, row.LeftSpans, language, leftState);
-        RightInlines = Build(row.Right is null ? null : RightText, row.RightSpans, language, rightState);
+        LeftRuns = Build(row.Left is null ? null : LeftText, row.LeftSpans, language, leftState);
+        RightRuns = Build(row.Right is null ? null : RightText, row.RightSpans, language, rightState);
 
         // 打っている最中に塗り直すために覚えておく。
         _language = language;
@@ -298,10 +303,10 @@ public sealed class RowView : ViewModelBase
     /// ところは差分の色を使い、それ以外を構文の色にする。**どこが変わったかは
     /// 構文の色より優先する。** 色分けが綺麗でも変更点を見失っては本末転倒。
     /// </summary>
-    private static InlineCollection Build(
+    private static IReadOnlyList<RunSpec> Build(
         string? text, IReadOnlyList<EngineSpan> spans, Language? language, LexState state)
     {
-        var inlines = new InlineCollection();
+        var inlines = new List<RunSpec>();
         if (text is null || text.Length == 0)
         {
             return inlines;
@@ -365,11 +370,11 @@ public sealed class RowView : ViewModelBase
     /// から何文字目か）とずれて色の付く位置が狂う。
     /// </summary>
     private static void AddRun(
-        InlineCollection inlines, string text, IBrush brush, IBrush? background = null)
+        List<RunSpec> inlines, string text, IBrush brush, IBrush? background = null)
     {
         if (!ShowWhitespace || text.Length == 0)
         {
-            inlines.Add(new Run(text) { Foreground = brush, Background = background });
+            inlines.Add(new RunSpec(text, brush, background));
             return;
         }
 
@@ -392,17 +397,14 @@ public sealed class RowView : ViewModelBase
 
             if (i > start)
             {
-                inlines.Add(new Run(text[start..i])
-                    { Foreground = brush, Background = background });
+                inlines.Add(new RunSpec(text[start..i], brush, background));
             }
-            inlines.Add(new Run(mark.ToString())
-                { Foreground = faint, Background = background });
+            inlines.Add(new RunSpec(mark.ToString(), faint, background));
             start = i + 1;
         }
         if (start < text.Length)
         {
-            inlines.Add(new Run(text[start..])
-                { Foreground = brush, Background = background });
+            inlines.Add(new RunSpec(text[start..], brush, background));
         }
     }
 

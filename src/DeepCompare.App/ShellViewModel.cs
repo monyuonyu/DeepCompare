@@ -224,6 +224,10 @@ public sealed class ShellViewModel : ViewModelBase
         Tabs.Add(tab);
         Selected = tab;
 
+        // **開いたものを履歴に積む。** 落として開くだけで比較が始まるので、
+        // 「保存する」という場面がそもそも無かった。開いた時点で残す。
+        Home.Remember();
+
         // **ホームの欄を空にする。** 開いた後も残っていると、次に
         // ホームへ戻ったとき、前の指定が今のもののように見える。
         Home.ClearPaths();

@@ -29,16 +29,16 @@
       <DockPanel Margin="0">
 
         <!--
-          **見出しの隣に「＋」を置く。** 下端に「名前（空なら自動）」の
-          欄と「いまの指定を保存」のボタンを並べていたが、何のことか
-          分からないという指摘のとおり。名前は左右のファイル名から作る。
+          **「保存」ではなく「履歴」。** 落として開くだけで比較が始まるので、
+          わざわざ保存する場面が無かった。開いた時点で自動的に積む。
         -->
         <Grid DockPanel.Dock="Top" Margin="14,12,10,8" ColumnDefinitions="*,Auto">
-          <TextBlock Grid.Column="0" Text="保存した比較" Classes="title"
+          <TextBlock Grid.Column="0" Text="履歴" Classes="title"
                      VerticalAlignment="Center" />
-          <Button Grid.Column="1" Classes="icon" Command="{Binding SaveSessionCommand}"
-                  ToolTip.Tip="いまの左右の指定を残す">
-            <Path Classes="icon" Data="{StaticResource IconPlus}" />
+          <Button Grid.Column="1" Classes="icon" Command="{Binding ClearSessionsCommand}"
+                  IsVisible="{Binding HasSessions}"
+                  ToolTip.Tip="履歴を全部消す">
+            <Path Classes="icon" Data="{StaticResource IconClose}" />
           </Button>
         </Grid>
 

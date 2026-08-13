@@ -655,10 +655,15 @@
             既定では選択の背景が上に乗り、差分の赤や青が見えなくなる。
             差分の色こそが読みたいものなので、選択は**枠**で示す。
           -->
+          <!--
+            **枠で囲まない。** 上下に線を引いたら、全部選んだときに
+            1 行ずつ切り離されて見えた（罫線の並びのように）。
+            選択は左端の帯だけで示す。
+          -->
           <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
-            <Setter Property="BorderThickness" Value="0,1" />
+            <Setter Property="BorderThickness" Value="2,0,0,0" />
           </Style>
           <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent" />
@@ -854,7 +859,7 @@
                 <Border Tag="left" Background="{Binding LeftBackground}"
                         Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}">
                   <Panel>
-                    <TextBlock Classes="cell" Inlines="{Binding LeftInlines}"
+                    <TextBlock Classes="cell" vm:TextRuns.Value="{Binding LeftRuns}"
                                IsVisible="{Binding !IsEditing}" />
                     <TextBox Classes="inline" Text="{Binding EditLeft}"
                              IsVisible="{Binding IsEditing}"
@@ -914,7 +919,7 @@
                 <Border Tag="right" Background="{Binding RightBackground}"
                         Width="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).TextWidth}">
                   <Panel>
-                    <TextBlock Classes="cell" Inlines="{Binding RightInlines}"
+                    <TextBlock Classes="cell" vm:TextRuns.Value="{Binding RightRuns}"
                                IsVisible="{Binding !IsEditing}" />
                     <TextBox Classes="inline" Text="{Binding EditRight}"
                              IsVisible="{Binding IsEditing}"

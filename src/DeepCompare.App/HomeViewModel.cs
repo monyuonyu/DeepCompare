@@ -43,6 +43,8 @@ public sealed class HomeViewModel : ViewModelBase
         StartKindCommand = new RelayCommand<CompareKind>(
             kind => { StartKind(kind); return Task.CompletedTask; });
         SaveSessionCommand = new RelayCommand(() => { SaveSession(); return Task.CompletedTask; });
+        ClearSessionsCommand = new RelayCommand(
+            () => { ClearSessions(); return Task.CompletedTask; });
         OpenSessionCommand = new RelayCommand<SessionEntry>(entry => { OpenSession(entry); return Task.CompletedTask; });
         RemoveSessionCommand = new RelayCommand<SessionEntry>(entry => { RemoveSession(entry); return Task.CompletedTask; });
         ReloadSessions();
@@ -61,6 +63,19 @@ public sealed class HomeViewModel : ViewModelBase
 
     public ICommand StartKindCommand { get; }
     public ICommand SaveSessionCommand { get; }
+
+    /// <summary>履歴を全部消す。**確認は出さない** — 消えて困るものは入っていない。</summary>
+    public ICommand ClearSessionsCommand { get; }
+
+    private void ClearSessions()
+    {
+        foreach (var entry in Sessions.ToList())
+        {
+            _sessions.Remove(entry.Name);
+        }
+        ReloadSessions();
+        Message = string.Empty;
+    }
 
     /// <summary>テーマの切り替えなど、画面をまたぐ操作。</summary>
     public ShellViewModel Shell => _shell;
@@ -308,6 +323,45 @@ public sealed class HomeViewModel : ViewModelBase
     /// **片方だけでも開く。** 開いた先でもう片方を指定できるので、
     /// ここで止める理由が無い。フォルダーかファイルかは中身で決める。
     /// </summary>
+    /// <summary>
+    /// いまの左右の指定を履歴に積む。
+    ///
+    /// **開いた時点で自動的に残す。** 名前は左右のファイル名から作る。
+    /// 同じ組み合わせは上へ移すだけ（<see cref="SessionStore.Upsert"/> が
+    /// 同名を先に消す）。
+    /// </summary>
+    public void Remember()
+    {
+        var left = LeftPath.Trim();
+        var right = RightPath.Trim();
+        if (left.Length == 0 && right.Length == 0)
+        {
+            return;
+        }
+
+        var isFolder = (left.Length > 0 && Directory.Exists(left))
+                    || (right.Length > 0 && Directory.Exists(right));
+
+        _sessions.Upsert(new Session
+        {
+            Name = DescribePair(left, right),
+            Kind = isFolder ? SessionKind.Folder : SessionKind.Text,
+            LeftPath = left,
+            RightPath = right,
+        });
+        ReloadSessions();
+    }
+
+    /// <summary>履歴に出す名前。**左右のファイル名だけ**にする。</summary>
+    private static string DescribePair(string left, string right)
+    {
+        var l = Path.GetFileName(left.TrimEnd(Path.DirectorySeparatorChar));
+        var r = Path.GetFileName(right.TrimEnd(Path.DirectorySeparatorChar));
+        if (l.Length == 0) { l = left; }
+        if (r.Length == 0) { r = right; }
+        return r.Length == 0 ? l : $"{l} ↔ {r}";
+    }
+
     /// <summary>開いた後、次に戻ってきたときのために欄を空にする。</summary>
     public void ClearPaths()
     {
