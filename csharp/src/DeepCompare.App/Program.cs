@@ -48,6 +48,15 @@ internal static class Program
                                      決められない箇所が残ったら中身を出して止まる。
                                      --take-ours / --take-theirs でその側に寄せる。
                                      0 解決 / 1 競合が残る / 2 異常
+          deepcompare --print-image 左 右
+                                     画像を画素で比べる。大きさが違っても
+                                     重なる範囲を比べ、はみ出した分は
+                                     「片方だけ」とする。終了コードは
+                                     0 同じ / 1 違う / 2 異常。**しきい値の
+                                     内側の差だけなら 0**（JPEG を保存し直した
+                                     だけの違いで CI が赤くなるのを避ける）
+                                     --tolerance <0-255> 既定 8
+                                     --ignore-alpha    透明度は見ない
           deepcompare --print-binary 左 右
                                      バイト列として 16 進で比較する。テキストとして
                                      読めないファイル向け。終了コードは

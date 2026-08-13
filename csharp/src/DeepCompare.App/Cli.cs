@@ -114,6 +114,17 @@ internal static class Cli
             }
             return RunSecrets(files, args, output);
         }
+        if (args.Contains("--print-image"))
+        {
+            var files = Positional(args);
+            if (files.Length < 2)
+            {
+                Console.Error.WriteLine("--print-image には比較する 2 つの画像が必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return RunImageCompare(files[0], files[1], args, output);
+        }
         if (args.Contains("--print-binary"))
         {
             var files = Positional(args);
@@ -606,6 +617,43 @@ internal static class Cli
             return comparison.Rows.Any(r => !r.IsUnchanged) ? 1 : 0;
         }
         catch (Exception error) when (error is GitException or IOException)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+    }
+
+    /// <summary>
+    /// 画像を画素で比べる。
+    ///
+    /// 終了コードは 0 同じ / 1 違う / 2 異常。
+    /// **しきい値の内側の差だけなら 0 を返す。** JPEG を保存し直しただけの
+    /// 違いで CI が赤くなるのは、ほとんどの場合ただの雑音になる。
+    /// </summary>
+    private static int RunImageCompare(string leftPath, string rightPath, string[] args, string? output)
+    {
+        try
+        {
+            var options = new ImageCompareOptions
+            {
+                Tolerance = int.TryParse(ValueOf(args, "--tolerance"), out var t) ? t : 8,
+                CompareAlpha = !args.Contains("--ignore-alpha"),
+            };
+
+            var comparison = ImageCompare.Compare(
+                ImageLoader.Load(leftPath), ImageLoader.Load(rightPath), options);
+
+            var text = new StringBuilder();
+            text.AppendLine($"left  {leftPath}");
+            text.AppendLine($"right {rightPath}");
+            text.AppendLine("---");
+            text.Append(ImageCompare.Format(comparison));
+            Emit(text.ToString(), output);
+
+            return comparison.LooksSame ? 0 : 1;
+        }
+        catch (Exception error) when (error is IOException or InvalidOperationException
+                                        or NotSupportedException or ArgumentException)
         {
             Console.Error.WriteLine(error.Message);
             return 2;
