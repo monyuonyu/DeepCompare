@@ -289,31 +289,41 @@
     押せる場所として目に入らない。
   -->
   <Style Selector="Button.apply">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
+    <!--
+      **押せる場所だと形で分かるようにする。** 線だけの矢印は、行の飾りと
+      区別が付かない。薄い面と枠を持たせて、指したら塗りつぶす。
+    -->
+    <Setter Property="Background" Value="{DynamicResource ApplyArrowFill}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ApplyArrow}" />
+    <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Padding" Value="0" />
-    <Setter Property="Width" Value="20" />
-    <Setter Property="Height" Value="18" />
-    <Setter Property="MinWidth" Value="20" />
-    <Setter Property="MinHeight" Value="18" />
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="16" />
+    <Setter Property="MinWidth" Value="18" />
+    <Setter Property="MinHeight" Value="16" />
     <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Cursor" Value="Hand" />
   </Style>
   <Style Selector="Button.apply Path">
     <Setter Property="Stroke" Value="{DynamicResource ApplyArrow}" />
-    <Setter Property="StrokeThickness" Value="2.2" />
+    <Setter Property="StrokeThickness" Value="2.4" />
     <Setter Property="StrokeLineCap" Value="Round" />
     <Setter Property="StrokeJoin" Value="Round" />
     <Setter Property="Fill" Value="Transparent" />
-    <Setter Property="Width" Value="14" />
-    <Setter Property="Height" Value="14" />
+    <Setter Property="Width" Value="11" />
+    <Setter Property="Height" Value="11" />
     <Setter Property="Stretch" Value="Uniform" />
   </Style>
   <Style Selector="Button.apply:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource ControlBgHover}" />
+    <Setter Property="Background" Value="{DynamicResource ApplyArrowFillHover}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ApplyArrowHover}" />
   </Style>
+  <!-- 指したら面を塗るので、矢印は抜き色にする -->
   <Style Selector="Button.apply:pointerover Path">
-    <Setter Property="Stroke" Value="{DynamicResource ApplyArrowHover}" />
-    <Setter Property="StrokeThickness" Value="2.6" />
+    <Setter Property="Stroke" Value="{DynamicResource ApplyArrowOn}" />
+  </Style>
+  <Style Selector="Button.apply:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ApplyArrowHover}" />
   </Style>
 
   <!--

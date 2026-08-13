@@ -76,7 +76,11 @@
             重ならない色でないと、押せる場所として目に入らない。
           -->
           <SolidColorBrush x:Key="ApplyArrow">#D98A00</SolidColorBrush>
-          <SolidColorBrush x:Key="ApplyArrowHover">#F0A500</SolidColorBrush>
+          <SolidColorBrush x:Key="ApplyArrowHover">#B87400</SolidColorBrush>
+          <!-- 面。**押せる場所だと分かる**ように、線だけでなく面を持たせる -->
+          <SolidColorBrush x:Key="ApplyArrowFill">#FFF1D6</SolidColorBrush>
+          <SolidColorBrush x:Key="ApplyArrowFillHover">#F5A623</SolidColorBrush>
+          <SolidColorBrush x:Key="ApplyArrowOn">#FFFFFF</SolidColorBrush>
           <!-- 型の変化。目で気づけない差の筆頭なので、変更とは別の色にする -->
           <SolidColorBrush x:Key="BgTyped">#FFF6D6</SolidColorBrush>
           <!-- 片側に対応が無い空き。面ではなく縞で示すので、ごく薄く -->
@@ -152,6 +156,9 @@
           <SolidColorBrush x:Key="BgUnimportant">#2A2A2A</SolidColorBrush>
           <SolidColorBrush x:Key="ApplyArrow">#E0A000</SolidColorBrush>
           <SolidColorBrush x:Key="ApplyArrowHover">#FFC02E</SolidColorBrush>
+          <SolidColorBrush x:Key="ApplyArrowFill">#3A3016</SolidColorBrush>
+          <SolidColorBrush x:Key="ApplyArrowFillHover">#E0A000</SolidColorBrush>
+          <SolidColorBrush x:Key="ApplyArrowOn">#1A1200</SolidColorBrush>
           <SolidColorBrush x:Key="BgTyped">#3A3320</SolidColorBrush>
           <SolidColorBrush x:Key="BgGap">#171717</SolidColorBrush>
 
