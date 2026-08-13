@@ -267,6 +267,27 @@ public sealed class GitRepositoryTests : IDisposable
     }
 
     [Fact]
+    public void ファイル名だけでもリポジトリを見つける()
+    {
+        // **一番自然な呼び方**（`deepcompare --git-diff a.txt`）がこの形。
+        // 親のディレクトリが空文字になるので、そこで諦めると常に失敗する。
+        WriteFile("a.txt", "1\n");
+        Git("add", "-A");
+        Git("commit", "-m", "最初");
+
+        var previous = Directory.GetCurrentDirectory();
+        try
+        {
+            Directory.SetCurrentDirectory(_root);
+            Assert.NotNull(GitRepository.Discover("a.txt"));
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(previous);
+        }
+    }
+
+    [Fact]
     public void 競合している三つの中身を取る()
     {
         WriteFile("a.txt", "祖先\n");

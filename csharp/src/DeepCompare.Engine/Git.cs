@@ -131,7 +131,10 @@ public sealed class GitRepository
         var start = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
         if (string.IsNullOrEmpty(start))
         {
-            return null;
+            // **ファイル名だけを渡された場合。** 親が空文字になる。ここで
+            // 諦めると `deepcompare --git-diff a.txt` のような、一番自然な
+            // 呼び方が常に「リポジトリの中にありません」で失敗する。
+            start = Directory.GetCurrentDirectory();
         }
 
         try

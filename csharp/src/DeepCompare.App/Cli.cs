@@ -175,6 +175,17 @@ internal static class Cli
             }
             return RunGitDiff(where[0], args, output);
         }
+        if (args.Contains("--git-resolve"))
+        {
+            var where = Positional(args);
+            if (where.Length < 1)
+            {
+                Console.Error.WriteLine("--git-resolve には解決するファイルが必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return RunGitResolve(where[0], args, output);
+        }
         if (args.Contains("--print-json"))
         {
             var files = Positional(args);
@@ -593,6 +604,95 @@ internal static class Cli
 
             Emit(text.ToString(), output);
             return comparison.Rows.Any(r => !r.IsUnchanged) ? 1 : 0;
+        }
+        catch (Exception error) when (error is GitException or IOException)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+    }
+
+    /// <summary>
+    /// 競合しているファイルを 3 方向マージで解く。
+    ///
+    /// 索引に積まれた 3 つ（祖先・こちら・むこう）を使う。**作業ツリーの
+    /// ファイルは読まない。** そこには git が書いた印が混ざっている。
+    ///
+    /// 終了コードは 0 解決した / 1 競合が残っている / 2 異常。
+    /// </summary>
+    private static int RunGitResolve(string path, string[] args, string? output)
+    {
+        var repository = OpenRepository(path);
+        if (repository is null)
+        {
+            return 2;
+        }
+
+        try
+        {
+            // 根からの相対に直すために、まず絶対パスにする。相対のまま渡すと
+            // 現在地がリポジトリの根でないときにずれる。
+            var relative = repository.ToRelative(Path.GetFullPath(path));
+            var ours = repository.ConflictStage(relative, 2);
+            var theirs = repository.ConflictStage(relative, 3);
+            if (ours.Length == 0 && theirs.Length == 0)
+            {
+                Console.Error.WriteLine($"{relative} は競合していません。");
+                return 2;
+            }
+
+            var ancestorText = TextDecoder.Decode(repository.ConflictStage(relative, 1));
+            var oursText = TextDecoder.Decode(ours);
+            var theirsText = TextDecoder.Decode(theirs);
+
+            var result = ThreeWayMerge.Merge(ancestorText, oursText, theirsText);
+
+            // どちらかに寄せる指示があれば、そこだけ決める。
+            var take = args.Contains("--take-ours") ? MergeSource.Left
+                : args.Contains("--take-theirs") ? MergeSource.Right
+                : (MergeSource?)null;
+
+            if (result.HasConflicts && take is null)
+            {
+                var text = new StringBuilder();
+                text.AppendLine($"{relative}: {result.ConflictCount} 件の競合");
+                text.AppendLine("--take-ours か --take-theirs を付けると、その側に寄せて解決します。");
+                text.AppendLine("---");
+                var number = 0;
+                foreach (var region in result.Regions.Where(r => r.Source == MergeSource.Conflict))
+                {
+                    text.AppendLine($"[{++number}] こちら:");
+                    foreach (var line in region.LeftLines)
+                    {
+                        text.AppendLine($"  {line}");
+                    }
+                    text.AppendLine($"[{number}] むこう:");
+                    foreach (var line in region.RightLines)
+                    {
+                        text.AppendLine($"  {line}");
+                    }
+                }
+                Emit(text.ToString(), output);
+                return 1;
+            }
+
+            var lines = new List<string>();
+            foreach (var region in result.Regions)
+            {
+                lines.AddRange(region.Source == MergeSource.Conflict
+                    ? (take == MergeSource.Left ? region.LeftLines : region.RightLines)
+                    : region.Lines);
+            }
+
+            // 符号化と改行は「こちら」に合わせる。祖先が無い競合もあるので、
+            // 祖先を基準にすると、その場合に形が変わってしまう。
+            File.WriteAllBytes(path, TextEncoder.Encode(lines, oursText));
+            repository.Stage(relative);
+
+            Emit($"{relative} を解決して索引へ載せました"
+                + (take is null ? "（競合はありませんでした）" : $"（{(take == MergeSource.Left ? "こちら" : "むこう")}に寄せました）")
+                + Environment.NewLine, output);
+            return 0;
         }
         catch (Exception error) when (error is GitException or IOException)
         {
