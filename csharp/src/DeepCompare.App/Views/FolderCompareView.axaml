@@ -103,21 +103,18 @@
       見出し。列の幅は下の行と同じ定義を使う。名前は伸ばすが、左右の情報は
       固定幅で右に寄せ、間に区切りを入れてどちら側かが一目で分かるようにする。
     -->
-    <Grid DockPanel.Dock="Top" Margin="10,4,10,0"
-          ColumnDefinitions="*,1,220,1,220,90">
-      <TextBlock Grid.Column="0" Text="名前" FontSize="11" Foreground="{DynamicResource FgDim}" />
-      <Border Grid.Column="1" Background="{DynamicResource Divider}" />
-      <TextBlock Grid.Column="2" Text="{Binding LeftRoot}" FontSize="11" Margin="8,0"
-                 Foreground="{DynamicResource FgDim}" TextTrimming="CharacterEllipsis"
-                 ToolTip.Tip="{Binding LeftRoot}" />
-      <Border Grid.Column="3" Background="{DynamicResource Divider}" />
-      <TextBlock Grid.Column="4" Text="{Binding RightRoot}" FontSize="11" Margin="8,0"
-                 Foreground="{DynamicResource FgDim}" TextTrimming="CharacterEllipsis"
-                 ToolTip.Tip="{Binding RightRoot}" />
-      <TextBlock Grid.Column="5" Text="状態" FontSize="11" Foreground="{DynamicResource FgDim}"
-                 TextAlignment="Right" Margin="0,0,6,0" />
+    <Grid DockPanel.Dock="Top" Margin="0,6,0,4"
+          ColumnDefinitions="*,80,120,28,*,80,120">
+      <TextBlock Grid.Column="0" Text="{Binding LeftRoot}" Classes="hint" Margin="10,0"
+                 TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding LeftRoot}" />
+      <TextBlock Grid.Column="1" Text="大きさ" Classes="hint" TextAlignment="Right" />
+      <TextBlock Grid.Column="2" Text="更新" Classes="hint" TextAlignment="Right" Margin="0,0,8,0" />
+      <TextBlock Grid.Column="4" Text="{Binding RightRoot}" Classes="hint" Margin="10,0"
+                 TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding RightRoot}" />
+      <TextBlock Grid.Column="5" Text="大きさ" Classes="hint" TextAlignment="Right" />
+      <TextBlock Grid.Column="6" Text="更新" Classes="hint" TextAlignment="Right" Margin="0,0,8,0" />
     </Grid>
-    <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource Divider}" Margin="10,4,10,0" />
+    <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource Divider}" />
 
     <Panel>
       <TextBlock Text="差異はありません。" IsVisible="{Binding IsEmpty}"
@@ -137,8 +134,10 @@
         </ListBox.Styles>
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="vm:FolderRowView">
-            <Grid ColumnDefinitions="*,1,220,1,220,90">
-              <!-- 名前の前に開閉の三角。子が無い行では出ない（Data が null） -->
+            <Grid ColumnDefinitions="*,80,120,28,*,80,120">
+
+              <!-- 左側 -->
+              <Border Grid.Column="0" Grid.ColumnSpan="3" Background="{Binding LeftBackground}" />
               <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="{Binding Indent}">
                 <Button Classes="icon" Width="20" Height="20" MinWidth="20" MinHeight="20"
                         Padding="2" VerticalAlignment="Center"
@@ -147,30 +146,34 @@
                         CommandParameter="{Binding}">
                   <Path Classes="icon dim" Data="{Binding ToggleIcon}" Width="10" Height="10" />
                 </Button>
-                <!-- 三角が無い行でも名前の位置を揃える -->
                 <Border Width="20" IsVisible="{Binding !HasChildren}" />
-                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                <TextBlock Text="{Binding LeftName}" VerticalAlignment="Center"
+                           Foreground="{Binding StatusBrush}"
                            TextTrimming="CharacterEllipsis" FontWeight="{Binding NameWeight}" />
               </StackPanel>
+              <TextBlock Grid.Column="1" Text="{Binding LeftSizeText}" TextAlignment="Right"
+                         FontSize="11" Foreground="{DynamicResource FgDim}"
+                         VerticalAlignment="Center" />
+              <TextBlock Grid.Column="2" Text="{Binding LeftModifiedText}" TextAlignment="Right"
+                         FontSize="11" Foreground="{DynamicResource FgDim}"
+                         VerticalAlignment="Center" Margin="0,0,8,0" />
 
-              <Border Grid.Column="1" Background="{DynamicResource Divider}" />
-              <Grid Grid.Column="2" ColumnDefinitions="80,*" Margin="8,0">
-                <TextBlock Grid.Column="0" Text="{Binding LeftSizeText}" TextAlignment="Right"
-                           FontSize="11" Foreground="{DynamicResource FgDim}" />
-                <TextBlock Grid.Column="1" Text="{Binding LeftModifiedText}" TextAlignment="Right"
-                           FontSize="11" Foreground="{DynamicResource FgDim}" />
-              </Grid>
+              <!-- 中央の印。差異のあるものだけ目に入ればよい -->
+              <TextBlock Grid.Column="3" Text="{Binding CenterMark}" TextAlignment="Center"
+                         Foreground="{Binding StatusBrush}" FontWeight="SemiBold"
+                         VerticalAlignment="Center" />
 
-              <Border Grid.Column="3" Background="{DynamicResource Divider}" />
-              <Grid Grid.Column="4" ColumnDefinitions="80,*" Margin="8,0">
-                <TextBlock Grid.Column="0" Text="{Binding RightSizeText}" TextAlignment="Right"
-                           FontSize="11" Foreground="{DynamicResource FgDim}" />
-                <TextBlock Grid.Column="1" Text="{Binding RightModifiedText}" TextAlignment="Right"
-                           FontSize="11" Foreground="{DynamicResource FgDim}" />
-              </Grid>
-
-              <TextBlock Grid.Column="5" Text="{Binding StatusText}" TextAlignment="Right"
-                         FontSize="11" Foreground="{Binding StatusBrush}" Margin="0,0,6,0" />
+              <!-- 右側 -->
+              <Border Grid.Column="4" Grid.ColumnSpan="3" Background="{Binding RightBackground}" />
+              <TextBlock Grid.Column="4" Text="{Binding RightName}" Margin="{Binding Indent}"
+                         Foreground="{Binding StatusBrush}" VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis" FontWeight="{Binding NameWeight}" />
+              <TextBlock Grid.Column="5" Text="{Binding RightSizeText}" TextAlignment="Right"
+                         FontSize="11" Foreground="{DynamicResource FgDim}"
+                         VerticalAlignment="Center" />
+              <TextBlock Grid.Column="6" Text="{Binding RightModifiedText}" TextAlignment="Right"
+                         FontSize="11" Foreground="{DynamicResource FgDim}"
+                         VerticalAlignment="Center" Margin="0,0,8,0" />
             </Grid>
           </DataTemplate>
         </ListBox.ItemTemplate>

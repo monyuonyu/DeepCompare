@@ -81,6 +81,10 @@ public sealed class RowView
         // 空いている側は斜線にして「対応が無い」ことを示す（BC と同じ）。
         (LeftBackground, RightBackground) = (row.Left, row.Right) switch
         {
+            // 重要でない違い（空白だけ、無視する指定に当たった箇所）は青。
+            // BC も「重要な差異は赤、重要でない差異は青」で分けている。
+            (not null, not null) when unchanged && row.HasUnimportantDifferences
+                => (Palette.Brush("BgUnimportant"), Palette.Brush("BgUnimportant")),
             (not null, not null) when unchanged => (Transparent, Transparent),
             (not null, not null) => (Palette.Brush("BgChanged"), Palette.Brush("BgChanged")),
             (not null, null) => (Palette.Brush("BgRemoved"), Palette.Gap()),
@@ -91,6 +95,8 @@ public sealed class RowView
         // 行全体の色は行番号の列などに効く。片側だけのときは、その側の色に寄せる。
         Background = (row.Left, row.Right) switch
         {
+            (not null, not null) when unchanged && row.HasUnimportantDifferences
+                => Palette.Brush("BgUnimportant"),
             (not null, not null) when unchanged => Transparent,
             (not null, not null) => Palette.Brush("BgChanged"),
             (not null, null) => Palette.Brush("BgRemoved"),

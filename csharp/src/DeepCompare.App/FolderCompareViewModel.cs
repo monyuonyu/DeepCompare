@@ -45,6 +45,42 @@ public sealed class FolderRowView(FolderEntry entry) : ViewModelBase
 
     public string Name { get; } = entry.IsDirectory ? entry.Name + "/" : entry.Name;
 
+    /// <summary>
+    /// 左右それぞれに出す名前。**その側に無ければ空。**
+    ///
+    /// Beyond Compare と同じで、名前も左右に並べる。片側にしか無いファイルは
+    /// 反対側が空欄になるので、一覧を眺めただけでどちらに寄っているかが分かる。
+    /// 1 本の名前列に状態の文字を添える形だと、その判断に文字を読む必要がある。
+    /// </summary>
+    public string LeftName { get; } = entry.Status == EntryStatus.RightOnly
+        ? string.Empty
+        : (entry.IsDirectory ? entry.Name + "/" : entry.Name);
+
+    public string RightName { get; } = entry.Status == EntryStatus.LeftOnly
+        ? string.Empty
+        : (entry.IsDirectory ? entry.Name + "/" : entry.Name);
+
+    /// <summary>その側に実体があるか。無い側は斜線で埋める（テキスト比較と同じ）。</summary>
+    public bool HasLeft { get; } = entry.Status != EntryStatus.RightOnly;
+    public bool HasRight { get; } = entry.Status != EntryStatus.LeftOnly;
+
+    public IBrush LeftBackground { get; } = entry.Status == EntryStatus.RightOnly
+        ? Palette.Gap()
+        : Brushes.Transparent;
+
+    public IBrush RightBackground { get; } = entry.Status == EntryStatus.LeftOnly
+        ? Palette.Gap()
+        : Brushes.Transparent;
+
+    /// <summary>中央に置く印。差異のあるものだけ目に入ればよい。</summary>
+    public string CenterMark { get; } = entry.Status switch
+    {
+        EntryStatus.Different => "≠",
+        EntryStatus.LeftOnly => "←",
+        EntryStatus.RightOnly => "→",
+        _ => string.Empty,
+    };
+
     /// <summary>フォルダーを太字にして、階層の切れ目を目で追えるようにする。</summary>
     public FontWeight NameWeight { get; } = entry.IsDirectory ? FontWeight.SemiBold : FontWeight.Normal;
 
