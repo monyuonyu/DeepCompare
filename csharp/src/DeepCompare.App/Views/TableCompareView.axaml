@@ -1,0 +1,147 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:DeepCompare.App"
+             x:Class="DeepCompare.App.Views.TableCompareView"
+             x:DataType="vm:TableCompareViewModel">
+
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+
+    <Border Grid.Row="0" Classes="topbar" BorderThickness="0">
+      <StackPanel Orientation="Horizontal" Spacing="2">
+        <Button Classes="icon" Command="{Binding Shell.GoHomeCommand}"
+                ToolTip.Tip="起動画面へ戻る（比較の状態は残ります）">
+          <Path Classes="icon" Data="{StaticResource IconHome}" />
+        </Button>
+        <Border Classes="vsep" />
+        <Button Classes="icon" Command="{Binding CompareCommand}" IsEnabled="{Binding !Busy}"
+                ToolTip.Tip="列単位で比べ直す">
+          <Path Classes="icon" Data="{StaticResource IconRefresh}" />
+        </Button>
+        <Border Classes="vsep" />
+        <Button Classes="icon" Command="{Binding OpenAsTextCommand}"
+                ToolTip.Tip="テキストとして比べ直す">
+          <Path Classes="icon" Data="{StaticResource IconText}" />
+        </Button>
+        <Border Classes="vsep" />
+        <CheckBox Content="同じ行も出す" IsChecked="{Binding ShowUnchanged}"
+                  VerticalAlignment="Center" Margin="6,0,0,0" FontSize="12" />
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}"
+                     Width="70" VerticalAlignment="Center" Margin="6,0" />
+      </StackPanel>
+    </Border>
+
+    <Border Grid.Row="1" Classes="topbar" BorderThickness="0">
+      <Grid ColumnDefinitions="*,Auto,*">
+        <TextBox Grid.Column="0" Text="{Binding LeftPath}" PlaceholderText="左の CSV / TSV" />
+        <TextBlock Grid.Column="1" Text="↔" Classes="dim" VerticalAlignment="Center" Margin="10,0" />
+        <TextBox Grid.Column="2" Text="{Binding RightPath}" PlaceholderText="右の CSV / TSV" />
+      </Grid>
+    </Border>
+
+    <!--
+      キー列。**ここが表比較の要。** 指定すれば並び順が違っても照合でき、
+      指定しなければ 1 行挿入されただけで以降が全部ずれる。
+    -->
+    <Border Grid.Row="2" Classes="topbar" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,*,Auto,*">
+        <TextBlock Grid.Column="0" Text="キー列" FontSize="12" VerticalAlignment="Center"
+                   Margin="0,0,8,0" />
+        <TextBox Grid.Column="1" Text="{Binding KeyColumns}"
+                 PlaceholderText="列名か番号をカンマ区切りで（空なら上から順に照合）"
+                 ToolTip.Tip="この列が同じ行どうしを対応させます。並び順が違っても照合できます" />
+        <TextBlock Grid.Column="2" Text="見ない列" FontSize="12" VerticalAlignment="Center"
+                   Margin="12,0,8,0" />
+        <TextBox Grid.Column="3" Text="{Binding IgnoredColumns}"
+                 PlaceholderText="更新時刻など、毎回動いて意味の無い列"
+                 ToolTip.Tip="ここに挙げた列は差分として出ません" />
+      </Grid>
+    </Border>
+
+    <!-- 見出し -->
+    <Border Grid.Row="3" Background="{DynamicResource PanelBg}" Padding="10,4"
+            IsVisible="{Binding Header.Count}">
+      <ItemsControl ItemsSource="{Binding Header}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" Spacing="10" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <TextBlock Text="{Binding}" FontSize="11" FontWeight="SemiBold"
+                       Foreground="{DynamicResource FgDim}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Border>
+
+    <ScrollViewer Grid.Row="4">
+      <ItemsControl ItemsSource="{Binding Rows}" Margin="10">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:TableRowView">
+            <Border Background="{Binding Background}" Margin="0,0,0,4" Padding="8,5"
+                    CornerRadius="{DynamicResource RadiusSmall}"
+                    BorderBrush="{DynamicResource Divider}" BorderThickness="1">
+              <Grid ColumnDefinitions="Auto,*,Auto,*">
+
+                <TextBlock Grid.Column="0" Text="{Binding LeftLabel}" Classes="mono"
+                           FontSize="11" Width="36" TextAlignment="Right"
+                           Foreground="{DynamicResource FgDim}" Margin="0,0,8,0" />
+
+                <!--
+                  **セル単位で塗る。** 行ごと塗ると、どの列が動いたのかを
+                  目で探すことになる。表は列が多いほどそれが効く。
+                -->
+                <ItemsControl Grid.Column="1" ItemsSource="{Binding LeftCells}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" Spacing="6" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:TableCellView">
+                      <Border Background="{Binding Background}" Padding="4,1"
+                              CornerRadius="2">
+                        <TextBlock Text="{Binding Text}" Classes="mono" FontSize="12" />
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Grid.Column="2" Text="{Binding RightLabel}" Classes="mono"
+                           FontSize="11" Width="36" TextAlignment="Right"
+                           Foreground="{DynamicResource FgDim}" Margin="12,0,8,0" />
+
+                <ItemsControl Grid.Column="3" ItemsSource="{Binding RightCells}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" Spacing="6" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:TableCellView">
+                      <Border Background="{Binding Background}" Padding="4,1"
+                              CornerRadius="2">
+                        <TextBlock Text="{Binding Text}" Classes="mono" FontSize="12" />
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <Border Grid.Row="5" Classes="statusbar">
+      <StackPanel Orientation="Horizontal" Spacing="16">
+        <TextBlock Text="{Binding Summary}" FontSize="11"
+                   Foreground="{DynamicResource FgDim}" />
+        <TextBlock Text="{Binding Message}" FontSize="11" />
+      </StackPanel>
+    </Border>
+
+  </Grid>
+</UserControl>

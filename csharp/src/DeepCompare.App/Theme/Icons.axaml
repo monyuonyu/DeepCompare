@@ -31,6 +31,12 @@
   <!-- 構造比較: 木。節から枝が伸びる -->
   <StreamGeometry x:Key="IconStructure">M5,3.5 v15 M5,7.5 h5 M5,13 h5 M5,18.5 h5 M11.5,5.5 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M11.5,13 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M11.5,18.5 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M17,5.5 h4 M17,13 h4 M17,18.5 h4</StreamGeometry>
 
+  <!-- 表: 格子。行と列があることが一目で分かる形にする -->
+  <StreamGeometry x:Key="IconTable">M3,4.5 h18 v15 h-18 z M3,9.5 h18 M3,14.5 h18 M9,4.5 v15 M15,4.5 v15</StreamGeometry>
+
+  <!-- ノートブック: セルが縦に積まれた形 -->
+  <StreamGeometry x:Key="IconNotebook">M4,3.5 h16 v5 h-16 z M4,11 h16 v4 h-16 z M4,17 h16 v4 h-16 z</StreamGeometry>
+
   <!-- 3 方向マージ: 2 本が 1 本に合わさる -->
   <StreamGeometry x:Key="IconMerge">M5,3 v4 c0,5 7,4 7,9 v5 M19,3 v4 c0,5 -7,4 -7,9 M9,17.5 l3,3.5 l3,-3.5</StreamGeometry>
 

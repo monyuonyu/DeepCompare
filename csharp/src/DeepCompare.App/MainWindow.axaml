@@ -42,6 +42,12 @@
     <DataTemplate DataType="vm:SnapshotViewModel">
       <views:SnapshotView />
     </DataTemplate>
+    <DataTemplate DataType="vm:NotebookCompareViewModel">
+      <views:NotebookCompareView />
+    </DataTemplate>
+    <DataTemplate DataType="vm:TableCompareViewModel">
+      <views:TableCompareView />
+    </DataTemplate>
   </Window.DataTemplates>
 
   <!--

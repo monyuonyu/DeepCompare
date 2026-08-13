@@ -81,8 +81,22 @@ public partial class MainWindow : Window
                 {
                     _shell.ShowImage(left, right);
                 }
-                // ノートブックと Office は**本文を取り出して**テキスト比較へ。
-                // 中身をそのまま行で比べても読めない（JSON か zip + XML）。
+                // ノートブックはセル単位の画面へ。**画像と同じ考え方で、
+                // フラグを増やさない。** .ipynb を行で突き合わせたい場面は
+                // まず無い（実体は JSON で、出力の base64 が数千行動く）。
+                else if (DeepCompare.Engine.Notebook.LooksLikeNotebook(left)
+                         && DeepCompare.Engine.Notebook.LooksLikeNotebook(right))
+                {
+                    _shell.ShowNotebook(left, right);
+                }
+                // CSV / TSV は列単位の画面へ。行で突き合わせると、
+                // 1 行挿入されただけで以降が全部ずれる。
+                else if (LooksLikeTable(left) && LooksLikeTable(right))
+                {
+                    _shell.ShowTable(left, right);
+                }
+                // Office は**本文を取り出して**テキスト比較へ。
+                // 中身をそのまま行で比べても読めない（zip + XML）。
                 else if (ShellViewModel.CanExtractText(left) && ShellViewModel.CanExtractText(right))
                 {
                     _shell.ShowExtractedText(left, right);
@@ -93,6 +107,19 @@ public partial class MainWindow : Window
                 }
             };
         }
+    }
+
+    /// <summary>
+    /// 表として開くべき名前か。
+    ///
+    /// **拡張子だけで決める。** 中身を読んで判定すると、大きなファイルで
+    /// 起動が遅くなるうえ、区切り文字を含む普通のテキストを表と誤る。
+    /// 違ったら画面から「テキストとして比べ直す」で戻れる。
+    /// </summary>
+    private static bool LooksLikeTable(string path)
+    {
+        var extension = Path.GetExtension(path).ToLowerInvariant();
+        return extension is ".csv" or ".tsv";
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

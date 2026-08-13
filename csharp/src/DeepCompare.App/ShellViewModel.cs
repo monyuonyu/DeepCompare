@@ -14,6 +14,8 @@ public enum CompareKindId
     Image,
     VersionInfo,
     Snapshot,
+    Notebook,
+    Table,
 }
 
 /// <summary>
@@ -118,6 +120,10 @@ public sealed class ShellViewModel : ViewModelBase
                 "IconVersion", CompareKindId.VersionInfo),
             new CompareKind("写しと比べる", "いまの状態を保存し、後の時点と比べる",
                 "IconCamera", CompareKindId.Snapshot),
+            new CompareKind("ノートブック", "Jupyter をセル単位で比べる。出力は既定で見ない",
+                "IconNotebook", CompareKindId.Notebook),
+            new CompareKind("表として比較", "CSV / TSV を列単位で。キー列で行を対応付ける",
+                "IconTable", CompareKindId.Table),
             new CompareKind("Git", "作業ツリーと履歴", "IconGit", CompareKindId.Git),
         ];
 
@@ -470,6 +476,35 @@ public sealed class ShellViewModel : ViewModelBase
     public static bool CanExtractText(string path)
         => Notebook.LooksLikeNotebook(path) || OfficeDocument.LooksLikeOffice(path);
 
+    /// <summary>
+    /// ノートブックをセル単位で比べる画面。
+    ///
+    /// **行単位の画面と分ける。** 実体は JSON で、1 文字直して実行し直すと
+    /// 出力の base64 が数千行動き、直した 1 行がその中に埋もれる。
+    /// </summary>
+    public void ShowNotebook(string left, string right)
+    {
+        var model = new NotebookCompareViewModel(this) { LeftPath = left, RightPath = right };
+        var tab = Add(TitleFor(left, right) + "（ノート）", model, $"{left}\n{right}");
+        model.Tab = tab;
+        if (left.Length > 0 && right.Length > 0)
+        {
+            model.CompareCommand.Execute(null);
+        }
+    }
+
+    /// <summary>CSV / TSV を列単位で比べる画面。</summary>
+    public void ShowTable(string left, string right)
+    {
+        var model = new TableCompareViewModel(this) { LeftPath = left, RightPath = right };
+        var tab = Add(TitleFor(left, right) + "（表）", model, $"{left}\n{right}");
+        model.Tab = tab;
+        if (left.Length > 0 && right.Length > 0)
+        {
+            model.CompareCommand.Execute(null);
+        }
+    }
+
     public void ShowVersionInfo(string left, string right)
     {
         var model = new VersionCompareViewModel(this) { LeftPath = left, RightPath = right };
@@ -537,6 +572,12 @@ public sealed class ShellViewModel : ViewModelBase
                 break;
             case CompareKindId.Snapshot:
                 ShowSnapshot(left, right);
+                break;
+            case CompareKindId.Notebook:
+                ShowNotebook(left, right);
+                break;
+            case CompareKindId.Table:
+                ShowTable(left, right);
                 break;
             case CompareKindId.Git:
                 ShowGit(left.Length > 0 ? left : Environment.CurrentDirectory);
