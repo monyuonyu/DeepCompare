@@ -249,6 +249,22 @@
   </Style>
 
   <!--
+    畳んである所を示す帯。行 1 つ分の高さで、押すと開く。
+    **控えめに出す。** ここは中身ではないので、本文より目立ってはいけない。
+  -->
+  <Style Selector="Button.foldband">
+    <Setter Property="Background" Value="{DynamicResource BgUnimportant}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Divider}" />
+    <Setter Property="BorderThickness" Value="0,1" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="Button.foldband:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ControlBgHover}" />
+  </Style>
+
+  <!--
     差分の塊を左右へ写す矢印。Beyond Compare の gutter button に当たる。
     **行の色と重ならない琥珀色にする。** 緑や赤の上に緑や赤の矢印を置くと、
     押せる場所として目に入らない。

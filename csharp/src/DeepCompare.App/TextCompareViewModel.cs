@@ -100,6 +100,8 @@ public sealed class TextCompareViewModel : ViewModelBase
         FindPreviousCommand = new RelayCommand(() => { FindFrom(forward: false); return Task.CompletedTask; });
         CopyLineCommand = new RelayCommand<RowView>(row => CopyTextAsync(row, both: false));
         CopyBothLinesCommand = new RelayCommand<RowView>(row => CopyTextAsync(row, both: true));
+        ExpandFoldCommand = new RelayCommand<RowView>(
+            band => { ExpandFold(band); return Task.CompletedTask; }, band => band.IsFoldBand);
         ApplyDetailCommand = new RelayCommand(
             ApplyDetailAsync, () => CanEditLeftDetail || CanEditRightDetail);
         SelectBlockCommand = new RelayCommand<RowView>(
@@ -119,6 +121,7 @@ public sealed class TextCompareViewModel : ViewModelBase
     public RelayCommand<RowView> CopyBothLinesCommand { get; }
     public RelayCommand<RowView> SelectBlockCommand { get; }
     public RelayCommand ApplyDetailCommand { get; }
+    public RelayCommand<RowView> ExpandFoldCommand { get; }
 
     /// <summary>書き込み先。表示側から差し込む（ViewModel から画面に触らない）。</summary>
     public Action<string>? Clipboard { get; set; }
@@ -1285,6 +1288,48 @@ public sealed class TextCompareViewModel : ViewModelBase
         SelectedRowIndex = VisibleRows.Count > 0 ? 0 : -1;
     }
 
+    /// <summary>開いた畳みの位置。ここに入っている範囲は帯にせずそのまま出す。</summary>
+    private readonly HashSet<int> _expandedFolds = [];
+
+    /// <summary>
+    /// その行が属する畳みの鍵。
+    ///
+    /// **範囲の先頭ではなく「開いた位置」で覚える。** 再比較で行がずれても、
+    /// 近い場所は開いたままになる方が、勝手に閉じるより驚きが少ない。
+    /// </summary>
+    private static int FoldKeyFor(int index) => index;
+
+    private void AddBand(int start, int count)
+    {
+        if (_comparison is null || count <= 0)
+        {
+            return;
+        }
+        VisibleRows.Add(RowView.Band(
+            _comparison.Rows[start], _leftSource!, _rightSource!, start, count));
+    }
+
+    /// <summary>帯を押したら、その範囲を開く。</summary>
+    public void ExpandFold(RowView band)
+    {
+        if (!band.IsFoldBand)
+        {
+            return;
+        }
+        for (var i = band.FoldStart; i < band.FoldStart + band.FoldedCount; i++)
+        {
+            _expandedFolds.Add(FoldKeyFor(i));
+        }
+        RebuildVisibleRows();
+    }
+
+    /// <summary>畳み直す。開きすぎたときに戻す。</summary>
+    public void CollapseAllFolds()
+    {
+        _expandedFolds.Clear();
+        RebuildVisibleRows();
+    }
+
     private void RebuildVisibleRows()
     {
         VisibleRows.Clear();
@@ -1293,12 +1338,33 @@ public sealed class TextCompareViewModel : ViewModelBase
             OnPropertyChanged(nameof(ShowPlaceholder));
             return;
         }
+        // 畳んだ行は帯にまとめて出す。**隠したことを黙っていない。**
+        // どれだけ消えたのか分からないと、見落としたのか元から無いのかを
+        // 区別できない。BC も「36 FILTERED LINES」の帯を出す。
+        var foldStart = -1;
+
         for (var i = 0; i < _allRows.Count; i++)
         {
-            if (!ChangesOnly || !_comparison.Rows[i].IsUnchanged || NearAChange(i))
+            var visible = !ChangesOnly || !_comparison.Rows[i].IsUnchanged || NearAChange(i)
+                || _expandedFolds.Contains(FoldKeyFor(i));
+
+            if (visible)
             {
+                if (foldStart >= 0)
+                {
+                    AddBand(foldStart, i - foldStart);
+                    foldStart = -1;
+                }
                 VisibleRows.Add(_allRows[i]);
             }
+            else if (foldStart < 0)
+            {
+                foldStart = i;
+            }
+        }
+        if (foldStart >= 0)
+        {
+            AddBand(foldStart, _allRows.Count - foldStart);
         }
         OnPropertyChanged(nameof(ShowPlaceholder));
         OnPropertyChanged(nameof(SearchStatus));

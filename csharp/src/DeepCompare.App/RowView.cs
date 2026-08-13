@@ -84,6 +84,28 @@ public sealed class RowView : ViewModelBase
     public bool CanEditLeft => Row.Left is not null;
     public bool CanEditRight => Row.Right is not null;
 
+    /// <summary>
+    /// 「ここに N 行畳んである」の帯か。
+    ///
+    /// **隠したことを黙っていない。** 差分だけを出すと一致行は消えるが、
+    /// どれだけ消えたのかが分からないと、見落としたのか元から無いのかを
+    /// 区別できない。Beyond Compare も「36 FILTERED LINES」の帯を出す。
+    /// </summary>
+    public bool IsFoldBand { get; init; }
+
+    /// <summary>畳んである行数。</summary>
+    public int FoldedCount { get; init; }
+
+    /// <summary>畳んである範囲（元の行の添字）。押すと開くのに使う。</summary>
+    public int FoldStart { get; init; }
+
+    public string FoldText => $"{FoldedCount:N0} 行を畳んでいます（押すと開く）";
+
+    /// <summary>帯を作る。中身は持たないので、比較の行は借りるだけ。</summary>
+    public static RowView Band(Row anchor, DecodedText left, DecodedText right,
+        int start, int count)
+        => new(anchor, left, right) { IsFoldBand = true, FoldStart = start, FoldedCount = count };
+
     /// <summary>検索に使う素の本文。表示は Inlines 側が持つ。</summary>
     public string LeftText { get; }
     public string RightText { get; }
