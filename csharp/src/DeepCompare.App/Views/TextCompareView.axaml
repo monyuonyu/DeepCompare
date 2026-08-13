@@ -329,6 +329,14 @@
         <TextBlock Text="{Binding InvisibleWarning}" FontSize="11"
                    Foreground="{DynamicResource FgWarning}"
                    IsVisible="{Binding HasInvisibleWarning}" />
+        <!--
+          手で付けた対応があることは**必ず見える場所に出す。**
+          自動の結果だと思って読まれると、なぜそう並ぶのか分からなくなる。
+        -->
+        <TextBlock Text="{Binding ManualNote}" FontSize="11"
+                   Foreground="{DynamicResource Accent}"
+                   IsVisible="{Binding ManualNote,
+                     Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
       </StackPanel>
     </Border>
 
@@ -421,6 +429,22 @@
                   <MenuItem Header="この塊の先頭へ移る"
                             Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).SelectBlockCommand}"
                             CommandParameter="{Binding}" />
+                  <Separator />
+                  <!--
+                    対応付けの手直し。**自動の判断は必ず外す場面がある。**
+                    「同じ役割だが書き方を全部変えた行」までは類似度で拾えない。
+                  -->
+                  <MenuItem Header="この行を繋ぐ起点にする"
+                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).MarkForLinkCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="起点とこの行を対応させる"
+                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).LinkRowsCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="この行の対応を外す"
+                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).UnlinkRowCommand}"
+                            CommandParameter="{Binding}" />
+                  <MenuItem Header="手で付けた対応を全部取り消す"
+                            Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).ClearManualCommand}" />
                   <Separator />
                   <MenuItem Header="左の行を写す"
                             Command="{Binding $parent[UserControl].((vm:TextCompareViewModel)DataContext).CopyLineCommand}"

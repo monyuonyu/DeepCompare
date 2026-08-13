@@ -20,6 +20,7 @@ internal static class Cli
         "--key", "--ignore-column", "--delimiter",
         "--array-key", "--ignore-path",
         "--limit", "--rev", "--path", "--secret-level", "--model",
+        "--link", "--unlink",
     ];
 
     /// <summary>画面を開かずに済む要求なら処理して終了コードを返す。GUI を開くなら null。</summary>
@@ -371,7 +372,35 @@ internal static class Cli
             positional[0], positional[1], threshold, output,
             args.Contains("--structural"), importance, reportFormat,
             int.TryParse(ValueOf(args, "--context"), out var ctx) ? ctx : 3,
-            ValueOf(args, "--model")));
+            ValueOf(args, "--model"), ManualFrom(args)));
+    }
+
+    /// <summary>
+    /// <c>--link 2:3</c> の形で指定された対応付けを読む。**行番号は 1 始まり**
+    /// （画面に出ている番号と同じにする。0 始まりだと必ず 1 つずれる）。
+    /// </summary>
+    private static ManualAlignment? ManualFrom(string[] args)
+    {
+        var manual = new ManualAlignment();
+        var any = false;
+
+        foreach (var (option, link) in new[] { ("--link", true), ("--unlink", false) })
+        {
+            foreach (var value in ValuesOf(args, option) ?? [])
+            {
+                var parts = value.Split(':');
+                if (parts.Length != 2
+                    || !int.TryParse(parts[0], out var l) || !int.TryParse(parts[1], out var r)
+                    || l < 1 || r < 1)
+                {
+                    Console.Error.WriteLine($"{option} は 左行:右行 の形で（1 始まり）: {value}");
+                    continue;
+                }
+                manual = link ? manual.Link(l - 1, r - 1) : manual.Unlink(l - 1, r - 1);
+                any = true;
+            }
+        }
+        return any ? manual : null;
     }
 
     /// <summary>オプションとその値を取り除いた、位置引数だけの列。</summary>
@@ -1505,7 +1534,8 @@ internal static class Cli
     private static int RunCompare(
         string leftPath, string rightPath, float threshold, string? output,
         bool structural = false, Importance? importance = null,
-        string? reportFormat = null, int context = 3, string? modelPath = null)
+        string? reportFormat = null, int context = 3, string? modelPath = null,
+        ManualAlignment? manual = null)
     {
         var left = TextDecoder.Decode(File.ReadAllBytes(leftPath));
         var right = TextDecoder.Decode(File.ReadAllBytes(rightPath));
@@ -1513,7 +1543,16 @@ internal static class Cli
 
         var started = DateTime.UtcNow;
         var result = DiffComparer.Compare(
-            left, right, embedder, new CompareOptions(threshold, Importance: importance));
+            left, right, embedder,
+            new CompareOptions(threshold, Importance: importance, Manual: manual));
+
+        // **手で付けた対応があることは必ず出す。** 自動の結果だと思って
+        // 読まれると、なぜそう並ぶのか分からなくなる。
+        if (manual is { IsEmpty: false })
+        {
+            Console.Error.WriteLine(
+                $"手で付けた対応: 繋いだ {manual.Linked.Count} 件 / 外した {manual.Unlinked.Count} 件");
+        }
         var elapsed = DateTime.UtcNow - started;
 
         if (reportFormat is not null)

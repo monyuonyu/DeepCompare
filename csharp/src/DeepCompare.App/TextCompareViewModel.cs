@@ -126,6 +126,16 @@ public sealed class TextCompareViewModel : ViewModelBase
             ApplyDetailAsync, () => CanEditLeftDetail || CanEditRightDetail);
         SelectBlockCommand = new RelayCommand<RowView>(
             row => { SelectBlock(row); return Task.CompletedTask; }, row => row.BlockIndex >= 0);
+
+        MarkForLinkCommand = new RelayCommand<RowView>(
+            row => { MarkForLink(row); return Task.CompletedTask; },
+            row => row.Row.Left is not null || row.Row.Right is not null);
+        LinkRowsCommand = new RelayCommand<RowView>(
+            row => LinkAsync(row), row => CanLinkWith(row));
+        UnlinkRowCommand = new RelayCommand<RowView>(
+            row => UnlinkAsync(row), row => row.Row is { Left: not null, Right: not null });
+        ClearManualCommand = new RelayCommand(
+            ClearManualAsync, () => !Manual.IsEmpty);
     }
 
     public ObservableCollection<RowView> VisibleRows { get; } = [];
@@ -140,6 +150,101 @@ public sealed class TextCompareViewModel : ViewModelBase
     public RelayCommand<RowView> CopyLineCommand { get; }
     public RelayCommand<RowView> CopyBothLinesCommand { get; }
     public RelayCommand<RowView> SelectBlockCommand { get; }
+    public RelayCommand<RowView> MarkForLinkCommand { get; }
+    public RelayCommand<RowView> LinkRowsCommand { get; }
+    public RelayCommand<RowView> UnlinkRowCommand { get; }
+    public RelayCommand ClearManualCommand { get; }
+
+    /// <summary>
+    /// 人が指定した対応付け。**比較をやり直しても残す。**
+    /// 直したそばから自動の判断に戻されたら、直す意味が無い。
+    /// </summary>
+    public ManualAlignment Manual { get; private set; } = new();
+
+    /// <summary>「この行と繋ぐ」の起点。片方を選んでからもう片方を指す。</summary>
+    private RowView? _linkAnchor;
+
+    private string _manualNote = string.Empty;
+
+    /// <summary>手動の指定について、いま何が起きているか。</summary>
+    public string ManualNote
+    {
+        get => _manualNote;
+        private set => Set(ref _manualNote, value);
+    }
+
+    public bool HasManual => !Manual.IsEmpty;
+
+    private void MarkForLink(RowView row)
+    {
+        _linkAnchor = row;
+        var side = row.Row.Left is not null ? "左" : "右";
+        var line = (row.Row.Left ?? row.Row.Right ?? 0) + 1;
+        ManualNote = $"{side} {line} 行目を起点にしました。繋ぐ相手を選んでください。";
+        LinkRowsCommand.Raise();
+    }
+
+    /// <summary>
+    /// 起点と繋げるか。**同じ側どうしは繋げない**（左は左、右は右の順序を保つ）。
+    /// </summary>
+    private bool CanLinkWith(RowView row)
+    {
+        if (_linkAnchor is not { } anchor || ReferenceEquals(anchor, row))
+        {
+            return false;
+        }
+        return (anchor.Row.Left is not null && row.Row.Right is not null)
+            || (anchor.Row.Right is not null && row.Row.Left is not null);
+    }
+
+    private async Task LinkAsync(RowView row)
+    {
+        if (_linkAnchor is not { } anchor)
+        {
+            return;
+        }
+
+        var leftLine = anchor.Row.Left ?? row.Row.Left;
+        var rightLine = anchor.Row.Right ?? row.Row.Right;
+        if (leftLine is null || rightLine is null)
+        {
+            return;
+        }
+
+        Manual = Manual.Link(leftLine.Value, rightLine.Value);
+        _linkAnchor = null;
+        ManualNote = $"左 {leftLine + 1} 行目と右 {rightLine + 1} 行目を対応させました。";
+        await RecompareAsync();
+        RaiseManualState();
+    }
+
+    private async Task UnlinkAsync(RowView row)
+    {
+        if (row.Row is not { Left: { } left, Right: { } right })
+        {
+            return;
+        }
+        Manual = Manual.Unlink(left, right);
+        ManualNote = $"左 {left + 1} 行目と右 {right + 1} 行目の対応を外しました。";
+        await RecompareAsync();
+        RaiseManualState();
+    }
+
+    private async Task ClearManualAsync()
+    {
+        Manual = new ManualAlignment();
+        _linkAnchor = null;
+        ManualNote = "手で付けた対応を全部取り消しました。";
+        await RecompareAsync();
+        RaiseManualState();
+    }
+
+    private void RaiseManualState()
+    {
+        OnPropertyChanged(nameof(HasManual));
+        ClearManualCommand.Raise();
+        LinkRowsCommand.Raise();
+    }
     public RelayCommand ApplyDetailCommand { get; }
     public RelayCommand<RowView> ExpandFoldCommand { get; }
     public RelayCommand<RowView> CollapseOutlineCommand { get; }
@@ -808,7 +913,8 @@ public sealed class TextCompareViewModel : ViewModelBase
                 (WhitespaceMode)WhitespaceModeIndex, IgnoreCase, patterns);
             ImportanceError = string.Empty;
             return new CompareOptions(
-                (float)PairThreshold, Importance: importance, Language: DetectLanguage());
+                (float)PairThreshold, Importance: importance, Language: DetectLanguage(),
+                Manual: Manual);
         }
         catch (ArgumentException error)
         {
@@ -816,7 +922,8 @@ public sealed class TextCompareViewModel : ViewModelBase
             return new CompareOptions(
                 (float)PairThreshold,
                 Importance: new Importance((WhitespaceMode)WhitespaceModeIndex, IgnoreCase),
-                Language: DetectLanguage());
+                Language: DetectLanguage(),
+                Manual: Manual);
         }
     }
 

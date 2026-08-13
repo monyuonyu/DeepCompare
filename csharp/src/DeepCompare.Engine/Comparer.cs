@@ -25,7 +25,14 @@ public sealed record CompareOptions(
     /// 行内差分の単位をトークンにするための言語。null なら文字単位。
     /// <see cref="Lexer.ForPath"/> で拡張子から決められる。
     /// </summary>
-    Language? Language = null)
+    Language? Language = null,
+
+    /// <summary>
+    /// 人が指定した対応付け。null なら自動のまま。
+    ///
+    /// **自動の対応付けは必ず外す場面がある。** そこを直せるようにする。
+    /// </summary>
+    ManualAlignment? Manual = null)
 {
     /// <summary>null を既定値に潰したもの。呼ぶ側で毎回 null 判定をしなくて済む。</summary>
     public Importance Ignoring => Importance ?? Engine.Importance.Default;
@@ -264,10 +271,16 @@ public static class DiffComparer
             identicalLines--;
         }
 
+        // 人が指定した対応付けを当てる。**最後に当てる**ので、埋め込みの
+        // 経路には手が入らない（指定を変えても再計算は行の並べ替えだけ）。
+        var finalRows = options.Manual is { IsEmpty: false } manual
+            ? ManualAlignment.Apply(rows, manual, left, right, options.Language)
+            : rows;
+
         progress?.Invoke(Phase.Done);
 
         var unimportant = 0;
-        foreach (var row in rows)
+        foreach (var row in finalRows)
         {
             if (row.HasUnimportantDifferences)
             {
@@ -276,8 +289,8 @@ public static class DiffComparer
         }
 
         return new Comparison(
-            rows,
-            new CompareStats(rows.Count, identicalLines, wanted.Count, skippedBlocks, unimportant));
+            finalRows,
+            new CompareStats(finalRows.Count, identicalLines, wanted.Count, skippedBlocks, unimportant));
     }
 
     private static IReadOnlyList<Span> WholeEqual(string line)
