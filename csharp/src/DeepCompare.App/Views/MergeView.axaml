@@ -4,17 +4,10 @@
              x:Class="DeepCompare.App.Views.MergeView"
              x:DataType="vm:MergeViewModel">
 
-  <UserControl.Styles>
-    <!-- monospace 単体では解決できない環境がある。代替を並べる。 -->
-    <Style Selector="TextBlock.mono">
-      <Setter Property="FontFamily" Value="Consolas,DejaVu Sans Mono,MS Gothic,monospace" />
-    </Style>
-  </UserControl.Styles>
-
   <Grid RowDefinitions="Auto,*,Auto">
 
     <!-- 上の帯 -->
-    <Border Grid.Row="0" Background="{DynamicResource PanelBg}" Padding="12,10">
+    <Border Grid.Row="0" Classes="topbar">
       <StackPanel Spacing="8">
         <StackPanel Orientation="Horizontal" Spacing="8">
           <TextBlock Text="3 方向マージ" FontWeight="SemiBold"
@@ -37,13 +30,31 @@
           <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding RightPath}" />
         </Grid>
 
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <Button Content="マージ" Command="{Binding MergeCommand}" />
-          <Button Content="全部 左を採る" Command="{Binding TakeAllLeftCommand}" />
-          <Button Content="全部 右を採る" Command="{Binding TakeAllRightCommand}" />
-          <Button Content="書き出す" Command="{Binding SaveCommand}" />
-          <CheckBox Content="変化のない部分も出す" IsChecked="{Binding ShowUnchanged}"
-                    VerticalAlignment="Center" />
+        <StackPanel Orientation="Horizontal" Spacing="2">
+          <Button Classes="icon" Command="{Binding MergeCommand}" IsEnabled="{Binding !Busy}"
+                  ToolTip.Tip="マージする">
+            <Path Classes="icon" Data="{StaticResource IconRefresh}" />
+          </Button>
+          <Border Classes="vsep" />
+          <Button Classes="icon" Command="{Binding TakeAllLeftCommand}"
+                  ToolTip.Tip="競合を全部「左を採る」で決める">
+            <Path Classes="icon" Data="{StaticResource IconToLeft}" />
+          </Button>
+          <Button Classes="icon" Command="{Binding TakeAllRightCommand}"
+                  ToolTip.Tip="競合を全部「右を採る」で決める">
+            <Path Classes="icon" Data="{StaticResource IconToRight}" />
+          </Button>
+          <Border Classes="vsep" />
+          <Button Classes="icon" Command="{Binding SaveCommand}"
+                  ToolTip.Tip="結果を書き出す。決めていない競合は印を付けて残します">
+            <Path Classes="icon" Data="{StaticResource IconExport}" />
+          </Button>
+          <ToggleButton Classes="filter" IsChecked="{Binding ShowUnchanged}"
+                        ToolTip.Tip="変化のない部分も出す">
+            <Path Classes="icon" Data="{StaticResource IconFilterAll}" />
+          </ToggleButton>
+          <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}"
+                       Width="70" VerticalAlignment="Center" Margin="6,0" />
         </StackPanel>
       </StackPanel>
     </Border>
@@ -53,8 +64,7 @@
       <ItemsControl ItemsSource="{Binding Regions}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:MergeRegionRow">
-            <Border Background="{Binding Background}" CornerRadius="3"
-                    Padding="10,7" Margin="0,0,0,5">
+            <Border Background="{Binding Background}" Classes="row" Padding="10,7">
               <StackPanel Spacing="5">
 
                 <StackPanel Orientation="Horizontal" Spacing="10">
@@ -111,13 +121,11 @@
     </ScrollViewer>
 
     <!-- 下の帯 -->
-    <Border Grid.Row="2" Background="{DynamicResource StatusBarBg}" Padding="12,6">
+    <Border Grid.Row="2" Classes="statusbar">
       <StackPanel Orientation="Horizontal" Spacing="14">
         <TextBlock Text="{Binding Summary}" VerticalAlignment="Center" FontSize="12" />
         <TextBlock Text="{Binding DecisionText}" VerticalAlignment="Center" FontSize="12"
                    Foreground="{DynamicResource FgDim}" />
-        <TextBlock Text="マージ中…" VerticalAlignment="Center" FontSize="12"
-                   IsVisible="{Binding Busy}" />
         <TextBlock Text="{Binding Message}" Foreground="{DynamicResource FgWarning}"
                    VerticalAlignment="Center" FontSize="12" TextWrapping="Wrap" />
       </StackPanel>

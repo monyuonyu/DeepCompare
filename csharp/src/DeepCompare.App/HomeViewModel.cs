@@ -13,10 +13,11 @@ public sealed record SessionEntry(Session Session)
 }
 
 /// <summary>
-/// 起動画面。何を比べるかをここで決める。
+/// 保存した比較の一覧。
 ///
-/// いきなりファイル比較の画面を出すと「フォルダーを比べたい」ときに行き場が無くなる。
-/// Beyond Compare が最初にセッションの種類を選ばせるのと同じ考え方。
+/// **比較の種類はサイドバーが持つ**ので、ここでは扱わない。この画面の役目は
+/// 「よく使う組み合わせに名前を付けて残す」ことだけ。そのとき何を無視していたかも
+/// 一緒に覚えるので、開き直しても設定を入れ直す必要がない。
 /// </summary>
 public sealed class HomeViewModel : ViewModelBase
 {
@@ -34,11 +35,6 @@ public sealed class HomeViewModel : ViewModelBase
         BrowseRightFileCommand = new RelayCommand(() => PickAsync(isFolder: false, left: false));
         BrowseLeftFolderCommand = new RelayCommand(() => PickAsync(isFolder: true, left: true));
         BrowseRightFolderCommand = new RelayCommand(() => PickAsync(isFolder: true, left: false));
-        CompareTextCommand = new RelayCommand(() => { StartText(); return Task.CompletedTask; });
-        CompareFoldersCommand = new RelayCommand(() => { StartFolders(); return Task.CompletedTask; });
-        CompareStructuredCommand = new RelayCommand(() => { StartStructured(); return Task.CompletedTask; });
-        OpenGitCommand = new RelayCommand(() => { StartGit(); return Task.CompletedTask; });
-        OpenMergeCommand = new RelayCommand(() => { StartMerge(); return Task.CompletedTask; });
         SaveSessionCommand = new RelayCommand(() => { SaveSession(); return Task.CompletedTask; });
         OpenSessionCommand = new RelayCommand<SessionEntry>(entry => { OpenSession(entry); return Task.CompletedTask; });
         RemoveSessionCommand = new RelayCommand<SessionEntry>(entry => { RemoveSession(entry); return Task.CompletedTask; });
@@ -145,19 +141,7 @@ public sealed class HomeViewModel : ViewModelBase
     public ICommand BrowseRightFileCommand { get; }
     public ICommand BrowseLeftFolderCommand { get; }
     public ICommand BrowseRightFolderCommand { get; }
-    public ICommand CompareTextCommand { get; }
-    public ICommand CompareFoldersCommand { get; }
-    public ICommand CompareStructuredCommand { get; }
-    public ICommand OpenGitCommand { get; }
-    public ICommand OpenMergeCommand { get; }
 
-    private string _basePath = string.Empty;
-    /// <summary>3 方向マージの祖先。ここだけ 3 つ目の入力が要る。</summary>
-    public string BasePath
-    {
-        get => _basePath;
-        set => Set(ref _basePath, value);
-    }
 
     private async Task PickAsync(bool isFolder, bool left)
     {
@@ -179,83 +163,6 @@ public sealed class HomeViewModel : ViewModelBase
                 RightPath = path;
             }
         }
-    }
-
-    private void StartText()
-    {
-        if (!Validate(out var left, out var right))
-        {
-            return;
-        }
-        if (!File.Exists(left) || !File.Exists(right))
-        {
-            Message = "テキスト比較にはファイルを指定してください。フォルダーなら「フォルダーを比較」を使ってください。";
-            return;
-        }
-        _shell.ShowText(left, right);
-    }
-
-    private void StartStructured()
-    {
-        if (!Validate(out var left, out var right))
-        {
-            return;
-        }
-        if (!File.Exists(left) || !File.Exists(right))
-        {
-            Message = "構造として比較するにはファイルを指定してください。";
-            return;
-        }
-        _shell.ShowStructured(left, right);
-    }
-
-    private void StartGit()
-    {
-        // Git は左の欄だけで足りる。リポジトリの中のどこかを指していればよい。
-        var where = LeftPath.Trim();
-        if (where.Length == 0)
-        {
-            where = Environment.CurrentDirectory;
-        }
-        Message = string.Empty;
-        _shell.ShowGit(where);
-    }
-
-    private void StartMerge()
-    {
-        var ancestor = BasePath.Trim();
-        if (ancestor.Length == 0)
-        {
-            Message = "3 方向マージには祖先のファイルも要ります。";
-            return;
-        }
-        if (!Validate(out var left, out var right))
-        {
-            return;
-        }
-        if (!File.Exists(ancestor) || !File.Exists(left) || !File.Exists(right))
-        {
-            Message = "祖先・左・右の 3 つともファイルを指定してください。";
-            return;
-        }
-        _shell.ShowMerge(ancestor, left, right);
-    }
-
-    private void StartFolders()
-    {
-        if (!Validate(out var left, out var right))
-        {
-            return;
-        }
-        static bool Usable(string path)
-            => Directory.Exists(path) || (File.Exists(path) && ArchiveSource.LooksLikeArchive(path));
-
-        if (!Usable(left) || !Usable(right))
-        {
-            Message = "フォルダー比較にはフォルダーか書庫（zip / tar / tar.gz）を指定してください。";
-            return;
-        }
-        _shell.ShowFolders(left, right);
     }
 
     private bool Validate(out string left, out string right)

@@ -4,33 +4,26 @@
              x:Class="DeepCompare.App.Views.GitView"
              x:DataType="vm:GitViewModel">
 
-  <UserControl.Styles>
-    <!-- monospace 単体では解決できない環境がある。代替を並べる。 -->
-    <Style Selector="TextBlock.mono">
-      <Setter Property="FontFamily" Value="Consolas,DejaVu Sans Mono,MS Gothic,monospace" />
-    </Style>
-  </UserControl.Styles>
-
   <Grid RowDefinitions="Auto,*,Auto">
 
-    <!-- 上の帯 -->
-    <Border Grid.Row="0" Background="{DynamicResource PanelBg}" Padding="12,10">
-      <StackPanel Spacing="8">
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <TextBlock Text="Git" FontWeight="SemiBold" VerticalAlignment="Center" Margin="6,0,0,0" />
-          <TextBlock Text="{Binding Branch}" VerticalAlignment="Center"
-                     Foreground="{DynamicResource FgKeyword}" FontWeight="SemiBold" />
-          <TextBlock Text="{Binding Root}" VerticalAlignment="Center" FontSize="11"
-                     Foreground="{DynamicResource FgDim}" TextTrimming="CharacterEllipsis"
-                     MaxWidth="520" />
-          <Button Content="読み直す" Command="{Binding RefreshCommand}" />
-        </StackPanel>
+    <!-- 上の帯。操作はアイコン、場所は 1 行 -->
+    <Border Grid.Row="0" Classes="topbar">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Button Classes="icon" Command="{Binding RefreshCommand}" ToolTip.Tip="読み直す">
+          <Path Classes="icon" Data="{StaticResource IconRefresh}" />
+        </Button>
+        <Border Classes="vsep" />
 
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <TextBlock Text="場所" VerticalAlignment="Center" />
-          <TextBox Text="{Binding Path}" Width="520"
-                   PlaceholderText="リポジトリの中のどこか" />
-        </StackPanel>
+        <Path Classes="icon dim" Data="{StaticResource IconGit}" VerticalAlignment="Center" />
+        <TextBlock Text="{Binding Branch}" VerticalAlignment="Center"
+                   Foreground="{DynamicResource Accent}" FontWeight="SemiBold" />
+
+        <Border Classes="vsep" />
+        <TextBox Text="{Binding Path}" Width="420"
+                 PlaceholderText="リポジトリの中のどこか"
+                 ToolTip.Tip="{Binding Root}" />
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}"
+                     Width="70" VerticalAlignment="Center" />
       </StackPanel>
     </Border>
 
@@ -38,17 +31,14 @@
     <Grid Grid.Row="1" ColumnDefinitions="*,8,*" Margin="12,8">
 
       <DockPanel Grid.Column="0">
-        <TextBlock DockPanel.Dock="Top" Text="作業ツリー" FontWeight="SemiBold" Margin="0,0,0,6" />
-        <TextBlock DockPanel.Dock="Top" FontSize="11" Foreground="{DynamicResource FgDim}"
-                   Margin="0,0,0,6" TextWrapping="Wrap"
-                   Text="行を開くと HEAD と作業ツリーを比べます。git の diff ではなく、こちらの比較エンジンに掛けます。" />
+        <TextBlock DockPanel.Dock="Top" Text="作業ツリー" Classes="title" Margin="0,0,0,8"
+                   ToolTip.Tip="行を開くと HEAD と作業ツリーを比べます。git の diff ではなく、こちらの比較エンジンに掛けるので、意味的な行の対応付けが効きます。" />
 
         <ScrollViewer>
           <ItemsControl ItemsSource="{Binding Files}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:GitFileRow">
-                <Border Background="{Binding Background}" CornerRadius="3"
-                        Padding="8,5" Margin="0,0,0,3">
+                <Border Background="{Binding Background}" Classes="row">
                   <Grid ColumnDefinitions="28,*,Auto">
                     <TextBlock Grid.Column="0" Text="{Binding Mark}" Classes="mono"
                                FontWeight="Bold" VerticalAlignment="Center" />
@@ -60,16 +50,22 @@
                                  Foreground="{DynamicResource FgDim}" />
                     </StackPanel>
 
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
-                      <Button Content="開く" FontSize="11" Padding="8,3"
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="0">
+                      <Button Classes="icon" ToolTip.Tip="HEAD と作業ツリーを比べる"
                               Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).OpenFileCommand}"
-                              CommandParameter="{Binding}" />
-                      <Button Content="stage" FontSize="11" Padding="8,3"
+                              CommandParameter="{Binding}">
+                        <Path Classes="icon" Data="{StaticResource IconOpen}" />
+                      </Button>
+                      <Button Classes="icon" ToolTip.Tip="索引へ載せる（stage）"
                               Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).StageCommand}"
-                              CommandParameter="{Binding}" />
-                      <Button Content="降ろす" FontSize="11" Padding="8,3"
+                              CommandParameter="{Binding}">
+                        <Path Classes="icon" Data="{StaticResource IconStage}" />
+                      </Button>
+                      <Button Classes="icon" ToolTip.Tip="索引から降ろす。中身は変えない"
                               Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).UnstageCommand}"
-                              CommandParameter="{Binding}" />
+                              CommandParameter="{Binding}">
+                        <Path Classes="icon" Data="{StaticResource IconUnstage}" />
+                      </Button>
                     </StackPanel>
                   </Grid>
                 </Border>
@@ -82,17 +78,14 @@
       <GridSplitter Grid.Column="1" Background="{DynamicResource Divider}" Width="2" />
 
       <DockPanel Grid.Column="2">
-        <TextBlock DockPanel.Dock="Top" Text="履歴" FontWeight="SemiBold" Margin="0,0,0,6" />
-        <TextBlock DockPanel.Dock="Top" FontSize="11" Foreground="{DynamicResource FgDim}"
-                   Margin="0,0,0,6" TextWrapping="Wrap"
-                   Text="左でファイルを選んでから行を開くと、そのコミットでの変化を出します。" />
+        <TextBlock DockPanel.Dock="Top" Text="履歴" Classes="title" Margin="0,0,0,8"
+                   ToolTip.Tip="左でファイルを選んでから行を開くと、そのコミットでの変化を出します。" />
 
         <ScrollViewer>
           <ItemsControl ItemsSource="{Binding Commits}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:GitCommitRow">
-                <Border Background="{DynamicResource CardBg}" CornerRadius="3"
-                        Padding="8,5" Margin="0,0,0,3">
+                <Border Background="{DynamicResource CardBg}" Classes="row">
                   <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Grid.Column="0" Spacing="1">
                       <TextBlock Text="{Binding Subject}" TextTrimming="CharacterEllipsis" />
@@ -109,9 +102,12 @@
                       </StackPanel>
                     </StackPanel>
 
-                    <Button Grid.Column="1" Content="開く" FontSize="11" Padding="8,3"
+                    <Button Grid.Column="1" Classes="icon"
+                            ToolTip.Tip="左で選んだファイルの、このコミットでの変化を見る"
                             Command="{Binding $parent[UserControl].((vm:GitViewModel)DataContext).OpenCommitCommand}"
-                            CommandParameter="{Binding}" />
+                            CommandParameter="{Binding}">
+                      <Path Classes="icon" Data="{StaticResource IconOpen}" />
+                    </Button>
                   </Grid>
                 </Border>
               </DataTemplate>
@@ -122,11 +118,9 @@
     </Grid>
 
     <!-- 下の帯 -->
-    <Border Grid.Row="2" Background="{DynamicResource StatusBarBg}" Padding="12,6">
+    <Border Grid.Row="2" Classes="statusbar">
       <StackPanel Orientation="Horizontal" Spacing="14">
         <TextBlock Text="{Binding Summary}" VerticalAlignment="Center" FontSize="12" />
-        <TextBlock Text="読み込み中…" VerticalAlignment="Center" FontSize="12"
-                   IsVisible="{Binding Busy}" />
         <TextBlock Text="{Binding Message}" Foreground="{DynamicResource FgWarning}"
                    VerticalAlignment="Center" FontSize="12" TextWrapping="Wrap" />
       </StackPanel>

@@ -4,48 +4,38 @@
              x:Class="DeepCompare.App.Views.StructuredCompareView"
              x:DataType="vm:StructuredCompareViewModel">
 
-  <UserControl.Styles>
-    <!--
-      **monospace だけでは解決できない環境がある。** 実際にこの指定で
-      「Could not create glyphTypeface」で落ちた。代替を並べて、
-      日本語を持つ書体（MS Gothic）も含める。テキスト比較画面と同じ並び。
-    -->
-    <Style Selector="TextBlock.mono">
-      <Setter Property="FontFamily" Value="Consolas,DejaVu Sans Mono,MS Gothic,monospace" />
-    </Style>
-  </UserControl.Styles>
-
   <Grid RowDefinitions="Auto,Auto,*,Auto">
 
-    <!-- 上の帯。ファイルの指定と操作 -->
-    <Border Grid.Row="0" Background="{DynamicResource PanelBg}" Padding="12,10">
-      <StackPanel Spacing="8">
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <TextBlock Text="構造として比較（JSON）" FontWeight="SemiBold"
-                     VerticalAlignment="Center" Margin="6,0,0,0" />
-          <TextBlock VerticalAlignment="Center" FontSize="11"
-                     Foreground="{DynamicResource FgDim}"
-                     Text="キーの順序や整形の違いは差分にしません" />
-        </StackPanel>
-
-        <Grid ColumnDefinitions="Auto,*,Auto,*,Auto">
-          <TextBlock Grid.Column="0" Text="左" VerticalAlignment="Center" Margin="0,0,6,0" />
-          <TextBox Grid.Column="1" Text="{Binding LeftPath}" Margin="0,0,10,0"
-                   PlaceholderText="JSON のパス" />
-          <TextBlock Grid.Column="2" Text="右" VerticalAlignment="Center" Margin="0,0,6,0" />
-          <TextBox Grid.Column="3" Text="{Binding RightPath}" Margin="0,0,10,0"
-                   PlaceholderText="JSON のパス" />
-          <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6">
-            <Button Content="比較" Command="{Binding CompareCommand}" />
-            <Button Content="テキストとして開く" Command="{Binding OpenAsTextCommand}" />
-            <Button Content="書き出す" Command="{Binding SaveCommand}" />
-          </StackPanel>
-        </Grid>
+    <!-- 上の帯。操作はアイコン 1 段 -->
+    <Border Grid.Row="0" Classes="topbar" BorderThickness="0">
+      <StackPanel Orientation="Horizontal" Spacing="2">
+        <Button Classes="icon" Command="{Binding CompareCommand}" IsEnabled="{Binding !Busy}"
+                ToolTip.Tip="構造として比較する。キーの順序や整形の違いは差分にしません">
+          <Path Classes="icon" Data="{StaticResource IconRefresh}" />
+        </Button>
+        <Border Classes="vsep" />
+        <Button Classes="icon" Command="{Binding OpenAsTextCommand}"
+                ToolTip.Tip="テキストとして比べ直す（構造では説明しきれないとき）">
+          <Path Classes="icon" Data="{StaticResource IconText}" />
+        </Button>
+        <Button Classes="icon" Command="{Binding SaveCommand}" ToolTip.Tip="差分を書き出す">
+          <Path Classes="icon" Data="{StaticResource IconExport}" />
+        </Button>
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding Busy}"
+                     Width="70" VerticalAlignment="Center" Margin="6,0" />
       </StackPanel>
     </Border>
 
+    <Border Grid.Row="0" Classes="topbar" Margin="0,44,0,0" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,Auto,*">
+        <TextBox Grid.Column="0" Text="{Binding LeftPath}" PlaceholderText="左の JSON" />
+        <TextBlock Grid.Column="1" Text="↔" Classes="dim" VerticalAlignment="Center" Margin="10,0" />
+        <TextBox Grid.Column="2" Text="{Binding RightPath}" PlaceholderText="右の JSON" />
+      </Grid>
+    </Border>
+
     <!-- 設定。既定のままで使えるので畳んでおく -->
-    <Expander Grid.Row="1" Header="対応付けと除外の設定" Margin="12,8,12,0">
+    <Expander Grid.Row="1" Header="対応付けと除外の設定" Margin="12,10,12,0">
       <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" Margin="4,8">
         <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4" Margin="0,0,10,8">
           <TextBlock Text="配列を対応付ける名前" FontSize="12" />
@@ -75,7 +65,7 @@
       <ItemsControl ItemsSource="{Binding Changes}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:StructuralChangeRow">
-            <Border Background="{Binding Background}" CornerRadius="3" Padding="8,5" Margin="0,0,0,3">
+            <Border Background="{Binding Background}" Classes="row">
               <Grid ColumnDefinitions="20,*,Auto">
                 <TextBlock Grid.Column="0" Text="{Binding Mark}" Classes="mono"
                            FontWeight="Bold" VerticalAlignment="Top" />
@@ -106,11 +96,9 @@
     </ScrollViewer>
 
     <!-- 下の帯。要約と知らせ -->
-    <Border Grid.Row="3" Background="{DynamicResource StatusBarBg}" Padding="12,6">
+    <Border Grid.Row="3" Classes="statusbar">
       <StackPanel Orientation="Horizontal" Spacing="14">
         <TextBlock Text="{Binding Summary}" VerticalAlignment="Center" FontSize="12" />
-        <TextBlock Text="比較中…" VerticalAlignment="Center" FontSize="12"
-                   IsVisible="{Binding Busy}" />
         <TextBlock Text="{Binding Message}" Foreground="{DynamicResource FgWarning}"
                    VerticalAlignment="Center" FontSize="12" TextWrapping="Wrap" />
       </StackPanel>
