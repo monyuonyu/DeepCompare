@@ -12,6 +12,7 @@ namespace DeepCompare.Engine;
 /// 受ける形:
 /// <code>
 /// /手元/の/場所
+/// sftp://利用者@主機/場所          （鍵で入る。合言葉は省ける）
 /// dav://利用者:合言葉@例.com/remote.php/dav/files/利用者/
 /// davs://例.com/dav/            （https）
 /// s3://鍵:秘密@入口/バケツ/接頭辞
@@ -25,7 +26,8 @@ public static class RemoteLocation
         || location.StartsWith("davs://", StringComparison.OrdinalIgnoreCase)
         || location.StartsWith("s3://", StringComparison.OrdinalIgnoreCase)
         || location.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase)
-        || location.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase);
+        || location.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase)
+        || location.StartsWith("sftp://", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 場所から接続を作る。手元のパスなら <see cref="LocalFileSource"/>。
@@ -48,6 +50,10 @@ public static class RemoteLocation
             || location.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase))
         {
             return OpenFtp(location);
+        }
+        if (location.StartsWith("sftp://", StringComparison.OrdinalIgnoreCase))
+        {
+            return OpenSftp(location);
         }
         return new LocalFileSource(location);
     }
@@ -72,6 +78,55 @@ public static class RemoteLocation
         }
 
         return new WebDavFileSource((secure ? "https://" : "http://") + rest, credentials);
+    }
+
+    private static IFileSource OpenSftp(string location)
+    {
+        var rest = location["sftp://".Length..];
+
+        // 利用者名は省ける（今のログイン名を使う）。**合言葉は省くのが普通** —
+        // 鍵で入るのが既定の使い方。
+        var user = Environment.UserName;
+        string? password = null;
+
+        var at = rest.LastIndexOf('@');
+        if (at >= 0)
+        {
+            var userInfo = rest[..at];
+            rest = rest[(at + 1)..];
+            var colon = userInfo.IndexOf(':');
+            if (colon >= 0)
+            {
+                user = Uri.UnescapeDataString(userInfo[..colon]);
+                password = Uri.UnescapeDataString(userInfo[(colon + 1)..]);
+            }
+            else
+            {
+                user = Uri.UnescapeDataString(userInfo);
+            }
+        }
+
+        var slash = rest.IndexOf('/');
+        var authority = slash < 0 ? rest : rest[..slash];
+        // 場所を省いたら、入った先の既定の場所（ふつうは home）。
+        var root = slash < 0 ? "." : rest[slash..];
+
+        var port = 22;
+        var colonAt = authority.LastIndexOf(':');
+        if (colonAt >= 0 && int.TryParse(authority[(colonAt + 1)..], out var parsed))
+        {
+            port = parsed;
+            authority = authority[..colonAt];
+        }
+
+        return new SftpFileSource(new SftpSettings(authority, user)
+        {
+            Port = port,
+            Password = password,
+            Root = root,
+            PrivateKeyPath = Environment.GetEnvironmentVariable("DEEPCOMPARE_SSH_KEY"),
+            PrivateKeyPassphrase = Environment.GetEnvironmentVariable("DEEPCOMPARE_SSH_PASSPHRASE"),
+        });
     }
 
     private static IFileSource OpenFtp(string location)

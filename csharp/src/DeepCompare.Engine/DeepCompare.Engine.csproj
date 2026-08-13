@@ -14,6 +14,7 @@
   <ItemGroup>
     <!-- 行列積の内側で使う SIMD 化された内積など。純粋なマネージドコードなので
          NativeAOT でも実行ファイルに畳み込まれ、別ファイルにならない。 -->
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
     <PackageReference Include="System.Numerics.Tensors" Version="10.0.0" />
   </ItemGroup>
 
@@ -35,9 +36,7 @@
       Content なので、この Engine を参照するプロジェクト（App・試験）の
       出力先にも運ばれる。
     -->
-    <Content Include="$(MSBuildThisFileDirectory)../../../assets/minilm.dcm"
-             Link="minilm.dcm"
-             CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="$(MSBuildThisFileDirectory)../../../assets/minilm.dcm" Link="minilm.dcm" CopyToOutputDirectory="PreserveNewest" />
 
     <!-- 語彙は 466KB と小さく、分かち書きの実装と対でしか意味を持たないので
          埋め込んだままにする。重みと違って差し替える理由がない。 -->
