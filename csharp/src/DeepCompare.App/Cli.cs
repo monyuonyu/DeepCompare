@@ -114,6 +114,17 @@ internal static class Cli
             }
             return RunSecrets(files, args, output);
         }
+        if (args.Contains("--print-version-info"))
+        {
+            var files = Positional(args);
+            if (files.Length < 1)
+            {
+                Console.Error.WriteLine("--print-version-info には実行ファイルが 1 つか 2 つ必要です");
+                Console.Error.Write(usage);
+                return 2;
+            }
+            return RunVersionInfo(files, args, output);
+        }
         if (args.Contains("--snapshot"))
         {
             var where = Positional(args);
@@ -639,6 +650,53 @@ internal static class Cli
             return comparison.Rows.Any(r => !r.IsUnchanged) ? 1 : 0;
         }
         catch (Exception error) when (error is GitException or IOException)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+    }
+
+    /// <summary>
+    /// 実行ファイルのバージョン情報。1 つなら中身を出し、2 つなら比べる。
+    ///
+    /// 終了コードは 0 同じ（または 1 つ指定）/ 1 違う / 2 異常。
+    /// </summary>
+    private static int RunVersionInfo(string[] files, string[] args, string? output)
+    {
+        try
+        {
+            var left = VersionInfo.Read(files[0]);
+            if (files.Length < 2)
+            {
+                // 1 つだけなら、比較の形（左だけ埋まった表）で出す。
+                // **見せ方を 2 通り持たない。**
+                var single = VersionInfo.Compare(left, left)
+                    .Select(d => d with { Right = null }).ToList();
+                var text = new StringBuilder();
+                text.AppendLine(files[0]);
+                text.AppendLine("---");
+                foreach (var item in single)
+                {
+                    text.AppendLine($"  {item.Key,-24} {item.Left ?? "（無し）"}");
+                }
+                Emit(text.ToString(), output);
+                return 0;
+            }
+
+            var right = VersionInfo.Read(files[1]);
+            var differences = VersionInfo.Compare(left, right);
+
+            var report = new StringBuilder();
+            report.AppendLine($"left  {files[0]}");
+            report.AppendLine($"right {files[1]}");
+            report.AppendLine("---");
+            report.Append(VersionInfo.Format(differences, !args.Contains("--all")));
+            Emit(report.ToString(), output);
+
+            return differences.Any(d => !d.IsSame) ? 1 : 0;
+        }
+        catch (Exception error) when (error is IOException or InvalidDataException
+                                        or UnauthorizedAccessException)
         {
             Console.Error.WriteLine(error.Message);
             return 2;

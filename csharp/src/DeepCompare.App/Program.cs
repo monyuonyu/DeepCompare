@@ -48,6 +48,13 @@ internal static class Program
                                      決められない箇所が残ったら中身を出して止まる。
                                      --take-ours / --take-theirs でその側に寄せる。
                                      0 解決 / 1 競合が残る / 2 異常
+          deepcompare --print-version-info 実行ファイル [実行ファイル]
+                                     Windows の実行ファイル（PE）の版・会社名・
+                                     説明などを出す。2 つ渡せば比べる。
+                                     **Windows の API に頼らず自前で読む**ので、
+                                     Linux 上でも Windows 向けの成果物を確かめ
+                                     られる。--all で同じ項目も出す。
+                                     0 同じ / 1 違う / 2 異常
           deepcompare --snapshot <フォルダー>
                                      いまの状態を写し取る（BC の Snapshot）。
                                      標準出力へ出すので `-o` かリダイレクトで
