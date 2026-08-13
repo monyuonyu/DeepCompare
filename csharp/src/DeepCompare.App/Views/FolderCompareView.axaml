@@ -33,6 +33,14 @@
           **新しいフォルダーは行に紐づかないので、ここに置く。**
           右クリックの中に混ぜると、選んだ行の中に作られると読まれる。
         -->
+        <!--
+          走査をやめる。**走っている間だけ出す。** 場所を選び間違えて
+          大きな木を走査し始めたとき、終わるまで待つのは困る。
+        -->
+        <Button Classes="icon" Command="{Binding CancelCommand}"
+                IsVisible="{Binding IsBusy}" ToolTip.Tip="走査をやめる">
+          <Path Classes="icon" Data="{StaticResource IconStop}" />
+        </Button>
         <Button Classes="icon" Command="{Binding NewFolderLeftCommand}"
                 ToolTip.Tip="左に新しいフォルダーを作る">
           <Path Classes="icon" Data="{StaticResource IconNewFolderLeft}" />

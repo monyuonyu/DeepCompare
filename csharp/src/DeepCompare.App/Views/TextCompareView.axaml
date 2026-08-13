@@ -4,6 +4,23 @@
              x:Class="DeepCompare.App.Views.TextCompareView"
              x:DataType="vm:TextCompareViewModel">
 
+  <!--
+    キーボード操作。**手がキーボードから離れないようにする。**
+    Ctrl+F で検索欄へ、F3 で次、Shift+F3 で前、Ctrl+H で置換欄へ。
+    Beyond Compare や一般的な編集器と同じ割り当てにする。
+  -->
+  <UserControl.KeyBindings>
+    <KeyBinding Gesture="F3" Command="{Binding FindNextCommand}" />
+    <KeyBinding Gesture="Shift+F3" Command="{Binding FindPreviousCommand}" />
+    <KeyBinding Gesture="Ctrl+Z" Command="{Binding UndoCommand}" />
+    <KeyBinding Gesture="Ctrl+Y" Command="{Binding RedoCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+Z" Command="{Binding RedoCommand}" />
+    <KeyBinding Gesture="F5" Command="{Binding CompareCommand}" />
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveLeftCommand}" />
+    <KeyBinding Gesture="Alt+Down" Command="{Binding NextDifferenceCommand}" />
+    <KeyBinding Gesture="Alt+Up" Command="{Binding PreviousDifferenceCommand}" />
+  </UserControl.KeyBindings>
+
   <UserControl.Styles>
     <!-- 行の高さを固定する。仮想化は「n 行目は n * 高さ の位置」で成り立つ。 -->
     <Style Selector="TextBlock.cell">
@@ -154,6 +171,16 @@
           <Button Classes="icon" Command="{Binding FindNextCommand}" ToolTip.Tip="次を探す">
             <Path Classes="icon" Data="{StaticResource IconNext}" />
           </Button>
+          <!--
+            置換。**検索の隣に置く。** 別の窓を出すと、探した結果を見ながら
+            置き換えるという普通の流れが切れる。
+          -->
+          <TextBox Text="{Binding ReplaceText}" Width="130" Height="30"
+                   PlaceholderText="置き換える文字列"
+                   ToolTip.Tip="空にすると、当たったところを消します" />
+          <Button Content="全部置換" FontSize="11" Padding="8,3"
+                  Command="{Binding ReplaceAllCommand}"
+                  ToolTip.Tip="検索に当たるところを全部置き換えます（取り消しで戻せます）。読み取り専用の側は触りません" />
           <TextBlock Text="{Binding SearchStatus}" Classes="hint" VerticalAlignment="Center"
                      Margin="4,0" />
 

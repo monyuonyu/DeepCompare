@@ -41,6 +41,9 @@
   <!-- 上下に並べる: 横長の枠が 2 段 -->
   <StreamGeometry x:Key="IconOverUnder">M3,5 h18 v6 h-18 z M3,13 h18 v6 h-18 z</StreamGeometry>
 
+  <!-- 止める: 四角。再生の三角と対になる形 -->
+  <StreamGeometry x:Key="IconStop">M6,6 h12 v12 h-12 z</StreamGeometry>
+
   <!-- 表: 格子。行と列があることが一目で分かる形にする -->
   <StreamGeometry x:Key="IconTable">M3,4.5 h18 v15 h-18 z M3,9.5 h18 M3,14.5 h18 M9,4.5 v15 M15,4.5 v15</StreamGeometry>
 

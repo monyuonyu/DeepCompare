@@ -261,3 +261,79 @@ public class FolderOperationsTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(_root, "a")));
     }
 }
+
+/// <summary>
+/// 差異だけを出すとき、中身が残らなかったディレクトリの行を落とす。
+///
+/// **一致だけのディレクトリの見出しが並ぶと、差異を探している目には
+/// 「ここに何かある」と読めてしまう。**
+/// </summary>
+public class DropEmptyDirectoriesTests : IDisposable
+{
+    private readonly string _root = Path.Combine(
+        Path.GetTempPath(), "dc-emptydir-" + Guid.NewGuid().ToString("N")[..8]);
+
+    public DropEmptyDirectoriesTests()
+    {
+        Directory.CreateDirectory(_root);
+        foreach (var side in new[] { "L", "R" })
+        {
+            Directory.CreateDirectory(Path.Combine(_root, side, "same"));
+            Directory.CreateDirectory(Path.Combine(_root, side, "diff"));
+            Directory.CreateDirectory(Path.Combine(_root, side, "deep", "inner"));
+            File.WriteAllText(Path.Combine(_root, side, "same", "a.txt"), "同じ");
+            File.WriteAllText(Path.Combine(_root, side, "deep", "inner", "c.txt"), "同じ");
+        }
+        // ここだけ中身を変える。
+        File.WriteAllText(Path.Combine(_root, "L", "diff", "b.txt"), "こちら");
+        File.WriteAllText(Path.Combine(_root, "R", "diff", "b.txt"), "あちら");
+    }
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_root, recursive: true); }
+        catch (IOException) { }
+        GC.SuppressFinalize(this);
+    }
+
+    private FolderComparison Compare(bool includeIdentical) => FolderComparer.Compare(
+        Path.Combine(_root, "L"), Path.Combine(_root, "R"),
+        new FolderCompareOptions { IncludeIdentical = includeIdentical });
+
+    [Fact]
+    public void 差異だけのときは中身の無いディレクトリを出さない()
+    {
+        var names = Compare(includeIdentical: false).Entries
+            .Select(e => e.RelativePath).ToList();
+
+        Assert.Contains("diff", names);
+        Assert.Contains("diff/b.txt", names);
+        // **中身が全部一致だったディレクトリは消える。**
+        Assert.DoesNotContain("same", names);
+        Assert.DoesNotContain("deep", names);
+        Assert.DoesNotContain("deep/inner", names);
+    }
+
+    [Fact]
+    public void 全部出すときはディレクトリを残す()
+    {
+        var names = Compare(includeIdentical: true).Entries
+            .Select(e => e.RelativePath).ToList();
+
+        Assert.Contains("same", names);
+        Assert.Contains("deep", names);
+        Assert.Contains("deep/inner", names);
+    }
+
+    [Fact]
+    public void 落としたディレクトリは集計にも入れない()
+    {
+        // **一覧と数を食い違わせない。** 「フォルダー 4」と出ているのに
+        // 一覧に 1 つしかないと、残りをどこかで見落としたのかと疑わせる。
+        // ファイルの数（一致 2 / 違う 1）は走査した実数のまま。
+        var stats = Compare(includeIdentical: false).Stats;
+        Assert.Equal(2, stats.Identical);
+        Assert.Equal(1, stats.Different);
+        Assert.Equal(1, stats.Directories);
+    }
+}

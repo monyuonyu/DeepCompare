@@ -323,7 +323,11 @@ public sealed class ShellViewModel : ViewModelBase
 
     // --- 画面を開く。**どれも新しいタブを作る** ---
 
-    public TextCompareViewModel ShowText(string left, string right)
+    /// <param name="run">
+    /// すぐ比べるか。**保存した設定を流し込むときは false にする** —
+    /// 先に走らせてしまうと、設定を入れた後にもう一度走ることになる。
+    /// </param>
+    public TextCompareViewModel ShowText(string left, string right, bool run = true)
     {
         var model = new TextCompareViewModel(this)
         {
@@ -333,16 +337,23 @@ public sealed class ShellViewModel : ViewModelBase
         };
         var tab = Add(TitleFor(left, right), model, $"{left}\n{right}");
         model.Tab = tab;
-        model.CompareCommand.Execute(null);
+        if (run)
+        {
+            model.CompareCommand.Execute(null);
+        }
         return model;
     }
 
-    public void ShowFolders(string left, string right)
+    public FolderCompareViewModel ShowFolders(string left, string right, bool run = true)
     {
         var model = new FolderCompareViewModel(this) { LeftRoot = left, RightRoot = right };
         var tab = Add(TitleFor(left, right), model, $"{left}\n{right}");
         model.Tab = tab;
-        model.RefreshCommand.Execute(null);
+        if (run)
+        {
+            model.RefreshCommand.Execute(null);
+        }
+        return model;
     }
 
     public void ShowStructured(string left, string right)

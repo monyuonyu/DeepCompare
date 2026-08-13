@@ -136,6 +136,8 @@ public sealed class TextCompareViewModel : ViewModelBase
             row => UnlinkAsync(row), row => row.Row is { Left: not null, Right: not null });
         ClearManualCommand = new RelayCommand(
             ClearManualAsync, () => !Manual.IsEmpty);
+        ReplaceAllCommand = new RelayCommand(
+            ReplaceAllAsync, () => SearchText.Length > 0 && (!LeftReadOnly || !RightReadOnly));
 
         CopySelectedLeftCommand = new RelayCommand(
             () => CopySelectionAsync(both: false), () => SelectedRows.Count > 0);
@@ -355,6 +357,74 @@ public sealed class TextCompareViewModel : ViewModelBase
         return Task.CompletedTask;
     }
 
+    private string _replaceText = string.Empty;
+
+    /// <summary>置き換える文字列。**空でも通す**（消す操作になる）。</summary>
+    public string ReplaceText
+    {
+        get => _replaceText;
+        set => Set(ref _replaceText, value);
+    }
+
+    public RelayCommand ReplaceAllCommand { get; }
+
+    /// <summary>
+    /// 検索に当たるところを全部置き換える。
+    ///
+    /// **読み取り専用の側は触らない。** git の索引や取り出した本文は
+    /// 書き戻せないので、そこを書き換えると保存で失敗する。
+    ///
+    /// **取り消しで戻せる。** 一括置換は当たり所を読み違えると被害が大きい。
+    /// </summary>
+    private async Task ReplaceAllAsync()
+    {
+        if (_leftDocument is null || _rightDocument is null || SearchText.Length == 0)
+        {
+            return;
+        }
+
+        var query = new SearchQuery(SearchText, SearchUseRegex, SearchMatchCase, SearchWholeWord);
+        var total = 0;
+
+        // 0 = 両方 / 1 = 左だけ / 2 = 右だけ（検索の Sides と同じ意味）。
+        if (SearchSide != 2 && !LeftReadOnly)
+        {
+            var replaced = TextSearch.ReplaceAll(
+                _leftDocument.Lines, query, ReplaceText, out var count);
+            if (count > 0)
+            {
+                _leftDocument.Replace(0, _leftDocument.Lines.Count, replaced);
+                _undoSides.Push(false);
+                total += count;
+            }
+        }
+        if (SearchSide != 1 && !RightReadOnly)
+        {
+            var replaced = TextSearch.ReplaceAll(
+                _rightDocument.Lines, query, ReplaceText, out var count);
+            if (count > 0)
+            {
+                _rightDocument.Replace(0, _rightDocument.Lines.Count, replaced);
+                _undoSides.Push(true);
+                total += count;
+            }
+        }
+
+        if (total == 0)
+        {
+            // **「置き換えました」と出さない。** 当たらなかったのか、
+            // 読み取り専用で触れなかったのかが分かるようにする。
+            StatusText = LeftReadOnly && RightReadOnly
+                ? "どちらも読み取り専用なので置き換えられません。"
+                : $"「{SearchText}」は見つかりませんでした。";
+            return;
+        }
+
+        _redoSides.Clear();
+        await RecompareAsync();
+        StatusText = $"{total} か所を置き換えました（取り消しで戻せます）。";
+    }
+
     /// <summary>
     /// いま選んでいる行。**画面側が入れる**（ListBox の複数選択）。
     /// 1 行だけのときも入るので、写しの操作はこちらに寄せられる。
@@ -500,6 +570,7 @@ public sealed class TextCompareViewModel : ViewModelBase
         {
             if (Set(ref _searchText, value))
             {
+                ReplaceAllCommand.Raise();
                 OnPropertyChanged(nameof(SearchStatus));
             }
         }

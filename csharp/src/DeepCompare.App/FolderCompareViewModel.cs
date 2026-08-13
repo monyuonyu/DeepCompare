@@ -194,6 +194,8 @@ public sealed class FolderCompareViewModel : ViewModelBase
             row => !row.Entry.IsDirectory && row.HasLeft);
         CopyToLeftCommand = new RelayCommand<FolderRowView>(row => CopyFileAsync(row, toRight: false),
             row => !row.Entry.IsDirectory && row.HasRight);
+        CancelCommand = new RelayCommand(
+            () => { CancelScan(); return Task.CompletedTask; }, () => IsBusy);
         RenameLeftCommand = new RelayCommand<FolderRowView>(row => RenameAsync(row, left: true),
             row => row.HasLeft);
         RenameRightCommand = new RelayCommand<FolderRowView>(row => RenameAsync(row, left: false),
@@ -697,7 +699,13 @@ public sealed class FolderCompareViewModel : ViewModelBase
     public bool IsBusy
     {
         get => _isBusy;
-        private set => Set(ref _isBusy, value);
+        private set
+        {
+            if (Set(ref _isBusy, value))
+            {
+                CancelCommand.Raise();
+            }
+        }
     }
 
     private FolderFilter _filter = FolderFilter.Differences;
@@ -767,8 +775,27 @@ public sealed class FolderCompareViewModel : ViewModelBase
         set => Set(ref _selected, value);
     }
 
+    private CancellationTokenSource? _scanning;
+
+    /// <summary>
+    /// 走査をやめる。
+    ///
+    /// **大きな木では要る。** 場所を選び間違えて `/` を走査し始めたとき、
+    /// 終わるまで何もできないのは困る。
+    /// </summary>
+    public void CancelScan() => _scanning?.Cancel();
+
+    /// <summary>やめるためのコマンド。**走っている間だけ押せる。**</summary>
+    public RelayCommand CancelCommand { get; private set; } = null!;
+
     private async Task RunAsync()
     {
+        // 前の走査が残っていたら止める。**二重に走らせない。**
+        _scanning?.Cancel();
+        _scanning?.Dispose();
+        _scanning = new CancellationTokenSource();
+        var token = _scanning.Token;
+
         IsBusy = true;
         StatusText = "走査しています…";
         try
@@ -785,13 +812,26 @@ public sealed class FolderCompareViewModel : ViewModelBase
             void Fetching(string name) => Dispatcher.UIThread.Post(
                 () => StatusText = $"取ってきています… {name}");
 
+            // **進捗を出す。** 数万ファイルの走査で、動いているのか
+            // 止まっているのかが分からないのが一番困る。
+            // 画面へ流し込む回数は抑える（1 件ごとに送ると描画で詰まる）。
+            var seen = 0;
+            void Progress(string path)
+            {
+                if (++seen % 200 == 0)
+                {
+                    Dispatcher.UIThread.Post(() => StatusText = $"走査しています… {seen:N0} 件");
+                }
+            }
+
             var (result, renames, notes) = await Task.Run(() =>
             {
                 // 書庫なら一時領域へ展開し、リモートなら取ってくる。
                 // 走査が終わったら消す。
                 using var leftSource = ArchiveSource.Open(left, mirrorOptions, Fetching);
                 using var rightSource = ArchiveSource.Open(right, mirrorOptions, Fetching);
-                var comparison = FolderComparer.Compare(leftSource.Path, rightSource.Path, options);
+                var comparison = FolderComparer.Compare(
+                    leftSource.Path, rightSource.Path, options, Progress, token);
                 var found = detectRenames
                     ? RenameDetector.Detect(comparison, leftSource.Path, rightSource.Path)
                     : [];
@@ -829,6 +869,14 @@ public sealed class FolderCompareViewModel : ViewModelBase
                 + $"一致 {s.Identical} / フォルダー {s.Directories}"
                 + (s.Errors > 0 ? $" / 読めなかったもの {s.Errors}" : string.Empty);
             Rebuild();
+        }
+        catch (OperationCanceledException)
+        {
+            // **やめたことを言う。** 一覧が空のまま黙って終わると、
+            // 差異が無かったのか止めたのかが分からない。
+            _allRows = [];
+            Rows.Clear();
+            StatusText = "走査をやめました。";
         }
         catch (Exception error)
         {

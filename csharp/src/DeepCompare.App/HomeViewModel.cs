@@ -122,13 +122,28 @@ public sealed class HomeViewModel : ViewModelBase
         _sessions.Upsert(entry.Session);
         ReloadSessions();
 
-        if (entry.Session.Kind == SessionKind.Folder)
+        // **保存した設定をそのまま渡す。** ここが抜けていると、
+        // 「そのとき何を無視していたか」まで覚える意味が無くなり、
+        // 開くたびに空白の扱いや除外の指定を入れ直すことになる。
+        var session = entry.Session;
+
+        if (session.Kind == SessionKind.Folder)
         {
-            _shell.ShowFolders(entry.Session.LeftPath, entry.Session.RightPath);
+            var model = _shell.ShowFolders(session.LeftPath, session.RightPath, run: false);
+            model.IncludeNames = string.Join(" ", session.IncludeNames);
+            model.ExcludeNames = string.Join(" ", session.ExcludeNames);
+            model.TimestampTolerance = session.TimestampToleranceSeconds;
+            model.IgnoreDaylightSaving = session.IgnoreDaylightSavingOffset;
+            model.RefreshCommand.Execute(null);
         }
         else
         {
-            _shell.ShowText(entry.Session.LeftPath, entry.Session.RightPath);
+            var model = _shell.ShowText(session.LeftPath, session.RightPath, run: false);
+            model.PairThreshold = session.PairThreshold;
+            model.WhitespaceModeIndex = (int)session.Whitespace;
+            model.IgnoreCase = session.IgnoreCase;
+            model.IgnoredPatterns = string.Join("\n", session.IgnoredPatterns);
+            model.CompareCommand.Execute(null);
         }
     }
 
