@@ -105,7 +105,8 @@ public static class AssistCli
         AssistAdvice advice;
         try
         {
-            advice = await assistant.ExplainStatusAsync(status);
+            advice = await assistant.ExplainStatusAsync(
+                status, maxTokens: settings.ExplainMaxTokens);
         }
         catch (AssistException error)
         {
@@ -187,6 +188,63 @@ public static class AssistCli
             return 2;
         }
         return 0;
+    }
+
+    /// <summary>
+    /// 衝突の解決案を出す。**既定では断る。**
+    ///
+    /// 3 つのファイル（こちら・あちら・元）を渡す。返るのは本文だけで、
+    /// **どう使うかは呼んだ側が決める** — 画面では選択肢の 1 つとして並べ、
+    /// 押さなければ何も起きない形にしている。
+    /// </summary>
+    public static async Task<int> ProposeResolutionAsync(
+        AssistSettings settings,
+        string oursPath, string theirsPath, string basePath, TextWriter output)
+    {
+        if (WhyUnavailable(settings) is { } reason)
+        {
+            Console.Error.WriteLine(reason);
+            return 2;
+        }
+
+        string ours, theirs, baseText;
+        try
+        {
+            ours = File.ReadAllText(oursPath);
+            theirs = File.ReadAllText(theirsPath);
+            baseText = File.ReadAllText(basePath);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+
+        using var client = new ChatClient(settings);
+        var assistant = new GitAssistant(client);
+
+        try
+        {
+            var proposal = await assistant.ProposeResolutionAsync(
+                settings, Path.GetFileName(oursPath), ours, theirs, baseText);
+
+            // **提案だと分かる形で出す。** そのまま書き出せる体裁にしない。
+            Console.Error.WriteLine(
+                "※これは提案です。人が確かめてから使ってください。");
+            output.Write(proposal);
+            output.WriteLine();
+            return 0;
+        }
+        catch (InvalidOperationException error)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
+        catch (AssistException error)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 2;
+        }
     }
 
     /// <summary>繋がるかを確かめる。</summary>

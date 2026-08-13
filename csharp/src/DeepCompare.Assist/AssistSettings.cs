@@ -29,10 +29,15 @@ public sealed record AssistSettings
     /// <summary>
     /// 待つ上限。
     ///
-    /// **短くする。** 支援は「あると助かる」ものであって、比較の邪魔をして
-    /// よいものではない。繋がらない相手を延々待つくらいなら出さない方がよい。
+    /// **CPU で動かすローカルモデルに合わせる。** この機体で実測すると
+    /// 1.5B が 15.9 トークン/秒、**7B は 2.2 トークン/秒**。7B に 400 トークン
+    /// 書かせると 3 分かかる。60 秒だと、大きめのモデルでは必ず時限切れになり
+    /// 「繋がりませんでした」と出る（実際に踏んだ）。
+    ///
+    /// 長くしても比較の邪魔にはならない。**支援は別の入口にあり、
+    /// 待っている間も比較はそのまま使える。**
     /// </summary>
-    public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(60);
+    public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(4);
 
     /// <summary>
     /// 繋がるかを確かめるときの上限。**さらに短く。**
@@ -52,6 +57,13 @@ public sealed record AssistSettings
     /// 「短く終わること」は保証しない。
     /// </summary>
     public int MaxOutputTokens { get; init; } = 600;
+
+    /// <summary>
+    /// 説明のときの上限。**短くする。**
+    /// 2〜3 文と選択肢が数個なので 400 で足りる。CPU の 7B では
+    /// 1 トークンが 0.45 秒なので、上限がそのまま待ち時間になる。
+    /// </summary>
+    public int ExplainMaxTokens { get; init; } = 400;
 
     /// <summary>
     /// 解決案（生成）まで出してよいか。

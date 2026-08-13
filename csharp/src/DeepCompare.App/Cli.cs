@@ -117,7 +117,7 @@ internal static class Cli
             return RunSecrets(files, args, output);
         }
         if (args.Contains("--assist-status") || args.Contains("--assist-commit")
-            || args.Contains("--assist-probe"))
+            || args.Contains("--assist-probe") || args.Contains("--assist-resolve"))
         {
             // **比較の経路とは別の入口。** 「比較のつもりが通信していた」を
             // 起こさないため、ここへ来るのは明示的に指定したときだけ。
@@ -133,6 +133,18 @@ internal static class Cli
             if (args.Contains("--assist-probe"))
             {
                 return AssistCli.ProbeAsync(settings, writer).GetAwaiter().GetResult();
+            }
+            if (args.Contains("--assist-resolve"))
+            {
+                var files = Positional(args);
+                if (files.Length < 3)
+                {
+                    Console.Error.WriteLine(
+                        "--assist-resolve には ＜こちら＞ ＜あちら＞ ＜元＞ の 3 つが要ります");
+                    return 2;
+                }
+                return AssistCli.ProposeResolutionAsync(
+                    settings, files[0], files[1], files[2], writer).GetAwaiter().GetResult();
             }
             if (args.Contains("--assist-commit"))
             {

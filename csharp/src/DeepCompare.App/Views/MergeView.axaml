@@ -117,7 +117,38 @@
                   <Button Content="どちらも採らない" FontSize="11" Padding="10,3"
                           Command="{Binding $parent[UserControl].((vm:MergeViewModel)DataContext).TakeNeitherCommand}"
                           CommandParameter="{Binding}" />
+                  <!--
+                    **解決案は設定で明示的に許した人にだけ出る。**
+                    説明や分類と違い、意味を取り違えると害になる生成なので。
+                  -->
+                  <Button Content="案を聞く" FontSize="11" Padding="10,3"
+                          IsVisible="{Binding $parent[UserControl].((vm:MergeViewModel)DataContext).AssistAvailable}"
+                          Command="{Binding $parent[UserControl].((vm:MergeViewModel)DataContext).AskAssistCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="解決案を出します。採るかどうかは自分で決めてください" />
                 </StackPanel>
+
+                <!--
+                  届いた案。**平文で終わらせず、選べる形にして出す。**
+                  他の選択肢と同じ行に「採る」を置くので、承認の粒度が
+                  競合 1 つ単位になる。押さなければ何も起きない。
+                -->
+                <Border IsVisible="{Binding HasAssist}" Margin="0,6,0,0"
+                        Background="{DynamicResource SubtleBg}"
+                        BorderBrush="{DynamicResource Divider}" BorderThickness="1"
+                        CornerRadius="{DynamicResource RadiusSmall}" Padding="8,6">
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="提案（人が確かめてから採ってください）"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource FgWarning}" />
+                    <TextBlock Text="{Binding AssistText}" Classes="mono" FontSize="12"
+                               TextWrapping="NoWrap" />
+                    <Button Content="この案を採る" FontSize="11" Padding="10,3"
+                            HorizontalAlignment="Left"
+                            Command="{Binding $parent[UserControl].((vm:MergeViewModel)DataContext).TakeAssistCommand}"
+                            CommandParameter="{Binding}" />
+                  </StackPanel>
+                </Border>
 
               </StackPanel>
             </Border>

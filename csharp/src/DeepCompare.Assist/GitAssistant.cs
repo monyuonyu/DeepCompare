@@ -116,7 +116,8 @@ public sealed class GitAssistant(ChatClient client)
     /// ここから git を呼ばないのは、この層に副作用を持たせないため。
     /// </param>
     public async Task<AssistAdvice> ExplainStatusAsync(
-        string status, CancellationToken cancellationToken = default)
+        string status, CancellationToken cancellationToken = default,
+        int? maxTokens = null)
     {
         var answer = await client.CompleteAsync(
             [
@@ -132,7 +133,8 @@ public sealed class GitAssistant(ChatClient client)
                     """),
             ],
             AdviceSchema(),
-            cancellationToken);
+            cancellationToken,
+            maxTokens);
 
         return ParseAdvice(answer);
     }

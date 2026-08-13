@@ -117,7 +117,8 @@ public sealed class GitAssistViewModel : ViewModelBase
             var status = await Task.Run(() => AssistCli.FormatStatus(repository));
 
             using var client = new ChatClient(Settings);
-            var advice = await new GitAssistant(client).ExplainStatusAsync(status);
+            var advice = await new GitAssistant(client).ExplainStatusAsync(
+                status, maxTokens: Settings.ExplainMaxTokens);
 
             Explanation = advice.Explanation;
             foreach (var suggestion in advice.Suggestions)

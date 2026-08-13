@@ -16,6 +16,14 @@ public enum ConflictChoice
     /// <summary>両方を並べて残す。順序は左が先。</summary>
     Both,
 
+    /// <summary>
+    /// LLM の提案を採る。
+    ///
+    /// **他と並ぶ 1 つの選択肢として置く。** 自動では選ばれず、
+    /// 押さなければ何も起きない。承認の粒度が競合 1 つ単位になる。
+    /// </summary>
+    Assist,
+
     /// <summary>どちらも採らない（祖先へ戻す）。</summary>
     Neither,
 }
@@ -59,8 +67,31 @@ public sealed class MergeRegionRow(MergeRegion region, int index) : ViewModelBas
         ConflictChoice.Right => "右を採った",
         ConflictChoice.Both => "両方を残した",
         ConflictChoice.Neither => "どちらも採らない",
+        // **提案だと分かるように書く。** 後から履歴を見た人が、
+        // これを人が書いたものと思わないように。
+        ConflictChoice.Assist => "提案を採った",
         _ => "未決",
     };
+
+    private string _assistText = string.Empty;
+
+    /// <summary>
+    /// LLM が出した解決案。**空なら選択肢として現れない。**
+    /// </summary>
+    public string AssistText
+    {
+        get => _assistText;
+        set
+        {
+            if (Set(ref _assistText, value))
+            {
+                OnPropertyChanged(nameof(HasAssist));
+                OnPropertyChanged(nameof(ResultText));
+            }
+        }
+    }
+
+    public bool HasAssist => AssistText.Length > 0;
 
     public string SourceLabel => Region.Source switch
     {
@@ -84,9 +115,33 @@ public sealed class MergeRegionRow(MergeRegion region, int index) : ViewModelBas
             ConflictChoice.Right => Region.RightLines,
             ConflictChoice.Both => [.. Region.LeftLines, .. Region.RightLines],
             ConflictChoice.Neither => Region.BaseLines,
+            ConflictChoice.Assist => AssistLines,
             _ => [],
         }
         : Region.Lines;
+
+    /// <summary>
+    /// 提案を行に割る。
+    ///
+    /// **末尾の空行を落とす。** モデルは最後に改行を足しがちで、
+    /// そのまま採ると空行が 1 つ増える（差分としては見えにくい変化）。
+    /// </summary>
+    private IReadOnlyList<string> AssistLines
+    {
+        get
+        {
+            if (AssistText.Length == 0)
+            {
+                return [];
+            }
+            var lines = AssistText.Replace("\r\n", "\n").Split('\n').ToList();
+            while (lines.Count > 0 && lines[^1].Length == 0)
+            {
+                lines.RemoveAt(lines.Count - 1);
+            }
+            return lines;
+        }
+    }
 
     public string ResultText => Join(Resolved);
 
@@ -136,6 +191,10 @@ public sealed class MergeViewModel : ViewModelBase
         TakeNeitherCommand = new RelayCommand<MergeRegionRow>(row => Decide(row, ConflictChoice.Neither));
         TakeAllLeftCommand = new RelayCommand(() => DecideAll(ConflictChoice.Left));
         TakeAllRightCommand = new RelayCommand(() => DecideAll(ConflictChoice.Right));
+        TakeAssistCommand = new RelayCommand<MergeRegionRow>(
+            row => Decide(row, ConflictChoice.Assist), row => row.HasAssist);
+        AskAssistCommand = new RelayCommand<MergeRegionRow>(
+            AskAssistAsync, row => AssistAvailable && row.IsConflict && !_busy);
     }
 
     public ObservableCollection<MergeRegionRow> Regions { get; } = [];
@@ -148,6 +207,80 @@ public sealed class MergeViewModel : ViewModelBase
     public RelayCommand<MergeRegionRow> TakeNeitherCommand { get; }
     public RelayCommand TakeAllLeftCommand { get; }
     public RelayCommand TakeAllRightCommand { get; }
+
+    /// <summary>解決案を求める。**競合 1 つずつ。** まとめては聞かない。</summary>
+    public RelayCommand<MergeRegionRow> AskAssistCommand { get; }
+
+    /// <summary>提案を採る。**他の選択肢と同じ扱いで、押さなければ何も起きない。**</summary>
+    public RelayCommand<MergeRegionRow> TakeAssistCommand { get; }
+
+    private Assist.AssistSettings? _assistSettings;
+
+    private Assist.AssistSettings AssistSettings => _assistSettings ??= LoadAssistSettings();
+
+    private static Assist.AssistSettings LoadAssistSettings()
+    {
+        var saved = SessionStore.Default.LoadFile();
+        return new Assist.AssistSettings
+        {
+            Endpoint = Environment.GetEnvironmentVariable(
+                AssistCli.EndpointEnvironmentVariable) ?? saved.AssistEndpoint,
+            Model = Environment.GetEnvironmentVariable(
+                AssistCli.ModelEnvironmentVariable) ?? saved.AssistModel,
+            ApiKey = Environment.GetEnvironmentVariable(AssistCli.ApiKeyEnvironmentVariable),
+            AllowResolutionProposals = saved.AssistAllowResolution,
+        };
+    }
+
+    /// <summary>
+    /// 解決案を出せるか。
+    ///
+    /// **接続先だけでは足りない。** 解決案は意味を取り違えると害になる生成で、
+    /// 説明や分類とは性質が違う。設定で明示的に許すまで出さない。
+    /// </summary>
+    public bool AssistAvailable
+        => AssistSettings.IsConfigured && AssistSettings.AllowResolutionProposals;
+
+    private async Task AskAssistAsync(MergeRegionRow row)
+    {
+        if (!AssistAvailable || !row.IsConflict)
+        {
+            return;
+        }
+
+        Busy = true;
+        Message = $"競合 {row.Number} の案を聞いています…";
+        try
+        {
+            using var client = new Assist.ChatClient(AssistSettings);
+            var assistant = new Assist.GitAssistant(client);
+
+            var proposal = await assistant.ProposeResolutionAsync(
+                AssistSettings,
+                Path.GetFileName(LeftPath),
+                row.LeftText, row.RightText,
+                row.BaseText is "（空）" ? null : row.BaseText);
+
+            row.AssistText = proposal.Trim();
+
+            // **勝手に選ばない。** 出しただけで、採るかどうかは人が決める。
+            Message = row.HasAssist
+                ? $"競合 {row.Number} の案が届きました。採るかどうかは選んでください。"
+                : $"競合 {row.Number} について案は出ませんでした。";
+            TakeAssistCommand.Raise();
+        }
+        catch (Exception error) when (error is Assist.AssistException
+                                        or InvalidOperationException
+                                        or ArgumentException)
+        {
+            // **マージの操作まで止めない。**
+            Message = error.Message;
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
 
     private string _basePath = string.Empty;
     public string BasePath
