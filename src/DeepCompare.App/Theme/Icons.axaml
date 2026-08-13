@@ -118,7 +118,11 @@
   <StreamGeometry x:Key="IconExport">M12,15 v-12 M7.5,7 l4.5,-4 l4.5,4 M4,14 v6.5 h16 v-6.5</StreamGeometry>
 
   <!-- 設定: つまみの付いた 3 本のすべり -->
-  <StreamGeometry x:Key="IconSettings">M3,6.5 h4 M11,6.5 h10 M3,12 h10 M17,12 h4 M3,17.5 h6 M13,17.5 h8 M7,4.5 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M13,10 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0 M9,15.5 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0</StreamGeometry>
+  <!--
+    設定。**歯車にする。** 3 本のつまみ（スライダー）で描いていたが、
+    何のボタンか分からないという指摘のとおり。歯車なら説明が要らない。
+  -->
+  <StreamGeometry x:Key="IconSettings">M9,12 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0 M19.4,15 a1.65,1.65 0 0 0 .33,1.82 l.06.06 a2,2 0 1 1 -2.83,2.83 l-.06-.06 a1.65,1.65 0 0 0 -1.82-.33 a1.65,1.65 0 0 0 -1,1.51 V21 a2,2 0 0 1 -4,0 v-.09 a1.65,1.65 0 0 0 -1.08-1.51 a1.65,1.65 0 0 0 -1.82.33 l-.06.06 a2,2 0 1 1 -2.83-2.83 l.06-.06 a1.65,1.65 0 0 0 .33-1.82 a1.65,1.65 0 0 0 -1.51-1 H3 a2,2 0 0 1 0-4 h.09 a1.65,1.65 0 0 0 1.51-1.08 a1.65,1.65 0 0 0 -.33-1.82 l-.06-.06 a2,2 0 1 1 2.83-2.83 l.06.06 a1.65,1.65 0 0 0 1.82.33 H9 a1.65,1.65 0 0 0 1-1.51 V3 a2,2 0 0 1 4,0 v.09 a1.65,1.65 0 0 0 1,1.51 a1.65,1.65 0 0 0 1.82-.33 l.06-.06 a2,2 0 1 1 2.83,2.83 l-.06.06 a1.65,1.65 0 0 0 -.33,1.82 V9 a1.65,1.65 0 0 0 1.51,1 H21 a2,2 0 0 1 0,4 h-.09 a1.65,1.65 0 0 0 -1.51,1 Z</StreamGeometry>
 
   <!-- 左右を入れ替える -->
   <StreamGeometry x:Key="IconSwap">M3.5,8.5 h15 M15,5 l3.5,3.5 l-3.5,3.5 M20.5,15.5 h-15 M9,12 l-3.5,3.5 l3.5,3.5</StreamGeometry>
@@ -197,6 +201,16 @@
 
   <!-- 新しいタブ -->
   <!-- コミットの確定。VS Code と同じくチェックで示す -->
+  <!--
+    窓の飾り（最小化・最大化・復元・閉じる）。
+    **Windows の標準に形を合わせる。** 太さも大きさも OS のものと
+    同じに見えないと、そこだけ別のアプリのように浮く。
+  -->
+  <StreamGeometry x:Key="IconWinMinimize">M2,12 h20</StreamGeometry>
+  <StreamGeometry x:Key="IconWinMaximize">M3,3 h18 v18 h-18 Z</StreamGeometry>
+  <StreamGeometry x:Key="IconWinRestore">M6,8 h13 v13 h-13 Z M8.5,8 V5 h13 v13 h-2.5</StreamGeometry>
+  <StreamGeometry x:Key="IconWinClose">M3,3 L21,21 M21,3 L3,21</StreamGeometry>
+
   <StreamGeometry x:Key="IconCheck">M4,12.5 l5,5 l11,-11</StreamGeometry>
   <StreamGeometry x:Key="IconPlus">M12,4.5 v15 M4.5,12 h15</StreamGeometry>
 

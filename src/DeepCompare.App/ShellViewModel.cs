@@ -153,10 +153,10 @@ public sealed class ShellViewModel : ViewModelBase
     public ObservableCollection<CompareKind> Kinds { get; }
 
     /// <summary>
-    /// 右上で OS のボタンに譲る幅。
+    /// 右上で窓の飾りに譲る幅。
     ///
-    /// **Windows だけ空ける。** Linux では窓の装飾を窓管理ソフトが
-    /// 持つので、こちらに重なるものが無い。空けると右端が間抜けに空く。
+    /// **Windows だけ空ける。** Linux では飾りを窓管理ソフトが持つので、
+    /// こちらに重なるものが無い。空けると右端が間抜けに空く。
     /// </summary>
     public double SystemChromeWidth => OperatingSystem.IsWindows() ? 140 : 0;
 

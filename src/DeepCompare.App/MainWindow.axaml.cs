@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
@@ -133,6 +134,27 @@ public partial class MainWindow : Window
                 }
             };
         }
+    }
+
+    private void OnMinimize(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        => WindowState = WindowState.Minimized;
+
+    /// <summary>最大化と復元を行き来する。**帯の二度押しと同じ動き。**</summary>
+    private void OnMaximize(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        => WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+
+    private void OnClose(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => Close();
+
+    /// <summary>値が来たときだけ何かする観測者。</summary>
+    private sealed class AnonymousObserver<T>(Action<T> onNext) : IObserver<T>
+    {
+        public void OnCompleted() { }
+
+        public void OnError(Exception error) { }
+
+        public void OnNext(T value) => onNext(value);
     }
 
     private readonly DeepCompare.Engine.SessionStore _windowStore =

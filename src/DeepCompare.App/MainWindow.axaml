@@ -10,16 +10,55 @@
         Background="{DynamicResource WindowBg}"
         DragDrop.AllowDrop="True"
         ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaTitleBarHeightHint="-1">
+        WindowDecorations="Full">
   <!--
     **題の帯を自前で持つ。** 既定では題の帯の下にタブ行が来るので、
-    上端に 2 段の帯ができていた。クライアント領域を上端まで伸ばし、
-    タブ行をそのまま題の帯として使う（空いた所を掴めば動かせる）。
+    上端に 2 段の帯ができる。クライアント領域を上端まで伸ばし、
+    タブ行をそのまま題の帯として使う。
 
-    最小化・最大化・閉じるは OS のものが上に載る。**自前で描かない** —
-    Windows の Snap も、帯の二度押しでの最大化も失われる。
-    そのぶんの幅を右に空ける（SystemChromeWidth）。
+    Avalonia 12 の作法（11 までの ExtendClientAreaChromeHints は無い）:
+
+      * 伸ばした先の要素は**既定で「窓の飾り」扱い**。掴めば窓が動く
+      * 押せるようにしたいものには ElementRole="User" を付ける。
+        **付け忘れると押せない**（一度これで詰まった）
+      * 最小化・最大化・閉じるは Avalonia が右上に描く
+
+    題の文字は下のスタイルで消す。消さないとタブと重なる。
   -->
+  <Window.Styles>
+    <Style Selector="WindowDrawnDecorations /template/ Panel#PART_TitleTextPanel > TextBlock">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <!--
+      **窓のボタンも自前で描く。** Avalonia の描くものと自前のものを
+      並べようとしたが、
+
+        * 既定で 4 つ描かれる（フルスクリーンが余分）
+        * 何 px 空ければ重ならないかが環境で変わる
+        * 指したときだけ出るスナップの吹き出しが上に乗る
+
+      と、隙間の調整だけで何度も往復した。**全部こちらで描けば、
+      重なりようがない。**
+    -->
+    <Style Selector="WindowDrawnDecorations /template/ Button#PART_FullScreenButton">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="WindowDrawnDecorations /template/ Button#PART_MinimizeButton">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="WindowDrawnDecorations /template/ Button#PART_MaximizeButton">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="WindowDrawnDecorations /template/ Button#PART_CloseButton">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="Window:maximized Path.max">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="Window:maximized Path.restore">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+  </Window.Styles>
 
   <Window.DataTemplates>
     <!-- 出す画面は今の状態の型で決まる。切り替えのための分岐をコード側に持たない。 -->
@@ -76,7 +115,13 @@
       題の帯からそのまま中身へ続いて見せる。選ばれているタブだけが
       浮いて見えればよい。
     -->
-    <Border DockPanel.Dock="Top" Background="{DynamicResource WindowBg}">
+    <!--
+      **この帯そのものが題の帯。** ElementRole="TitleBar" を付けた要素だけが
+      掴んで動かせる（付けないと、ただの中身として扱われて窓が動かない）。
+      二度押しでの最大化も、このロールが持っている。
+    -->
+    <Border DockPanel.Dock="Top" Background="{DynamicResource WindowBg}"
+            WindowDecorationProperties.ElementRole="TitleBar">
       <DockPanel>
 
       <!--
@@ -84,12 +129,40 @@
         比較に使える高さがその分だけ減る。
       -->
       <!--
-        **右上に OS のボタンが乗るので、そのぶん空ける。**
-        空けないと閉じるボタンの下に自前のボタンが潜り込む。
+        窓のボタン。**押せるように User のロールを付ける。**
+        付けないと帯（TitleBar）の一部として扱われ、押しても窓が動くだけ。
       -->
-      <Border DockPanel.Dock="Right" Width="{Binding SystemChromeWidth}" />
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                  WindowDecorationProperties.ElementRole="User"
+                  VerticalAlignment="Stretch">
+        <Button Classes="chrome" Click="OnMinimize" ToolTip.Tip="最小化">
+          <!--
+            **横線だけは伸縮させない。** 高さ 0 の図形を Uniform で
+            10×10 に収めようとすると潰れて消える（実機で最小化だけが
+            見えず、そこで気づいた）。
+          -->
+          <Path Classes="chrome" Data="M0,5 h10" Stretch="None" />
+        </Button>
+        <Button Classes="chrome" Click="OnMaximize" ToolTip.Tip="最大化／元に戻す">
+          <!--
+            最大化中は「元に戻す」の絵に変える。
+            **窓の状態は疑似クラスで見る。** ViewModel に持たせると、
+            OS 側で最大化されたとき（帯の二度押しや Win+↑）に追従しない。
+          -->
+          <Panel>
+            <Path Classes="chrome max" Data="{StaticResource IconWinMaximize}" />
+            <Path Classes="chrome restore" Data="{StaticResource IconWinRestore}"
+                  IsVisible="False" />
+          </Panel>
+        </Button>
+        <!-- 閉じるだけ、指したときに赤くする（Windows と同じ） -->
+        <Button Classes="chrome close" Click="OnClose" ToolTip.Tip="閉じる">
+          <Path Classes="chrome" Data="{StaticResource IconWinClose}" />
+        </Button>
+      </StackPanel>
 
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2"
+                  WindowDecorationProperties.ElementRole="User"
                   VerticalAlignment="Center" Margin="6,0,8,0">
         <Button Classes="icon" Command="{Binding ToggleThemeCommand}"
                 ToolTip.Tip="明るい／暗いを切り替える">
@@ -111,7 +184,9 @@
         ListBox を使う。**選ばれているのが 1 枚だけであることが構造に出る。**
         自前で「どれが選ばれているか」を持つと、閉じたときや入れ替えたときに必ずずれる。
       -->
-      <ListBox ItemsSource="{Binding Tabs}" SelectedItem="{Binding Selected}"
+      <ListBox DockPanel.Dock="Left"
+               ItemsSource="{Binding Tabs}" SelectedItem="{Binding Selected}"
+               WindowDecorationProperties.ElementRole="User"
                Background="Transparent" BorderThickness="0" Padding="6,5,6,0"
                ScrollViewer.HorizontalScrollBarVisibility="Auto"
                ScrollViewer.VerticalScrollBarVisibility="Disabled">
@@ -181,6 +256,15 @@
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
+
+      <!--
+        **残りの余白が掴める場所。** 帯そのものに TitleBar を付けても、
+        中の入れ物が hit-test を取ってしまい窓が動かなかった
+        （実機で押しても 0px も動かず、そこで気づいた）。
+        タブとボタンを端に寄せ、間に空いたものへロールを付ける。
+      -->
+      <Border WindowDecorationProperties.ElementRole="TitleBar"
+              Background="Transparent" />
       </DockPanel>
     </Border>
 

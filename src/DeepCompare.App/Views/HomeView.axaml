@@ -89,6 +89,18 @@
                   <KeyBinding Gesture="Enter" Command="{Binding OpenCommand}" />
                 </TextBox.KeyBindings>
               </TextBox>
+              <!--
+                **ここだけは 2 択を残す。**
+
+                Windows のダイアログは、ファイルとフォルダーを同時に選べない
+                （フォルダー選択は FOS_PICKFOLDERS という別のモードで、
+                ファイル選択とは排他。ファイル用のダイアログでフォルダーを
+                選んで「開く」を押しても、その中に入るだけ）。
+
+                ダイアログを 1 つに決め打ちすると、もう一方はドロップか
+                手打ちでしか渡せなくなる。**押す手間 1 回より、
+                どちらもボタンから選べる方を採った。**
+              -->
               <Button Grid.Column="2" Classes="icon" ToolTip.Tip="開く">
                 <Path Classes="icon" Data="{StaticResource IconOpen}" />
                 <Button.Flyout>
@@ -108,6 +120,18 @@
                   <KeyBinding Gesture="Enter" Command="{Binding OpenCommand}" />
                 </TextBox.KeyBindings>
               </TextBox>
+              <!--
+                **ここだけは 2 択を残す。**
+
+                Windows のダイアログは、ファイルとフォルダーを同時に選べない
+                （フォルダー選択は FOS_PICKFOLDERS という別のモードで、
+                ファイル選択とは排他。ファイル用のダイアログでフォルダーを
+                選んで「開く」を押しても、その中に入るだけ）。
+
+                ダイアログを 1 つに決め打ちすると、もう一方はドロップか
+                手打ちでしか渡せなくなる。**押す手間 1 回より、
+                どちらもボタンから選べる方を採った。**
+              -->
               <Button Grid.Column="2" Classes="icon" ToolTip.Tip="開く">
                 <Path Classes="icon" Data="{StaticResource IconOpen}" />
                 <Button.Flyout>
