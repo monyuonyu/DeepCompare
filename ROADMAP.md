@@ -10,6 +10,28 @@ Beyond Compare 4 の[公式ユーザーガイド](https://www.scootersoftware.co
 
 ## 現在地（2026-08-13 時点）
 
+### 配布
+
+**タグを打つと CI が作って Release へ添える**
+（[.github/workflows/release.yml](.github/workflows/release.yml)）。
+Windows と Linux の両方を NativeAOT で発行し、**試験を通してから**添える。
+
+    git tag -a v0.1.0 -m "..." && git push origin v0.1.0
+
+配布物は 40MB（展開して 68MB、うち 22MB がモデル）。
+
+**CI が長く失敗していたことに、リリースを作ろうとして気づいた**（2026-08-13）。
+手元では 749 件通るのに CI では落ちる、**環境差**が 2 つあった:
+
+- **追跡していないファイルに依存していた** — 試験が `assets/src/vocab.txt`
+  （モデルの元データ。`.gitignore` の対象）を読んでいた。手元にしか無い
+- **走らせる環境の言語に依存していた** — MUI の試験が `CurrentUICulture` で
+  フォルダーを作り、実装も同じものを見る作り。CI（英語）では食い違い、
+  インバリアントだと名前が空になってフォルダーすらできない
+
+**手元で通ることは、CI で通ることを意味しない。** 直したあと、
+`assets/src` を退避して `LANG=C` で走らせ、同じ条件で通ることを確かめた。
+
 ### 段階ごとの進み
 
 | 段階 | 項目 | 状態 |
