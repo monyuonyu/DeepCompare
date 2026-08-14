@@ -68,7 +68,24 @@ public sealed class Embedder
             return fromEnvironment;
         }
 
-        return Path.Combine(AppContext.BaseDirectory, DefaultWeightsFileName);
+        var byDefaultName = Path.Combine(AppContext.BaseDirectory, DefaultWeightsFileName);
+        if (File.Exists(byDefaultName))
+        {
+            return byDefaultName;
+        }
+
+        // **既定の名前が無ければ、隣にある物を使う。**
+        //
+        // モデルは同梱していないので、落として置いた人のファイル名は
+        // `multilingual-ja.dcm` のように既定とは違う。名前が合わないだけで
+        // 「モデルがありません」と言うのは、置いた本人には理不尽で、
+        // しかも**置いた物が黙って無視される**——一番たちの悪い形になる。
+        //
+        // 複数あるときは一覧の先頭（名前順）。選び直すのは設定から。
+        var available = AvailableModels();
+        return available.Count > 0
+            ? Path.Combine(AppContext.BaseDirectory, available[0])
+            : byDefaultName;
     }
 
     /// <summary>

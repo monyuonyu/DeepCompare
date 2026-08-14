@@ -358,7 +358,9 @@ public sealed class ShellViewModel : ViewModelBase
     /// </summary>
     public string ModelName
     {
-        get => _modelName ?? Embedder.DefaultWeightsFileName;
+        // **いま実際に使う物を出す。** 既定の名前を出すと、別の名前で
+        // 置いた人には「minilm.dcm」と表示されたまま別の物で比べることになる。
+        get => _modelName ?? Path.GetFileName(Embedder.ResolveModelPath());
         set
         {
             var name = value == Embedder.DefaultWeightsFileName ? null : value;
@@ -374,10 +376,17 @@ public sealed class ShellViewModel : ViewModelBase
         }
     }
 
-    /// <summary>実行ファイルの隣にあるモデル。2 つ以上あるときだけ選ばせる。</summary>
+    /// <summary>実行ファイルの隣にあるモデル。</summary>
     public IReadOnlyList<string> AvailableModels { get; } = Embedder.AvailableModels();
 
-    public bool CanChooseModel => AvailableModels.Count > 1;
+    /// <summary>
+    /// 選ばせるか。**1 つでも在れば出す。**
+    ///
+    /// 以前は 2 つ以上のときだけ出していた。同梱をやめた今は「落として
+    /// 置いた 1 つだけ」が普通の姿で、そこで選択欄が消えると、置いた物が
+    /// 使われているのかどうか画面から確かめられない。
+    /// </summary>
+    public bool CanChooseModel => AvailableModels.Count > 0;
 
     private bool _fastMode;
 

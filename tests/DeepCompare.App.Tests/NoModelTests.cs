@@ -11,6 +11,7 @@ namespace DeepCompare.App.Tests;
 ///
 /// 環境変数で「無い場所」を指して再現する。
 /// </summary>
+[Collection("モデルの置き場所")]
 public class NoModelTests : IDisposable
 {
     private readonly string? _saved;
@@ -92,5 +93,82 @@ public class NoModelTests : IDisposable
         Assert.NotEmpty(model.VisibleRows);
         Assert.False(model.HasDifferences);
         Assert.True(model.RightModified);
+    }
+}
+
+/// <summary>
+/// **落として置いた物が、名前が違うだけで無視されないこと。**
+///
+/// 同梱をやめたので、利用者が置くモデルの名前は既定（minilm.dcm）とは
+/// 限らない。実行ファイルの隣を直に触る挙動なので、環境変数ではなく
+/// 出力先そのものにファイルを置いて確かめる。
+/// </summary>
+[Collection("モデルの置き場所")]
+public class ModelDiscoveryTests : IDisposable
+{
+    private readonly string _placed;
+    private readonly string? _savedEnvironment;
+
+    public ModelDiscoveryTests()
+    {
+        // 既定名の物が在ると分岐に入らないので、環境変数は空にしておく。
+        _savedEnvironment = Environment.GetEnvironmentVariable(Embedder.ModelEnvironmentVariable);
+        Environment.SetEnvironmentVariable(Embedder.ModelEnvironmentVariable, null);
+
+        _placed = Path.Combine(AppContext.BaseDirectory, "zz-置いただけ.dcm");
+        File.WriteAllBytes(_placed, [0x00]);
+    }
+
+    public void Dispose()
+    {
+        File.Delete(_placed);
+        Environment.SetEnvironmentVariable(Embedder.ModelEnvironmentVariable, _savedEnvironment);
+    }
+
+    [Fact]
+    public void 隣に置いたモデルが一覧に出る()
+        => Assert.Contains("zz-置いただけ.dcm", Embedder.AvailableModels());
+
+    /// <summary>
+    /// 既定名の物が在る間は、そちらが優先される（従来どおり）。
+    /// **名前順で先頭を拾う実装なので、ここが崩れると既存の置き方が壊れる。**
+    /// </summary>
+    [Fact]
+    public void 既定の名前が在ればそちらを使う()
+    {
+        var beside = Path.Combine(AppContext.BaseDirectory, Embedder.DefaultWeightsFileName);
+        if (!File.Exists(beside))
+        {
+            return;   // 開発の出力先に既定モデルが無い環境では確かめようがない
+        }
+        Assert.Equal(beside, Embedder.ResolveModelPath());
+    }
+
+    /// <summary>
+    /// 隣に置いた物が、既定の名前でなくても選ばれること。
+    /// **既定名の物を一時的に退けて確かめる** — そうしないと
+    /// 「既定が在るから既定が選ばれた」だけを見ることになる。
+    /// </summary>
+    [Fact]
+    public void 既定の名前が無ければ隣の物を使う()
+    {
+        var beside = Path.Combine(AppContext.BaseDirectory, Embedder.DefaultWeightsFileName);
+        var hidden = beside + ".hidden";
+        var moved = File.Exists(beside);
+        if (moved)
+        {
+            File.Move(beside, hidden);
+        }
+        try
+        {
+            Assert.Equal(_placed, Embedder.ResolveModelPath());
+        }
+        finally
+        {
+            if (moved)
+            {
+                File.Move(hidden, beside);
+            }
+        }
     }
 }
