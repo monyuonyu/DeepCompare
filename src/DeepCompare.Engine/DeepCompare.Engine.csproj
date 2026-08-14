@@ -36,7 +36,24 @@
       Content なので、この Engine を参照するプロジェクト（App・試験）の
       出力先にも運ばれる。
     -->
-    <Content Include="$(MSBuildThisFileDirectory)../../assets/minilm.dcm" Link="minilm.dcm" CopyToOutputDirectory="PreserveNewest" />
+    <!--
+      **配布物にモデルを含めない（2026-08-14）。**
+      `CopyToPublishDirectory="Never"` がその指定。開発と試験の出力先には
+      運ぶので、埋め込みを使う試験はこれまでどおり動く。
+
+      日本語で使うには多言語モデルが要るが、日英に絞って刈り込んでも 59MB、
+      刈り込まなければ 114MB ある。**114MB は GitHub が push を拒む大きさ**
+      （100MiB 超）で、履歴に入れるなら Git LFS か Releases の仕組みが要る。
+      英語モデルだけ配っても、日本語では「バグ」と「ハク」を同一と見るので、
+      日本語の利用者には無意味な 22MB になる。
+
+      **モデルが無くても道具は成立する。** 行の対応付けは Myers に落ち、
+      2000 行で 20ms。普通の diff と同じ答えが出る。意味的な対応付けが
+      要る人だけがモデルを置く。
+    -->
+    <Content Include="$(MSBuildThisFileDirectory)../../assets/minilm.dcm" Link="minilm.dcm"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="Never" />
 
     <!-- 語彙は 466KB と小さく、分かち書きの実装と対でしか意味を持たないので
          埋め込んだままにする。重みと違って差し替える理由がない。 -->

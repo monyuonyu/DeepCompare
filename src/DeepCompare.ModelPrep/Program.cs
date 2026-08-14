@@ -32,16 +32,20 @@ internal static class Program
     public static int Main(string[] args)
     {
         var quantize = !args.Contains("--no-quantize");
-        var positional = args.Where(a => !a.StartsWith('-')).ToArray();
+        var keepRowsPath = ValueOf(args, "--keep-rows");
+        var positional = Positional(args).ToArray();
         if (positional.Length < 2)
         {
-            Console.Error.WriteLine("使い方: model-prep <入力.safetensors> <出力.dcm> [--no-quantize]");
+            Console.Error.WriteLine(
+                "使い方: model-prep <入力.safetensors> <出力.dcm> [--no-quantize] "
+                + "[--keep-rows <残す行番号の一覧>]");
             return 2;
         }
 
         try
         {
-            Convert(positional[0], positional[1], quantize);
+            var keepRows = keepRowsPath is null ? null : ReadKeepRows(keepRowsPath);
+            Convert(positional[0], positional[1], quantize, keepRows);
             return 0;
         }
         catch (Exception error)
@@ -51,7 +55,37 @@ internal static class Program
         }
     }
 
-    private static void Convert(string inputPath, string outputPath, bool quantize)
+    /// <summary>オプションの値。<c>--keep-rows 一覧.txt</c> の形で受ける。</summary>
+    private static string? ValueOf(string[] args, string name)
+    {
+        var at = Array.IndexOf(args, name);
+        return at >= 0 && at + 1 < args.Length ? args[at + 1] : null;
+    }
+
+    /// <summary>値を伴うオプションの「値の側」を、位置引数と取り違えない。</summary>
+    private static IEnumerable<string> Positional(string[] args)
+    {
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (args[i] == "--keep-rows")
+            {
+                i++;
+                continue;
+            }
+            if (!args[i].StartsWith('-'))
+            {
+                yield return args[i];
+            }
+        }
+    }
+
+    private static int[] ReadKeepRows(string path)
+        => [.. File.ReadLines(path)
+            .Where(line => line.Trim().Length > 0)
+            .Select(line => int.Parse(line.Trim()))];
+
+    private static void Convert(
+        string inputPath, string outputPath, bool quantize, int[]? keepRows)
     {
         var raw = File.ReadAllBytes(inputPath);
         var tensors = SafeTensors.Parse(raw);
@@ -70,19 +104,31 @@ internal static class Program
 
             var tensor = tensors[name];
             var values = tensor.ToFloats(raw);
+            var shape = tensor.Shape;
+
+            // **語彙の刈り込み。** 埋め込み行列はモデルの 8 割を占めるが、
+            // その大半は使わない言語の行。残す行だけ抜き出す。
+            // **抜いた行は、対象の言語の文には一致し得ないもの**なので、
+            // トークン化の結果は変わらない（unigram は語彙全体から最良の
+            // 分割を選ぶが、候補になり得ないものを消しても選択は動かない）。
+            if (keepRows is not null && IsWordEmbedding(name))
+            {
+                (values, shape) = TakeRows(values, shape, keepRows, name);
+            }
+
             WriteString(body, name);
 
-            if (quantize && tensor.Shape.Length == 2 && values.Length >= DcmWeights.QuantizeMinElements)
+            if (quantize && shape.Length == 2 && values.Length >= DcmWeights.QuantizeMinElements)
             {
                 body.WriteByte(DcmWeights.KindQ8PerRow);
-                WriteShape(body, tensor.Shape);
+                WriteShape(body, shape);
                 report.RecordQuantized(name, values,
-                    WriteQ8PerRow(body, values, tensor.Shape[0], tensor.Shape[1]));
+                    WriteQ8PerRow(body, values, shape[0], shape[1]));
             }
             else
             {
                 body.WriteByte(DcmWeights.KindF32);
-                WriteShape(body, tensor.Shape);
+                WriteShape(body, shape);
                 foreach (var v in values)
                 {
                     body.Write(BitConverter.GetBytes(v));
@@ -148,6 +194,41 @@ internal static class Program
         }
         output.Write(quantized);
         return stats;
+    }
+
+    private static bool IsWordEmbedding(string name)
+        => name.EndsWith("word_embeddings.weight", StringComparison.Ordinal);
+
+    /// <summary>
+    /// 指定された行だけを、指定された順で抜き出す。
+    ///
+    /// **順番は残す側の並びに従う。** 語彙ファイルの行番号がそのまま
+    /// トークン ID になるので、ここがずれると全部の語が別の意味になる。
+    /// </summary>
+    private static (float[] Values, int[] Shape) TakeRows(
+        float[] values, int[] shape, int[] keep, string name)
+    {
+        if (shape.Length != 2)
+        {
+            throw new InvalidOperationException(
+                $"{name} は 2 次元ではないので刈り込めない（形 {string.Join('×', shape)}）。");
+        }
+
+        var (rows, cols) = (shape[0], shape[1]);
+        var taken = new float[(long)keep.Length * cols];
+        for (var i = 0; i < keep.Length; i++)
+        {
+            var source = keep[i];
+            if (source < 0 || source >= rows)
+            {
+                throw new InvalidOperationException(
+                    $"残す行 {source} が範囲外（{name} は {rows} 行）。");
+            }
+            Array.Copy(values, (long)source * cols, taken, (long)i * cols, cols);
+        }
+
+        Console.WriteLine($"  刈り込み: {name} {rows} 行 -> {keep.Length} 行");
+        return (taken, [keep.Length, cols]);
     }
 
     private static void WriteString(Stream output, string value)
