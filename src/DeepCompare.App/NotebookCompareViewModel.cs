@@ -223,7 +223,7 @@ public sealed class NotebookCompareViewModel : ViewModelBase
 
     public bool HasMetadataChange => MetadataChange.Length > 0;
 
-    private async Task CompareAsync()
+    internal async Task CompareAsync()
     {
         if (LeftPath.Length == 0 || RightPath.Length == 0)
         {
@@ -274,6 +274,16 @@ public sealed class NotebookCompareViewModel : ViewModelBase
             {
                 tab.Title = $"{leftName} ↔ {rightName}（ノート）";
             }
+        }
+        // **壊れた .ipynb は JSON として読めない。** ここを捕まえないと
+        // 例外がコマンドの catch-all まで抜け、画面には「読んでいます…」が
+        // 出たまま残る（止まっているように見えない）。構造比較と同じく、
+        // どこが悪いかまで出す。
+        catch (StructuredParseException error)
+        {
+            Cells.Clear();
+            Message = error.Message;
+            Summary = string.Empty;
         }
         catch (Exception error) when (error is IOException or InvalidDataException
                                         or UnauthorizedAccessException)
