@@ -44,7 +44,7 @@ internal sealed class TempFile : IDisposable
         {
             File.Delete(Path);
         }
-        catch (IOException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
             // 消せなくても試験の結果は変わらない。
         }
@@ -67,10 +67,26 @@ internal sealed class TempFolder : IDisposable
     {
         try
         {
+            // **Windows では git が .git/objects/ を読み取り専用で作る。**
+            // 属性を落としてからでないと Directory.Delete が拒まれ、
+            // 中身は全部通っているのに後片付けだけで試験が落ちる
+            // （Linux には無い挙動なので、あちらでは出ない）。
+            foreach (var file in Directory.EnumerateFiles(
+                Path, "*", SearchOption.AllDirectories))
+            {
+                var attributes = File.GetAttributes(file);
+                if (attributes.HasFlag(FileAttributes.ReadOnly))
+                {
+                    File.SetAttributes(file, attributes & ~FileAttributes.ReadOnly);
+                }
+            }
             Directory.Delete(Path, recursive: true);
         }
-        catch (IOException)
+        catch (Exception error) when (error is IOException
+                                        or UnauthorizedAccessException
+                                        or DirectoryNotFoundException)
         {
+            // 消せなくても試験の結果は変わらない。
         }
     }
 }
