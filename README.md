@@ -144,26 +144,34 @@ VS Code と同じ並びで、上に説明、下に「次のコミットに入る
 差分の見え方はテキスト比較と同じなので、変数名を変えた行も並んで見える。
 コミット・枝の作成と切り替え・取得・送信・打ち消し、衝突の解決までできる。
 
-## 日本語ならモデルを差し替える
+## モデルは同梱していない
 
-**既定のモデルは英語向けで、日本語ではうまく対応付けられない。**
-濁点が落ちるので「バグ」と「ハク」を同じ行と見る。日本語が半分を超える
-ファイルを開くと、その旨を画面に出す。
+**リリースにモデルは入っていない。** 無いままでも動く——行の対応付けは
+Myers（普通の diff と同じ）になり、2000 行で 20ms。**意味的な対応付けが
+要る人だけがモデルを置く。**
 
-日本語を扱うなら、多言語モデルを置く。**リリースには含めていない**
-（114MB 増えるので、要る人だけが置く形にした）。
+置いていない状態では、画面と標準エラーにその旨を出す。**黙って落とさない**
+——出てくる答えは普通の diff と同じもので、結果だけ見て「意味で並べた」と
+受け取られると困る。
 
-**「起動が 2 秒ほど遅くなる」と書いていたが、測り直したら違った。**
-Windows 実機で 3 行の比較を 5 回ずつ測ると、英語モデルが平均 125ms
-（118.7〜145.9）、多言語モデルが平均 420ms（396.1〜446.3）。差は
-**約 0.3 秒**で、2 秒ではない。同梱を見送る理由として残るのは
-大きさだけになる。
+同梱をやめた理由:
 
-作り方は[後半](#多言語モデルを作る)にある。できた 2 つのファイルを
-`minilm.dcm` の隣へ**対で**置けばよい（名前を揃えるところで対応を取っている）。
-GUI なら設定から選べる。CLI なら `--model multilingual.dcm`。
+- **英語モデルは日本語で役に立たない。** 正規化が濁点を落とすので「バグ」と
+  「ハク」の類似度が **1.0000**——完全に同一と見る。日本語の利用者には
+  無意味な 22MB になる
+- **多言語モデルは 114MB あり、GitHub が push を拒む**（100MiB 超）。
+  日英に刈り込めば 59MB に収まるが、それでも配布物としては重い
+- **起動が遅くなるのは 0.3 秒**（Windows 実機で 5 回ずつ実測、125ms 対
+  420ms）。以前ここに「2 秒」と書いていたのは誤り。**判断の理由は
+  速さではなく大きさ**
+
+置くモデルの作り方は[後半](#多言語モデルを作る)にある。できた 2 つの
+ファイルを実行ファイルの隣へ**対で**置けばよい（名前を揃えるところで
+対応を取っている）。GUI なら設定から選べる。CLI なら
+`--model multilingual-ja.dcm`。
 
 どのくらい効くかを測った表は [docs/design.md](docs/design.md) にある。
+
 
 ---
 
@@ -292,6 +300,39 @@ Windows は MSVC（Visual Studio Build Tools の C++ ワークロード）。
 
     dotnet run --project src/DeepCompare.ModelPrep/DeepCompare.ModelPrep.csproj -c Release \
         -- model.safetensors multilingual.dcm
+
+これで 114MB。**日本語と英語しか使わないなら、半分に削れる。**
+
+埋め込み行列がモデルの 82%（96,014,208 パラメータ）を占めるが、その大半は
+使わない言語の行。日本語・英語・記号に一致し得ない行を落とす:
+
+    python3 - <<'PY'
+    import json
+    d = json.load(open('unigram.json'))
+    def ok(c):
+        o = ord(c)
+        return (c == '▁' or o < 128 or 0x3040 <= o <= 0x30ff
+                or 0x4e00 <= o <= 0x9fff or 0x3000 <= o <= 0x303f
+                or 0xff00 <= o <= 0xffef)
+    keep, vocab = [], []
+    for i, (t, s) in enumerate(d['vocab']):
+        if (t.startswith('<') and t.endswith('>')) or all(ok(c) for c in t):
+            keep.append(i); vocab.append((t, s))
+    open('keep-rows-ja.txt','w').write('\n'.join(map(str, keep)))
+    open('multilingual-ja.vocab','w',encoding='utf-8').write(
+        '\n'.join(f'{t}\t{s}' for t, s in vocab))
+    print(len(keep), '語を残す')
+    PY
+
+    dotnet run --project src/DeepCompare.ModelPrep/DeepCompare.ModelPrep.csproj -c Release \
+        -- model.safetensors multilingual-ja.dcm --keep-rows keep-rows-ja.txt
+
+103,646 語が残り、**114MB → 59MB**。
+
+**日本語と英語の結果は変わらない。** 落とした行はそれらの文には一致し得ない
+ので、unigram の分割が動かない（実測で 5 項目すべて 0.00005 未満の一致）。
+代わりに**ロシア語やアラビア語は比較できなくなる** — 語彙から消えた文は
+`<unk>` の列になり、どの文も同じベクトルになる（類似度が 0.99 台に張り付く）。
 
 ### 既定のモデルを作り直す
 
