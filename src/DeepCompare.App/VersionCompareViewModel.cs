@@ -105,7 +105,7 @@ public sealed class VersionCompareViewModel : ViewModelBase
 
     private IReadOnlyList<VersionDifference> _differences = [];
 
-    private async Task CompareAsync()
+    internal async Task CompareAsync()
     {
         if (LeftPath.Length == 0 || RightPath.Length == 0)
         {

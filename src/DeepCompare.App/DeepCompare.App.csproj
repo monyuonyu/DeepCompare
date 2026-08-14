@@ -26,6 +26,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!--
+      画面の試験から、押した結果を **待てる** ようにするため。
+      コマンドは ICommand なので Execute は async void で、外からは
+      終わりが分からない。中身の Task を internal で見せて await する。
+    -->
+    <InternalsVisibleTo Include="DeepCompare.App.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.1" />
     <PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.1" />

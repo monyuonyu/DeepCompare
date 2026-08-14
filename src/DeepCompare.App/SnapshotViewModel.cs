@@ -174,7 +174,7 @@ public sealed class SnapshotViewModel : ViewModelBase
 
     private FolderComparison? _comparison;
 
-    private async Task TakeAsync()
+    internal async Task TakeAsync()
     {
         var root = FolderPath.Trim();
         if (!Directory.Exists(root))
@@ -215,7 +215,7 @@ public sealed class SnapshotViewModel : ViewModelBase
         }
     }
 
-    private async Task CompareAsync()
+    internal async Task CompareAsync()
     {
         Busy = true;
         Message = string.Empty;

@@ -416,7 +416,7 @@ public sealed class FolderCompareViewModel : ViewModelBase
         }
     }
 
-    private async Task DeleteAsync(FolderRowView row, bool left)
+    internal async Task DeleteAsync(FolderRowView row, bool left)
     {
         var (l, r) = PathsOf(row);
         var target = left ? l : r;
@@ -510,7 +510,7 @@ public sealed class FolderCompareViewModel : ViewModelBase
     /// </summary>
     public Func<string, string, Task<string?>>? Prompt { get; set; }
 
-    private async Task CopyFileAsync(FolderRowView row, bool toRight)
+    internal async Task CopyFileAsync(FolderRowView row, bool toRight)
     {
         var (left, right) = PathsOf(row);
         var (from, to) = toRight ? (left, right) : (right, left);
@@ -788,7 +788,7 @@ public sealed class FolderCompareViewModel : ViewModelBase
     /// <summary>やめるためのコマンド。**走っている間だけ押せる。**</summary>
     public RelayCommand CancelCommand { get; private set; } = null!;
 
-    private async Task RunAsync()
+    internal async Task RunAsync()
     {
         // 前の走査が残っていたら止める。**二重に走らせない。**
         _scanning?.Cancel();

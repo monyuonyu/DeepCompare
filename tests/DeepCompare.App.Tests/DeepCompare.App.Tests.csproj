@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <!--
+      **ここだけ xunit v3。** Avalonia.Headless.XUnit が v3 にしか無いため。
+      v3 の試験は実行ファイルとして起動するので app host が要る
+      （OutputType を Library にすると「app host が無い」で全滅する）。
+    -->
+    <OutputType>Exe</OutputType>
+    <UseAppHost>true</UseAppHost>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <!-- 画面を仮想の platform で動かす。本体と同じ 12.1.1 に揃える。 -->
+    <PackageReference Include="Avalonia.Headless.XUnit" Version="12.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/DeepCompare.App/DeepCompare.App.csproj" />
+  </ItemGroup>
+
+</Project>

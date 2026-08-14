@@ -376,7 +376,7 @@ public sealed class MergeViewModel : ViewModelBase
         set => Set(ref _saveLabel, value);
     }
 
-    private async Task MergeAsync()
+    internal async Task MergeAsync()
     {
         if (BasePath.Length == 0 || LeftPath.Length == 0 || RightPath.Length == 0)
         {
@@ -479,7 +479,7 @@ public sealed class MergeViewModel : ViewModelBase
         SaveCommand.Raise();
     }
 
-    private async Task SaveAsync()
+    internal async Task SaveAsync()
     {
         if (_result is null)
         {

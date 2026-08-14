@@ -538,7 +538,7 @@ public sealed class GitViewModel : ViewModelBase
 
     private async Task CommitAsync() => await CommitAsync(amend: false);
 
-    private async Task CommitAsync(bool amend)
+    internal async Task CommitAsync(bool amend)
     {
         if (_repository is not { } repository)
         {
@@ -1054,7 +1054,7 @@ public sealed class GitViewModel : ViewModelBase
         set => Set(ref _selectedFile, value);
     }
 
-    private async Task StageAsync(GitFileRow row, bool stage)
+    internal async Task StageAsync(GitFileRow row, bool stage)
     {
         if (_repository is not { } repository)
         {

@@ -1404,7 +1404,12 @@ public sealed class TextCompareViewModel : ViewModelBase
         }
     }
 
-    private async Task RunCompareAsync()
+    /// <summary>
+    /// 「比較」を押したときに走るもの。
+    /// **internal なのは試験から終わりを待つため**（<c>ICommand.Execute</c> は
+    /// async void で、外からは終わったか分からない）。
+    /// </summary>
+    internal async Task RunCompareAsync()
     {
         // **フォルダーを渡されたらフォルダー比較へ移す。**
         // 以前はそのまま読みに行き、「Access to the path ... is denied」という
@@ -2326,7 +2331,8 @@ public sealed class TextCompareViewModel : ViewModelBase
         await ApplyBlockCoreAsync(blockIndex, toRight);
     }
 
-    private async Task ApplyBlockAsync(RowView row, bool toRight)
+    /// <summary>塊ごとの反映。**internal なのは試験から待つため。**</summary>
+    internal async Task ApplyBlockAsync(RowView row, bool toRight)
     {
         if (_leftDocument is null || _rightDocument is null
             || row.BlockIndex < 0 || row.BlockIndex >= _blocks.Count)
@@ -2363,7 +2369,8 @@ public sealed class TextCompareViewModel : ViewModelBase
         await RecompareAsync();
     }
 
-    private async Task UndoAsync()
+    /// <summary>取り消し。**internal なのは試験から待つため。**</summary>
+    internal async Task UndoAsync()
     {
         if (_undoSides.Count == 0)
         {
@@ -2387,7 +2394,8 @@ public sealed class TextCompareViewModel : ViewModelBase
         await RecompareAsync();
     }
 
-    private async Task SaveAsync(bool left)
+    /// <summary>保存。**internal なのは試験から待つため。**</summary>
+    internal async Task SaveAsync(bool left)
     {
         var document = left ? _leftDocument : _rightDocument;
         var source = left ? _leftSource : _rightSource;

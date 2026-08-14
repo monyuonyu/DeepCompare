@@ -250,7 +250,7 @@ public sealed class ImageCompareViewModel : ViewModelBase
         private set { if (Set(ref _busy, value)) { CompareCommand.Raise(); } }
     }
 
-    private async Task CompareAsync()
+    internal async Task CompareAsync()
     {
         if (LeftPath.Length == 0 || RightPath.Length == 0)
         {

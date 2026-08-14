@@ -283,7 +283,7 @@ public sealed class TableCompareViewModel : ViewModelBase
         private set => Set(ref _summary, value);
     }
 
-    private async Task CompareAsync()
+    internal async Task CompareAsync()
     {
         if (LeftPath.Length == 0 || RightPath.Length == 0)
         {

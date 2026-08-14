@@ -179,7 +179,7 @@ public sealed class StructuredCompareViewModel : ViewModelBase
         };
     }
 
-    private async Task CompareAsync()
+    internal async Task CompareAsync()
     {
         if (LeftPath.Length == 0 || RightPath.Length == 0)
         {
@@ -228,7 +228,7 @@ public sealed class StructuredCompareViewModel : ViewModelBase
         }
     }
 
-    private async Task SaveAsync()
+    internal async Task SaveAsync()
     {
         var path = await _shell.PickSavePath("差分を書き出す", "structural-diff.txt");
         if (path is null)
