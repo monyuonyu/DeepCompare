@@ -950,7 +950,7 @@ internal static class Cli
             var left = TextDecoder.Decode(repository.Show(revision, path));
             var right = TextDecoder.Decode(File.ReadAllBytes(path));
 
-            var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets(ValueOf(args, "--model"));
+            var embedder = EmbedderFor(args);
             var comparison = DiffComparer.Compare(left, right, embedder, new CompareOptions(
                 float.TryParse(ValueOf(args, "--threshold"), out var t) ? t : Aligner.DefaultPairThreshold));
 
@@ -1456,7 +1456,7 @@ internal static class Cli
         var keys = Columns(args, "--key", left);
         var ignored = Columns(args, "--ignore-column", left);
 
-        var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets(ValueOf(args, "--model"));
+        var embedder = EmbedderFor(args);
         var result = TableCompare.Compare(left, right, keys, ignored, embedder);
 
         var text = new StringBuilder();
@@ -1504,7 +1504,7 @@ internal static class Cli
         var left = TextDecoder.Decode(File.ReadAllBytes(leftPath));
         var right = TextDecoder.Decode(File.ReadAllBytes(rightPath));
 
-        var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets(ValueOf(args, "--model"));
+        var embedder = EmbedderFor(args);
         var result = ThreeWayMerge.Merge(baseText, left, right, embedder);
         var lines = result.ToLines(
             markConflicts: !args.Contains("--take-left"), leftPath, rightPath);
@@ -1548,7 +1548,7 @@ internal static class Cli
         var right = TextDecoder.Decode(File.ReadAllBytes(rightPath));
 
         // 反映は構造だけで決まる。埋め込みは対応付けの質を上げるので、既定では使う。
-        var embedder = args.Contains("--structural") ? null : Embedder.CreateFromDefaultAssets(ValueOf(args, "--model"));
+        var embedder = EmbedderFor(args);
         var comparison = DiffComparer.Compare(left, right, embedder, new CompareOptions());
         var blocks = Merge.Blocks(comparison);
 
@@ -1787,6 +1787,35 @@ internal static class Cli
         return values;
     }
 
+    /// <summary>
+    /// 比較に使うモデル。<c>--structural</c> なら使わない。
+    /// **無ければ null を返して Myers だけで組む**（モデルは配布物に
+    /// 含めていないので、取り込む前は無いのが普通）。
+    /// </summary>
+    private static Embedder? EmbedderFor(string[] args)
+        => args.Contains("--structural") ? null : EmbedderOrWarn(ValueOf(args, "--model"));
+
+    /// <summary>
+    /// モデルを読む。無ければ**標準エラーへ断ってから** null を返す。
+    ///
+    /// **黙って別のやり方に落とさない。** 出てくる答えは普通の diff と
+    /// 同じもので、意味的な対応付けは効いていない。結果だけ見て
+    /// 「意味で並べた」と受け取られると困る。標準出力へ出さないのは、
+    /// あちらが結果で、混ぜると読み直せなくなるため。
+    /// </summary>
+    private static Embedder? EmbedderOrWarn(string? modelPath)
+    {
+        var embedder = Embedder.CreateFromDefaultAssetsOrNull(modelPath);
+        if (embedder is null)
+        {
+            Console.Error.WriteLine(
+                "モデルがありません。行の対応付けは文字の一致で決めます（普通の diff と同じ）。"
+                + $" 意味で対応付けるには {Embedder.DefaultWeightsFileName} を"
+                + " 実行ファイルの隣に置いてください。");
+        }
+        return embedder;
+    }
+
     private static string? ValueOf(string[] args, string flag)
     {
         var index = Array.IndexOf(args, flag);
@@ -1806,7 +1835,7 @@ internal static class Cli
     {
         var left = TextDecoder.Decode(File.ReadAllBytes(leftPath));
         var right = TextDecoder.Decode(File.ReadAllBytes(rightPath));
-        var embedder = structural ? null : Embedder.CreateFromDefaultAssets(modelPath);
+        var embedder = structural ? null : EmbedderOrWarn(modelPath);
 
         // **モデルが扱えない本文なら知らせる。** 標準エラーへ出す
         // （標準出力は結果なので、混ぜると読み直せなくなる）。

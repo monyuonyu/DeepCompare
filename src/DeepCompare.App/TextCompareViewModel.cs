@@ -1504,7 +1504,25 @@ public sealed class TextCompareViewModel : ViewModelBase
             var refinedResult = await Task.Run(() =>
             {
                 // モデルは殻が保持していて、初回だけ読む。
-                var embedder = _shell.GetEmbedder();
+                //
+                // **無ければ段階 1 の答えで確定する。** モデルは配布物に
+                // 含めていないので、入れる前はここへ来る。Myers の答えは
+                // 既に出ていて、普通の diff としてはそれで正しい。
+                // **出 している物を消してエラーにすると、初回起動が
+                // 壊れて見える。**
+                Embedder embedder;
+                try
+                {
+                    embedder = _shell.GetEmbedder();
+                }
+                catch (Exception error) when (error is FileNotFoundException
+                                                or DirectoryNotFoundException)
+                {
+                    warning = "モデルがまだありません。**行の対応付けは文字の一致で"
+                        + "決めています**（普通の diff と同じ）。意味で対応付けるには、"
+                        + "設定からモデルを取り込んでください。";
+                    return (first.comparison, elapsed: TimeSpan.Zero);
+                }
 
                 // **モデルが扱えない本文なら知らせる。** 効いていないのに
                 // 「意味的に比べました」と出すのは、黙って間違った結果を
@@ -2477,6 +2495,13 @@ public sealed class TextCompareViewModel : ViewModelBase
         // **効かないモデルなら 2 段階目を回さない。** 反映のたびに
         // 数秒待たされていた原因がこれ。
         if (ModelWarning.Length > 0)
+        {
+            return;
+        }
+
+        // **モデルが無ければ段階 1 で確定。** ここは反映や設定変更のたびに
+        // 通るので、投げると操作のたびに結果が消える。
+        if (_shell.GetEmbedderOrNull() is null)
         {
             return;
         }

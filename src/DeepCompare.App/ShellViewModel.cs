@@ -342,6 +342,12 @@ public sealed class ShellViewModel : ViewModelBase
     /// <summary>初回だけ読む。呼び出し側は必ず作業スレッドから呼ぶこと。</summary>
     public Embedder GetEmbedder() => _embedder ??= Embedder.CreateFromDefaultAssets(_modelName);
 
+    /// <summary>
+    /// モデル。**無ければ null。** 取り込む前は無いのが普通の状態なので、
+    /// 投げずに「意味的な対応付けをしない」合図として扱う。
+    /// </summary>
+    public Embedder? GetEmbedderOrNull() => _embedder ??= Embedder.CreateFromDefaultAssetsOrNull(_modelName);
+
     private string? _modelName;
 
     /// <summary>
