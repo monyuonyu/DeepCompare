@@ -31,7 +31,15 @@ public sealed class Embedder
     /// </summary>
     public int VocabSize => _tokenizer.Count;
 
-    /// <summary>既定の重みファイルの名前。実行ファイルと同じ場所に置く。</summary>
+    /// <summary>
+    /// 既定の重みファイルの名前。実行ファイルと同じ場所に置く。
+    ///
+    /// **配布物には含めていない（2026-08-14）。** 無ければ意味的な対応付けを
+    /// せず、Myers だけで組む。日本語を扱うなら多言語モデルを置く
+    /// （英語モデルは「バグ」と「ハク」を同一と見るので、日本語では
+    /// 売りが成立しない）。別の名前で置いたときは <c>--model</c> か
+    /// 設定から選ぶ。
+    /// </summary>
     public const string DefaultWeightsFileName = "minilm.dcm";
 
     /// <summary>モデルの置き場所を指す環境変数。</summary>
@@ -81,6 +89,28 @@ public sealed class Embedder
         {
             return [];
         }
+    }
+
+    /// <summary>
+    /// 既定のモデルを読む。**無ければ null を返す。**
+    ///
+    /// **モデルは配布物に含めていない**ので、取り込む前は無いのが普通の状態。
+    /// そこで投げると、既に出ている Myers の答えを捨てることになる
+    /// （普通の diff としてはそれで正しい答えなのに、画面が空になって
+    /// 「壊れた」ように見える）。呼ぶ側は null を「意味的な対応付けをせず、
+    /// Myers だけで組む」合図として扱う。
+    ///
+    /// **明示的に指定された物が無いときは投げる。** 「このモデルで比べろ」と
+    /// 言われて別のやり方の答えを黙って返すのは、間違った結果を黙って出すのと
+    /// 変わらない。
+    /// </summary>
+    public static Embedder? CreateFromDefaultAssetsOrNull(string? modelPath = null)
+    {
+        if (!string.IsNullOrWhiteSpace(modelPath))
+        {
+            return CreateFromDefaultAssets(modelPath);
+        }
+        return File.Exists(ResolveModelPath(null)) ? CreateFromDefaultAssets(null) : null;
     }
 
     /// <summary>
