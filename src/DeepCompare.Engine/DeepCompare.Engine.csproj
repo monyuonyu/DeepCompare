@@ -55,6 +55,24 @@
              CopyToOutputDirectory="PreserveNewest"
              CopyToPublishDirectory="Never" />
 
+    <!--
+      **取ってきてあれば配布物に入れる。** `tools/fetch-model.sh` が
+      Releases から落として assets/ へ置く。git には入れていないので、
+      clone しただけの状態では**存在しない**——そのときは何も含めずに
+      ビルドが通る（モデル無しでも Myers で動く）。
+
+      Exists() を条件にしているのはそのため。無条件に Include すると、
+      取っていない人のビルドが「ファイルが無い」で壊れる。
+    -->
+    <Content Include="$(MSBuildThisFileDirectory)../../assets/multilingual-ja.dcm"
+             Link="multilingual-ja.dcm"
+             Condition="Exists('$(MSBuildThisFileDirectory)../../assets/multilingual-ja.dcm')"
+             CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="$(MSBuildThisFileDirectory)../../assets/multilingual-ja.vocab"
+             Link="multilingual-ja.vocab"
+             Condition="Exists('$(MSBuildThisFileDirectory)../../assets/multilingual-ja.vocab')"
+             CopyToOutputDirectory="PreserveNewest" />
+
     <!-- 語彙は 466KB と小さく、分かち書きの実装と対でしか意味を持たないので
          埋め込んだままにする。重みと違って差し替える理由がない。 -->
     <EmbeddedResource Include="Assets/vocab.txt" LogicalName="vocab.txt" />

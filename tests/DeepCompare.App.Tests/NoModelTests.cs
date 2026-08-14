@@ -161,7 +161,14 @@ public class ModelDiscoveryTests : IDisposable
         }
         try
         {
-            Assert.Equal(_placed, Embedder.ResolveModelPath());
+            // **どれが選ばれるかは、隣に何が在るかで変わる**（名前順の先頭）。
+            // 出力先に何が置かれても崩れないよう、確かめるのは 2 点だけ:
+            // 在る物を指すこと（以前は無い既定名を返していた）と、
+            // 退けた既定名ではないこと。
+            var resolved = Embedder.ResolveModelPath();
+            Assert.True(File.Exists(resolved), $"{resolved} が無い");
+            Assert.NotEqual(
+                Embedder.DefaultWeightsFileName, Path.GetFileName(resolved));
         }
         finally
         {

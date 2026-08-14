@@ -23,6 +23,15 @@ __pycache__/
 assets/src/
 assets/minilm-f32.dcm
 
+# 多言語モデルは Releases に置いてある（tools/fetch-model.sh で取る）。
+# **git に入れない。** 114MB は GitHub の 100MiB 制限を超えるうえ、
+# 差し替えるたびにその分が履歴へ永久に積み上がる。
+assets/multilingual-src/
+assets/multilingual.dcm
+assets/multilingual.vocab
+assets/multilingual-ja.dcm
+assets/multilingual-ja.vocab
+
 # .NET のビルド生成物
 bin/
 obj/
