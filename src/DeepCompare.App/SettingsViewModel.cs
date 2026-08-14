@@ -31,6 +31,7 @@ public sealed class SettingsViewModel : ViewModelBase
         _language = Languages.FirstOrDefault(l => l.Code == saved.Language) ?? Languages[0];
 
         ProbeAssistCommand = new RelayCommand(ProbeAssistAsync, () => AssistConfigured);
+        SetUpModels();
     }
 
     public ShellViewModel Shell => _shell;
@@ -100,6 +101,63 @@ public sealed class SettingsViewModel : ViewModelBase
     }
 
     public bool CanChooseModel => _shell.CanChooseModel;
+
+    /// <summary>モデルが 1 つでも在るか。</summary>
+    public bool HasModel => _shell.AvailableModels.Count > 0;
+
+    /// <summary>
+    /// いまの状態を 1 行で。**「効いていない」を黙らない。**
+    ///
+    /// モデルは配布物に含めていないので、無いのが初期状態。そのとき
+    /// 比較は動くが、行の対応付けは文字の一致で決まっている。
+    /// 何も言わないと、意味で並んだ結果だと受け取られる。
+    /// </summary>
+    public string ModelStatus
+    {
+        get
+        {
+            if (!HasModel)
+            {
+                return "**モデルがありません。** 行の対応付けは文字の一致で"
+                    + "決めています（普通の diff と同じ）。";
+            }
+            var path = Embedder.ResolveModelPath();
+            if (!File.Exists(path))
+            {
+                return $"選ばれている {Path.GetFileName(path)} が見つかりません。";
+            }
+            var size = new FileInfo(path).Length / (1024.0 * 1024.0);
+            return $"{Path.GetFileName(path)}（{size:0.#}MB）で意味的に対応付けています。";
+        }
+    }
+
+    /// <summary>置き場所。**どこへ置けばいいか分からない、を無くす。**</summary>
+    public string ModelLocation => AppContext.BaseDirectory;
+
+    /// <summary>モデルが無いときに出す入手方法。</summary>
+    public string ModelHint
+        => "tools/fetch-model.sh を実行するか、Releases の models-v1 から"
+           + $" .dcm と .vocab を対で落として、上の場所へ置いてください。";
+
+    /// <summary>置いた後に押す。**動かしている最中に置かれるので要る。**</summary>
+    public RelayCommand RefreshModelsCommand { get; private set; } = null!;
+
+    private void SetUpModels()
+    {
+        RefreshModelsCommand = new RelayCommand(() =>
+        {
+            _shell.RefreshModels();
+            return Task.CompletedTask;
+        });
+        _shell.ModelsChanged += () =>
+        {
+            OnPropertyChanged(nameof(HasModel));
+            OnPropertyChanged(nameof(ModelStatus));
+            OnPropertyChanged(nameof(CanChooseModel));
+            OnPropertyChanged(nameof(AvailableModels));
+            OnPropertyChanged(nameof(ModelName));
+        };
+    }
 
     // ---- LLM 支援 ----
 

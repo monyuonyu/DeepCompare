@@ -179,3 +179,75 @@ public class ModelDiscoveryTests : IDisposable
         }
     }
 }
+
+/// <summary>
+/// 設定画面のモデル欄。**状態を黙らないこと**を見る。
+/// </summary>
+[Collection("モデルの置き場所")]
+public class SettingsModelTests
+{
+    [AvaloniaFact]
+    public void モデルが在れば名前と大きさを出す()
+    {
+        var settings = new SettingsViewModel(TestShell.Create());
+
+        Assert.True(settings.HasModel);
+        Assert.Contains(".dcm", settings.ModelStatus);
+        Assert.Contains("MB", settings.ModelStatus);
+    }
+
+    [AvaloniaFact]
+    public void 置き場所を出す()
+        => Assert.NotEmpty(new SettingsViewModel(TestShell.Create()).ModelLocation);
+
+    /// <summary>
+    /// **置いた直後に反映されること。** 起動時に 1 回数えるだけだと、
+    /// 置いた人に「まだ無い」と言い続ける。
+    /// </summary>
+    [AvaloniaFact]
+    public void 置き場所を見直すと一覧に増える()
+    {
+        var settings = new SettingsViewModel(TestShell.Create());
+        var before = settings.AvailableModels.Count;
+
+        var placed = Path.Combine(AppContext.BaseDirectory, "zz-見直し用.dcm");
+        File.WriteAllBytes(placed, [0x00]);
+        try
+        {
+            settings.RefreshModelsCommand.Execute(null);
+            Assert.Equal(before + 1, settings.AvailableModels.Count);
+            Assert.Contains("zz-見直し用.dcm", settings.AvailableModels);
+        }
+        finally
+        {
+            File.Delete(placed);
+            settings.RefreshModelsCommand.Execute(null);
+        }
+    }
+}
+
+/// <summary>
+/// **設定画面を実際に描く。**
+///
+/// ビルドが通っても開かないことがある（スタイルの二重定義、存在しない
+/// 部品名、束縛の型違い）。ViewModel の性質を見るだけでは出てこないので、
+/// 仮想画面へ載せて描かせる。
+/// </summary>
+[Collection("モデルの置き場所")]
+public class SettingsViewRenderTests
+{
+    [AvaloniaFact]
+    public void 設定画面が開く()
+    {
+        var view = new Views.SettingsView
+        {
+            DataContext = new SettingsViewModel(TestShell.Create()),
+        };
+        var window = new Avalonia.Controls.Window { Content = view };
+
+        window.Show();
+
+        Assert.True(window.IsVisible);
+        Assert.NotNull(view.DataContext);
+    }
+}

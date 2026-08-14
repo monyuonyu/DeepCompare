@@ -46,6 +46,21 @@
                     MinWidth="220" />
         </StackPanel>
 
+        <!-- **いまの状態を必ず出す。** モデルは配布物に含めていないので、
+             無い状態が初期値。何も言わないと、文字の一致で並んだ結果を
+             「意味で並んだ」と受け取られる。 -->
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Text="状態" VerticalAlignment="Center" Width="90" />
+          <TextBlock Text="{Binding ModelStatus}" TextWrapping="Wrap" MaxWidth="420"
+                     VerticalAlignment="Center" />
+          <Button Content="置き場所を見直す" Command="{Binding RefreshModelsCommand}" />
+        </StackPanel>
+
+        <StackPanel Margin="102,0,0,0" Spacing="4" IsVisible="{Binding !HasModel}">
+          <TextBlock Classes="hint" TextWrapping="Wrap" Text="{Binding ModelHint}" />
+          <SelectableTextBlock Classes="hint" Text="{Binding ModelLocation}" />
+        </StackPanel>
+
         <StackPanel Orientation="Horizontal" Spacing="12">
           <TextBlock Text="速さ優先" VerticalAlignment="Center" Width="90" />
           <CheckBox IsChecked="{Binding Shell.FastMode}"

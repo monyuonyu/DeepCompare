@@ -377,7 +377,30 @@ public sealed class ShellViewModel : ViewModelBase
     }
 
     /// <summary>実行ファイルの隣にあるモデル。</summary>
-    public IReadOnlyList<string> AvailableModels { get; } = Embedder.AvailableModels();
+    public ObservableCollection<string> AvailableModels { get; } = [.. Embedder.AvailableModels()];
+
+    /// <summary>
+    /// 置き場所を見直す。**モデルは配布物に含めていないので、動かしている
+    /// 最中に置かれる。** 起動時に 1 回数えるだけだと、置いた直後の人には
+    /// 「まだ無い」と言い続けることになる。
+    /// </summary>
+    public void RefreshModels()
+    {
+        var found = Embedder.AvailableModels();
+        AvailableModels.Clear();
+        foreach (var name in found)
+        {
+            AvailableModels.Add(name);
+        }
+        // **読み込んだものを捨てる。** 置き換えられた可能性がある。
+        _embedder = null;
+        OnPropertyChanged(nameof(CanChooseModel));
+        OnPropertyChanged(nameof(ModelName));
+        ModelsChanged?.Invoke();
+    }
+
+    /// <summary>置き場所を見直したときに上がる。設定画面が表示を作り直す。</summary>
+    public event Action? ModelsChanged;
 
     /// <summary>
     /// 選ばせるか。**1 つでも在れば出す。**
